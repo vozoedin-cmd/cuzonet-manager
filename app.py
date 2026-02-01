@@ -1281,10 +1281,60 @@ def sincronizar_queues():
 
 # ============== INICIALIZAR DB ==============
 
+def migrate_db():
+    """Agrega columnas faltantes a tablas existentes"""
+    from sqlalchemy import text, inspect
+    
+    with app.app_context():
+        inspector = inspect(db.engine)
+        
+        # Verificar si la tabla clientes existe
+        if 'clientes' in inspector.get_table_names():
+            existing_columns = [col['name'] for col in inspector.get_columns('clientes')]
+            
+            # Columnas a agregar si no existen
+            columns_to_add = {
+                'email': 'VARCHAR(100)',
+                'cedula': 'VARCHAR(20)',
+                'dia_corte': 'INTEGER DEFAULT 1',
+                'fecha_ultimo_pago': 'DATETIME',
+                'fecha_proximo_pago': 'DATETIME',
+                'precio_mensual': 'FLOAT DEFAULT 0',
+                'saldo_pendiente': 'FLOAT DEFAULT 0',
+            }
+            
+            for col_name, col_type in columns_to_add.items():
+                if col_name not in existing_columns:
+                    try:
+                        db.session.execute(text(f'ALTER TABLE clientes ADD COLUMN {col_name} {col_type}'))
+                        db.session.commit()
+                        print(f"[MIGRATION] Columna '{col_name}' agregada a clientes")
+                    except Exception as e:
+                        db.session.rollback()
+                        print(f"[MIGRATION] Error agregando '{col_name}': {e}")
+        
+        # Verificar si la tabla config_mikrotik existe
+        if 'config_mikrotik' in inspector.get_table_names():
+            existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
+            
+            if 'address_list_cortados' not in existing_columns:
+                try:
+                    db.session.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
+                    db.session.commit()
+                    print("[MIGRATION] Columna 'address_list_cortados' agregada")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"[MIGRATION] Error: {e}")
+
+
 def init_db():
     """Inicializar base de datos y crear tablas"""
     with app.app_context():
+        # Primero crear tablas nuevas
         db.create_all()
+        
+        # Luego migrar columnas faltantes
+        migrate_db()
         
         # Crear planes por defecto si no existen
         if Plan.query.count() == 0:
