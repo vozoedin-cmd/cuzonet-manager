@@ -400,12 +400,172 @@ def reportes_view():
     return render_template('reportes.html')
 
 
+@app.route('/api/recibo/<int:pago_id>')
+def ver_recibo(pago_id):
+    """Ver recibo individual de un pago"""
+    pago = Pago.query.get_or_404(pago_id)
+    cliente = pago.cliente
+    return render_template('recibo.html', pago=pago, cliente=cliente)
+
+
+@app.route('/recibos/mes')
+@app.route('/recibos/mes/<mes>')
+def recibos_mes(mes=None):
+    """Generar recibos múltiples de un mes específico"""
+    from datetime import datetime
+    
+    # Función para convertir número a letras en español
+    def numero_a_letras(numero):
+        unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE']
+        decenas = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 
+                   'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
+        especiales = {
+            11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
+            16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE',
+            21: 'VEINTIUNO', 22: 'VEINTIDOS', 23: 'VEINTITRES', 24: 'VEINTICUATRO',
+            25: 'VEINTICINCO', 26: 'VEINTISEIS', 27: 'VEINTISIETE', 28: 'VEINTIOCHO', 29: 'VEINTINUEVE'
+        }
+        centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 
+                    'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS']
+        
+        num = int(numero)
+        decimal = int(round((numero - num) * 100))
+        
+        if num == 0:
+            letras = 'CERO'
+        elif num == 100:
+            letras = 'CIEN'
+        elif num < 10:
+            letras = unidades[num]
+        elif num < 30:
+            letras = especiales.get(num, decenas[num // 10])
+        elif num < 100:
+            if num % 10 == 0:
+                letras = decenas[num // 10]
+            else:
+                letras = f"{decenas[num // 10]} Y {unidades[num % 10]}"
+        elif num < 1000:
+            if num % 100 == 0:
+                letras = centenas[num // 100]
+            else:
+                resto = num % 100
+                if resto < 30 and resto in especiales:
+                    letras = f"{centenas[num // 100]} {especiales[resto]}"
+                elif resto < 10:
+                    letras = f"{centenas[num // 100]} {unidades[resto]}"
+                elif resto % 10 == 0:
+                    letras = f"{centenas[num // 100]} {decenas[resto // 10]}"
+                else:
+                    letras = f"{centenas[num // 100]} {decenas[resto // 10]} Y {unidades[resto % 10]}"
+        else:
+            miles = num // 1000
+            resto = num % 1000
+            if miles == 1:
+                letras = 'MIL'
+            else:
+                letras = f"{unidades[miles]} MIL"
+            if resto > 0:
+                letras += ' ' + numero_a_letras(resto).replace(' QUETZALES EXACTOS', '').replace(' QUETZALES CON', '')
+            letras = letras.strip()
+        
+        # Agregar la palabra QUETZALES
+        if decimal == 0:
+            return f"{letras} QUETZALES EXACTOS"
+        else:
+            return f"{letras} QUETZALES CON {decimal}/100"
+    
+    # Si no se especifica mes, usar el mes actual
+    if not mes:
+        mes = datetime.now().strftime('%Y-%m')
+    
+    # Obtener pagos del mes
+    pagos = Pago.query.filter(Pago.mes_correspondiente == mes).order_by(Pago.fecha_pago.desc()).all()
+    
+    # Calcular total
+    total = sum(p.monto for p in pagos)
+    
+    # Nombres de meses en español
+    meses_nombres = {
+        '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+        '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+        '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+    }
+    
+    try:
+        anio, mes_num = mes.split('-')
+        mes_nombre = meses_nombres.get(mes_num, mes_num)
+    except:
+        anio = mes[:4]
+        mes_nombre = mes
+    
+    return render_template('recibos_multiple.html', 
+                         pagos=pagos, 
+                         total=total, 
+                         mes=mes,
+                         mes_nombre=mes_nombre,
+                         anio=anio,
+                         numero_a_letras=numero_a_letras)
+
+
+@app.route('/api/recibos/meses')
+def obtener_meses_con_pagos():
+    """Obtener lista de meses que tienen pagos registrados"""
+    from sqlalchemy import distinct
+    
+    meses = db.session.query(distinct(Pago.mes_correspondiente)).order_by(Pago.mes_correspondiente.desc()).all()
+    meses_list = [m[0] for m in meses if m[0]]
+    
+    return jsonify({
+        'success': True,
+        'meses': meses_list
+    })
+
+
 @app.route('/configuracion')
 def configuracion():
     """Página de configuración de MikroTik"""
     config = ConfigMikroTik.query.first()
     planes = Plan.query.all()
     return render_template('configuracion.html', config=config, planes=planes)
+
+# ============== API MIKROTIK STATUS ==============
+
+@app.route('/api/mikrotik/status')
+def mikrotik_status():
+    """Verificar estado de conexión a MikroTik"""
+    try:
+        api = get_mikrotik_api()
+        if not api:
+            return jsonify({
+                'success': True,
+                'connected': False,
+                'message': 'Sin configurar'
+            })
+        
+        result = api.test_connection()
+        if result.get('success'):
+            # Contar queues
+            queues = api.get_simple_queues()
+            queue_count = len(queues.get('queues', [])) if queues.get('success') else 0
+            
+            return jsonify({
+                'success': True,
+                'connected': True,
+                'message': 'Conectado',
+                'queue_count': queue_count
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'connected': False,
+                'message': result.get('error', 'Error de conexión')
+            })
+    except Exception as e:
+        return jsonify({
+            'success': True,
+            'connected': False,
+            'message': str(e)[:50]
+        })
 
 
 # ============== API CLIENTES ==============
