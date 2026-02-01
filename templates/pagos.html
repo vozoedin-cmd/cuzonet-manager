@@ -174,13 +174,15 @@
     </div>
 
     <!-- Modal Registrar Pago -->
-    <div class="modal" id="pagoModal">
-        <div class="modal-content">
+    <div class="modal-overlay" id="pagoModal">
+        <div class="modal">
             <div class="modal-header">
                 <h2><i class="fas fa-money-bill-wave"></i> Registrar Pago</h2>
-                <button class="modal-close" onclick="closePagoModal()">&times;</button>
+                <button class="modal-close" onclick="closeModal('pagoModal')">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <form id="pagoForm">
+            <form id="pagoForm" class="modal-form">
                 <div class="form-group">
                     <label for="cliente_id">Cliente *</label>
                     <select id="cliente_id" name="cliente_id" required>
@@ -235,7 +237,7 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closePagoModal()">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('pagoModal')">Cancelar</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Registrar Pago
                     </button>
@@ -266,12 +268,12 @@
 
         // Modal pago
         function openPagoModal() {
-            document.getElementById('pagoModal').classList.add('active');
+            openModal('pagoModal');
             document.getElementById('mes_correspondiente').value = new Date().toISOString().slice(0, 7);
         }
 
         function closePagoModal() {
-            document.getElementById('pagoModal').classList.remove('active');
+            closeModal('pagoModal');
             document.getElementById('pagoForm').reset();
         }
 
@@ -333,6 +335,28 @@
                 const text = row.textContent.toLowerCase();
                 row.style.display = text.includes(search) ? '' : 'none';
             });
+        }
+
+        // Eliminar pago
+        async function eliminarPago(pagoId) {
+            if (!confirm('¿Está seguro de eliminar este pago?')) return;
+
+            try {
+                const response = await fetch(`/api/pago/${pagoId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Pago eliminado exitosamente', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.error || 'Error al eliminar pago', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexion', 'error');
+            }
         }
 
         // Inicializar
