@@ -1,11 +1,12 @@
 """
-MikroTik Client Manager - Aplicación Web
-Registra clientes y crea Simple Queues automáticamente en MikroTik
+CuzoNet Manager - Sistema de Gestión de Clientes ISP
+Con funciones avanzadas: Pagos, Corte por Address List, Importar/Exportar Excel
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
+from io import BytesIO
 import os
 import requests
 from dotenv import load_dotenv
@@ -17,7 +18,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'cuzonet-secret-key-2024')
 
 # Configuración de base de datos
-# Para desarrollo usa SQLite, para producción usa PostgreSQL
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///clientes.db')
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
@@ -29,22 +29,38 @@ db = SQLAlchemy(app)
 # ============== MODELOS ==============
 
 class Cliente(db.Model):
-    """Modelo de Cliente"""
+    """Modelo de Cliente con campos adicionales para pagos y corte"""
     __tablename__ = 'clientes'
     
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     ip_address = db.Column(db.String(15), nullable=False, unique=True)
     plan = db.Column(db.String(50), nullable=False)
-    velocidad_download = db.Column(db.String(20), nullable=False)  # ej: "10M"
-    velocidad_upload = db.Column(db.String(20), nullable=False)    # ej: "5M"
+    velocidad_download = db.Column(db.String(20), nullable=False)
+    velocidad_upload = db.Column(db.String(20), nullable=False)
     telefono = db.Column(db.String(20))
+    email = db.Column(db.String(100))
     direccion = db.Column(db.String(200))
-    estado = db.Column(db.String(20), default='activo')  # activo, suspendido
-    queue_name = db.Column(db.String(100))  # Nombre del queue en MikroTik
-    mikrotik_id = db.Column(db.String(50))  # ID del queue en MikroTik
+    cedula = db.Column(db.String(20))
+    
+    # Estado y MikroTik
+    estado = db.Column(db.String(20), default='activo')  # activo, suspendido, cortado
+    queue_name = db.Column(db.String(100))
+    mikrotik_id = db.Column(db.String(50))
+    
+    # Fechas de pago
+    dia_corte = db.Column(db.Integer, default=1)  # Día del mes para corte (1-31)
+    fecha_ultimo_pago = db.Column(db.DateTime)
+    fecha_proximo_pago = db.Column(db.DateTime)
+    precio_mensual = db.Column(db.Float, default=0)
+    saldo_pendiente = db.Column(db.Float, default=0)
+    
+    # Fechas de registro
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relación con pagos
+    pagos = db.relationship('Pago', backref='cliente', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -55,11 +71,46 @@ class Cliente(db.Model):
             'velocidad_download': self.velocidad_download,
             'velocidad_upload': self.velocidad_upload,
             'telefono': self.telefono,
+            'email': self.email,
             'direccion': self.direccion,
+            'cedula': self.cedula,
             'estado': self.estado,
             'queue_name': self.queue_name,
             'mikrotik_id': self.mikrotik_id,
+            'dia_corte': self.dia_corte,
+            'fecha_ultimo_pago': self.fecha_ultimo_pago.strftime('%Y-%m-%d') if self.fecha_ultimo_pago else None,
+            'fecha_proximo_pago': self.fecha_proximo_pago.strftime('%Y-%m-%d') if self.fecha_proximo_pago else None,
+            'precio_mensual': self.precio_mensual,
+            'saldo_pendiente': self.saldo_pendiente,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d %H:%M') if self.fecha_registro else None
+        }
+
+
+class Pago(db.Model):
+    """Modelo de Pagos"""
+    __tablename__ = 'pagos'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
+    monto = db.Column(db.Float, nullable=False)
+    fecha_pago = db.Column(db.DateTime, default=datetime.utcnow)
+    mes_correspondiente = db.Column(db.String(20))  # "2024-01", "2024-02", etc.
+    metodo_pago = db.Column(db.String(50))  # efectivo, transferencia, etc.
+    referencia = db.Column(db.String(100))  # Número de referencia/comprobante
+    notas = db.Column(db.String(200))
+    registrado_por = db.Column(db.String(50))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'cliente_id': self.cliente_id,
+            'cliente_nombre': self.cliente.nombre if self.cliente else None,
+            'monto': self.monto,
+            'fecha_pago': self.fecha_pago.strftime('%Y-%m-%d %H:%M') if self.fecha_pago else None,
+            'mes_correspondiente': self.mes_correspondiente,
+            'metodo_pago': self.metodo_pago,
+            'referencia': self.referencia,
+            'notas': self.notas
         }
 
 
@@ -70,11 +121,13 @@ class ConfigMikroTik(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), default='Principal')
     host = db.Column(db.String(100), nullable=False)
-    port = db.Column(db.Integer, default=8728)
+    port = db.Column(db.Integer, default=80)
     username = db.Column(db.String(50), nullable=False)
     password = db.Column(db.String(100), nullable=False)
     use_ssl = db.Column(db.Boolean, default=False)
     activo = db.Column(db.Boolean, default=True)
+    # Nombre del address list para clientes cortados
+    address_list_cortados = db.Column(db.String(50), default='MOROSOS')
 
 
 class Plan(db.Model):
@@ -103,7 +156,7 @@ class MikroTikAPI:
         self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
         self.session = requests.Session()
         self.session.auth = (username, password)
-        self.session.verify = False  # Para certificados auto-firmados
+        self.session.verify = False
     
     def test_connection(self):
         """Prueba la conexión al router"""
@@ -116,21 +169,8 @@ class MikroTikAPI:
             return False, str(e)
     
     def create_simple_queue(self, name, target, max_limit_download, max_limit_upload, comment=""):
-        """
-        Crea un Simple Queue en MikroTik
-        
-        Args:
-            name: Nombre del queue (ej: "cliente-juan")
-            target: IP del cliente (ej: "192.168.1.100/32")
-            max_limit_download: Velocidad de bajada (ej: "10M")
-            max_limit_upload: Velocidad de subida (ej: "5M")
-            comment: Comentario opcional
-        
-        Returns:
-            tuple: (success, queue_id or error_message)
-        """
+        """Crea un Simple Queue en MikroTik"""
         try:
-            # Formato de max-limit: "upload/download"
             max_limit = f"{max_limit_upload}/{max_limit_download}"
             
             data = {
@@ -214,6 +254,73 @@ class MikroTikAPI:
     def activate_queue(self, queue_id):
         """Activa (habilita) un queue"""
         return self.update_simple_queue(queue_id, disabled=False)
+    
+    # ============== ADDRESS LIST METHODS ==============
+    
+    def add_to_address_list(self, ip_address, list_name="MOROSOS", comment=""):
+        """Agrega una IP al address list (para corte por firewall)"""
+        try:
+            data = {
+                "list": list_name,
+                "address": ip_address,
+                "comment": comment
+            }
+            
+            response = self.session.put(
+                f"{self.base_url}/ip/firewall/address-list",
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                return True, result.get('.id', '')
+            else:
+                return False, f"Error {response.status_code}: {response.text}"
+                
+        except Exception as e:
+            return False, str(e)
+    
+    def remove_from_address_list(self, ip_address, list_name="MOROSOS"):
+        """Remueve una IP del address list"""
+        try:
+            # Primero buscar el ID de la entrada
+            response = self.session.get(
+                f"{self.base_url}/ip/firewall/address-list",
+                params={"list": list_name, "address": ip_address},
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                entries = response.json()
+                for entry in entries:
+                    if entry.get('address') == ip_address and entry.get('list') == list_name:
+                        entry_id = entry.get('.id')
+                        # Eliminar la entrada
+                        del_response = self.session.delete(
+                            f"{self.base_url}/ip/firewall/address-list/{entry_id}",
+                            timeout=15
+                        )
+                        return del_response.status_code in [200, 204], "OK"
+            
+            return True, "No encontrado (ya eliminado)"
+            
+        except Exception as e:
+            return False, str(e)
+    
+    def get_address_list(self, list_name="MOROSOS"):
+        """Obtiene todas las IPs en un address list"""
+        try:
+            response = self.session.get(
+                f"{self.base_url}/ip/firewall/address-list",
+                params={"list": list_name},
+                timeout=15
+            )
+            if response.status_code == 200:
+                return True, response.json()
+            return False, f"Error {response.status_code}"
+        except Exception as e:
+            return False, str(e)
 
 
 def get_mikrotik_api():
@@ -230,23 +337,45 @@ def get_mikrotik_api():
     )
 
 
+def get_address_list_name():
+    """Obtiene el nombre del address list configurado"""
+    config = ConfigMikroTik.query.filter_by(activo=True).first()
+    return config.address_list_cortados if config else "MOROSOS"
+
+
 # ============== RUTAS WEB ==============
 
 @app.route('/')
 def index():
     """Página principal - Dashboard"""
-    clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
+    clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).limit(10).all()
     total_clientes = Cliente.query.count()
     clientes_activos = Cliente.query.filter_by(estado='activo').count()
-    clientes_suspendidos = Cliente.query.filter_by(estado='suspendido').count()
+    clientes_suspendidos = Cliente.query.filter(Cliente.estado.in_(['suspendido', 'cortado'])).count()
     planes = Plan.query.all()
+    
+    # Estadísticas de pagos del mes actual
+    hoy = datetime.now()
+    primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    pagos_mes = Pago.query.filter(Pago.fecha_pago >= primer_dia_mes).all()
+    total_recaudado_mes = sum(p.monto for p in pagos_mes)
+    
+    # Clientes próximos a corte (próximos 5 días)
+    fecha_limite = hoy + timedelta(days=5)
+    clientes_por_cortar = Cliente.query.filter(
+        Cliente.estado == 'activo',
+        Cliente.fecha_proximo_pago <= fecha_limite,
+        Cliente.fecha_proximo_pago >= hoy
+    ).count()
     
     return render_template('index.html', 
                          clientes=clientes,
                          total_clientes=total_clientes,
                          clientes_activos=clientes_activos,
                          clientes_suspendidos=clientes_suspendidos,
-                         planes=planes)
+                         planes=planes,
+                         total_recaudado_mes=total_recaudado_mes,
+                         clientes_por_cortar=clientes_por_cortar)
 
 
 @app.route('/clientes')
@@ -257,6 +386,20 @@ def listar_clientes():
     return render_template('clientes.html', clientes=clientes, planes=planes)
 
 
+@app.route('/pagos')
+def pagos_view():
+    """Página de gestión de pagos"""
+    pagos = Pago.query.order_by(Pago.fecha_pago.desc()).limit(50).all()
+    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    return render_template('pagos.html', pagos=pagos, clientes=clientes)
+
+
+@app.route('/reportes')
+def reportes_view():
+    """Página de reportes y estadísticas"""
+    return render_template('reportes.html')
+
+
 @app.route('/configuracion')
 def configuracion():
     """Página de configuración de MikroTik"""
@@ -265,7 +408,7 @@ def configuracion():
     return render_template('configuracion.html', config=config, planes=planes)
 
 
-# ============== API ENDPOINTS ==============
+# ============== API CLIENTES ==============
 
 @app.route('/api/cliente', methods=['POST'])
 def crear_cliente():
@@ -284,15 +427,17 @@ def crear_cliente():
         if existing:
             return jsonify({'success': False, 'error': 'Esta IP ya está registrada'}), 400
         
-        # Obtener velocidades del plan o usar las proporcionadas
+        # Obtener velocidades y precio del plan
         vel_download = data.get('velocidad_download', '10M')
         vel_upload = data.get('velocidad_upload', '5M')
+        precio = 0
         
         if data.get('plan_id'):
             plan = Plan.query.get(data['plan_id'])
             if plan:
                 vel_download = plan.velocidad_download
                 vel_upload = plan.velocidad_upload
+                precio = plan.precio
         
         # Generar nombre del queue
         nombre_limpio = data['nombre'].replace(' ', '-').lower()[:30]
@@ -319,18 +464,36 @@ def crear_cliente():
                     'error': f'Error al crear queue en MikroTik: {result}'
                 }), 500
         
+        # Calcular fecha próximo pago
+        hoy = datetime.now()
+        dia_corte = int(data.get('dia_corte', 1))
+        if dia_corte > 28:
+            dia_corte = 28
+        
+        proximo_mes = hoy.month + 1 if hoy.day > dia_corte else hoy.month
+        proximo_anio = hoy.year + 1 if proximo_mes > 12 else hoy.year
+        if proximo_mes > 12:
+            proximo_mes = 1
+        
+        fecha_proximo_pago = datetime(proximo_anio, proximo_mes, dia_corte)
+        
         # Crear cliente en base de datos
         cliente = Cliente(
             nombre=data['nombre'],
             ip_address=data['ip_address'],
-            plan=data.get('plan', 'Básico'),
+            plan=data.get('plan', 'Basico'),
             velocidad_download=vel_download,
             velocidad_upload=vel_upload,
             telefono=data.get('telefono', ''),
+            email=data.get('email', ''),
             direccion=data.get('direccion', ''),
+            cedula=data.get('cedula', ''),
             queue_name=queue_name,
             mikrotik_id=mikrotik_id,
-            estado='activo'
+            estado='activo',
+            dia_corte=dia_corte,
+            precio_mensual=precio,
+            fecha_proximo_pago=fecha_proximo_pago
         )
         
         db.session.add(cliente)
@@ -347,6 +510,13 @@ def crear_cliente():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/cliente/<int:id>', methods=['GET'])
+def obtener_cliente(id):
+    """Obtener un cliente específico"""
+    cliente = Cliente.query.get_or_404(id)
+    return jsonify({'success': True, 'cliente': cliente.to_dict()})
+
+
 @app.route('/api/cliente/<int:id>', methods=['PUT'])
 def actualizar_cliente(id):
     """Actualizar cliente existente"""
@@ -354,16 +524,42 @@ def actualizar_cliente(id):
         cliente = Cliente.query.get_or_404(id)
         data = request.get_json()
         
-        # Actualizar campos
+        # Actualizar campos básicos
         if data.get('nombre'):
             cliente.nombre = data['nombre']
-        if data.get('telefono'):
+        if 'telefono' in data:
             cliente.telefono = data['telefono']
-        if data.get('direccion'):
+        if 'email' in data:
+            cliente.email = data['email']
+        if 'direccion' in data:
             cliente.direccion = data['direccion']
+        if 'cedula' in data:
+            cliente.cedula = data['cedula']
+        if 'dia_corte' in data:
+            cliente.dia_corte = int(data['dia_corte'])
+        if 'precio_mensual' in data:
+            cliente.precio_mensual = float(data['precio_mensual'])
         
-        # Si cambia la velocidad, actualizar en MikroTik
-        if data.get('velocidad_download') or data.get('velocidad_upload'):
+        # Actualizar plan y velocidades
+        if data.get('plan_id'):
+            plan = Plan.query.get(data['plan_id'])
+            if plan:
+                cliente.plan = plan.nombre
+                cliente.velocidad_download = plan.velocidad_download
+                cliente.velocidad_upload = plan.velocidad_upload
+                cliente.precio_mensual = plan.precio
+                
+                # Actualizar en MikroTik
+                if cliente.mikrotik_id:
+                    api = get_mikrotik_api()
+                    if api:
+                        api.update_simple_queue(
+                            cliente.mikrotik_id,
+                            max_limit_download=plan.velocidad_download,
+                            max_limit_upload=plan.velocidad_upload
+                        )
+        
+        elif data.get('velocidad_download') or data.get('velocidad_upload'):
             cliente.velocidad_download = data.get('velocidad_download', cliente.velocidad_download)
             cliente.velocidad_upload = data.get('velocidad_upload', cliente.velocidad_upload)
             
@@ -375,6 +571,19 @@ def actualizar_cliente(id):
                         max_limit_download=cliente.velocidad_download,
                         max_limit_upload=cliente.velocidad_upload
                     )
+        
+        # Actualizar IP si cambió
+        if data.get('ip_address') and data['ip_address'] != cliente.ip_address:
+            # Verificar que no exista
+            existing = Cliente.query.filter_by(ip_address=data['ip_address']).first()
+            if existing and existing.id != id:
+                return jsonify({'success': False, 'error': 'Esta IP ya está en uso'}), 400
+            
+            cliente.ip_address = data['ip_address']
+            if cliente.mikrotik_id:
+                api = get_mikrotik_api()
+                if api:
+                    api.update_simple_queue(cliente.mikrotik_id, target=data['ip_address'])
         
         db.session.commit()
         return jsonify({'success': True, 'cliente': cliente.to_dict()})
@@ -390,11 +599,15 @@ def eliminar_cliente(id):
     try:
         cliente = Cliente.query.get_or_404(id)
         
-        # Eliminar queue de MikroTik
-        if cliente.mikrotik_id:
-            api = get_mikrotik_api()
-            if api:
+        api = get_mikrotik_api()
+        if api:
+            # Eliminar queue de MikroTik
+            if cliente.mikrotik_id:
                 api.delete_simple_queue(cliente.mikrotik_id)
+            
+            # Remover del address list si estaba cortado
+            if cliente.estado == 'cortado':
+                api.remove_from_address_list(cliente.ip_address, get_address_list_name())
         
         db.session.delete(cliente)
         db.session.commit()
@@ -431,21 +644,54 @@ def suspender_cliente(id):
 
 @app.route('/api/cliente/<int:id>/activar', methods=['POST'])
 def activar_cliente(id):
-    """Activar cliente (habilitar queue)"""
+    """Activar cliente (habilitar queue y remover de address list)"""
     try:
         cliente = Cliente.query.get_or_404(id)
         
-        if cliente.mikrotik_id:
-            api = get_mikrotik_api()
-            if api:
+        api = get_mikrotik_api()
+        if api:
+            # Activar queue
+            if cliente.mikrotik_id:
                 success, msg = api.activate_queue(cliente.mikrotik_id)
                 if not success:
                     return jsonify({'success': False, 'error': f'Error MikroTik: {msg}'}), 500
+            
+            # Remover del address list si estaba cortado
+            if cliente.estado == 'cortado':
+                api.remove_from_address_list(cliente.ip_address, get_address_list_name())
         
         cliente.estado = 'activo'
         db.session.commit()
         
         return jsonify({'success': True, 'message': 'Cliente activado'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cliente/<int:id>/cortar', methods=['POST'])
+def cortar_cliente(id):
+    """Cortar cliente por medio de Address List (bloqueo por firewall)"""
+    try:
+        cliente = Cliente.query.get_or_404(id)
+        
+        api = get_mikrotik_api()
+        if api:
+            # Agregar al address list de morosos
+            success, result = api.add_to_address_list(
+                cliente.ip_address, 
+                get_address_list_name(),
+                f"Corte: {cliente.nombre} - {datetime.now().strftime('%Y-%m-%d')}"
+            )
+            
+            if not success:
+                return jsonify({'success': False, 'error': f'Error MikroTik: {result}'}), 500
+        
+        cliente.estado = 'cortado'
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Cliente cortado (agregado a Address List)'})
         
     except Exception as e:
         db.session.rollback()
@@ -460,6 +706,442 @@ def obtener_clientes():
         'success': True,
         'clientes': [c.to_dict() for c in clientes]
     })
+
+
+# ============== API PAGOS ==============
+
+@app.route('/api/pago', methods=['POST'])
+def registrar_pago():
+    """Registrar un nuevo pago"""
+    try:
+        data = request.get_json()
+        
+        cliente_id = data.get('cliente_id')
+        if not cliente_id:
+            return jsonify({'success': False, 'error': 'Cliente requerido'}), 400
+        
+        cliente = Cliente.query.get(cliente_id)
+        if not cliente:
+            return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
+        
+        monto = float(data.get('monto', 0))
+        if monto <= 0:
+            return jsonify({'success': False, 'error': 'Monto debe ser mayor a 0'}), 400
+        
+        # Crear pago
+        pago = Pago(
+            cliente_id=cliente_id,
+            monto=monto,
+            mes_correspondiente=data.get('mes_correspondiente', datetime.now().strftime('%Y-%m')),
+            metodo_pago=data.get('metodo_pago', 'efectivo'),
+            referencia=data.get('referencia', ''),
+            notas=data.get('notas', ''),
+            registrado_por=data.get('registrado_por', 'admin')
+        )
+        
+        db.session.add(pago)
+        
+        # Actualizar cliente
+        cliente.fecha_ultimo_pago = datetime.now()
+        cliente.saldo_pendiente = max(0, cliente.saldo_pendiente - monto)
+        
+        # Calcular nueva fecha de próximo pago
+        hoy = datetime.now()
+        next_month = hoy.month + 1 if hoy.month < 12 else 1
+        next_year = hoy.year if hoy.month < 12 else hoy.year + 1
+        dia = min(cliente.dia_corte, 28)
+        cliente.fecha_proximo_pago = datetime(next_year, next_month, dia)
+        
+        # Si estaba cortado o suspendido y pagó, activar automáticamente
+        if cliente.estado in ['suspendido', 'cortado'] and data.get('activar_automatico', True):
+            api = get_mikrotik_api()
+            if api:
+                if cliente.mikrotik_id:
+                    api.activate_queue(cliente.mikrotik_id)
+                if cliente.estado == 'cortado':
+                    api.remove_from_address_list(cliente.ip_address, get_address_list_name())
+            cliente.estado = 'activo'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Pago registrado exitosamente',
+            'pago': pago.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pagos', methods=['GET'])
+def obtener_pagos():
+    """Obtener lista de pagos"""
+    cliente_id = request.args.get('cliente_id')
+    
+    query = Pago.query.order_by(Pago.fecha_pago.desc())
+    
+    if cliente_id:
+        query = query.filter_by(cliente_id=cliente_id)
+    
+    pagos = query.limit(100).all()
+    
+    return jsonify({
+        'success': True,
+        'pagos': [p.to_dict() for p in pagos]
+    })
+
+
+@app.route('/api/pagos/cliente/<int:cliente_id>', methods=['GET'])
+def obtener_pagos_cliente(cliente_id):
+    """Obtener historial de pagos de un cliente"""
+    pagos = Pago.query.filter_by(cliente_id=cliente_id).order_by(Pago.fecha_pago.desc()).all()
+    return jsonify({
+        'success': True,
+        'pagos': [p.to_dict() for p in pagos]
+    })
+
+
+# ============== IMPORTAR/EXPORTAR EXCEL ==============
+
+@app.route('/api/clientes/exportar', methods=['GET'])
+def exportar_clientes():
+    """Exportar clientes a Excel"""
+    try:
+        # Intentar usar openpyxl
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            # Si no está instalado, exportar como CSV
+            return exportar_clientes_csv()
+        
+        clientes = Cliente.query.order_by(Cliente.nombre).all()
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Clientes"
+        
+        # Encabezados
+        headers = ['ID', 'Nombre', 'IP', 'Plan', 'Velocidad Bajada', 'Velocidad Subida', 
+                   'Telefono', 'Email', 'Direccion', 'Cedula', 'Estado', 'Dia Corte',
+                   'Precio Mensual', 'Fecha Registro']
+        
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Datos
+        for row, cliente in enumerate(clientes, 2):
+            ws.cell(row=row, column=1, value=cliente.id)
+            ws.cell(row=row, column=2, value=cliente.nombre)
+            ws.cell(row=row, column=3, value=cliente.ip_address)
+            ws.cell(row=row, column=4, value=cliente.plan)
+            ws.cell(row=row, column=5, value=cliente.velocidad_download)
+            ws.cell(row=row, column=6, value=cliente.velocidad_upload)
+            ws.cell(row=row, column=7, value=cliente.telefono)
+            ws.cell(row=row, column=8, value=cliente.email)
+            ws.cell(row=row, column=9, value=cliente.direccion)
+            ws.cell(row=row, column=10, value=cliente.cedula)
+            ws.cell(row=row, column=11, value=cliente.estado)
+            ws.cell(row=row, column=12, value=cliente.dia_corte)
+            ws.cell(row=row, column=13, value=cliente.precio_mensual)
+            ws.cell(row=row, column=14, value=cliente.fecha_registro.strftime('%Y-%m-%d') if cliente.fecha_registro else '')
+        
+        # Ajustar anchos de columna
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column].width = adjusted_width
+        
+        # Guardar en memoria
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'clientes_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        )
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def exportar_clientes_csv():
+    """Exportar clientes a CSV (fallback)"""
+    import csv
+    from io import StringIO
+    
+    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    # Encabezados
+    writer.writerow(['ID', 'Nombre', 'IP', 'Plan', 'Velocidad Bajada', 'Velocidad Subida', 
+                     'Telefono', 'Email', 'Direccion', 'Cedula', 'Estado', 'Dia Corte',
+                     'Precio Mensual', 'Fecha Registro'])
+    
+    # Datos
+    for cliente in clientes:
+        writer.writerow([
+            cliente.id, cliente.nombre, cliente.ip_address, cliente.plan,
+            cliente.velocidad_download, cliente.velocidad_upload, cliente.telefono,
+            cliente.email, cliente.direccion, cliente.cedula, cliente.estado,
+            cliente.dia_corte, cliente.precio_mensual,
+            cliente.fecha_registro.strftime('%Y-%m-%d') if cliente.fecha_registro else ''
+        ])
+    
+    output.seek(0)
+    return send_file(
+        BytesIO(output.getvalue().encode('utf-8')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'clientes_{datetime.now().strftime("%Y%m%d")}.csv'
+    )
+
+
+@app.route('/api/clientes/importar', methods=['POST'])
+def importar_clientes():
+    """Importar clientes desde archivo Excel o CSV"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Nombre de archivo vacío'}), 400
+        
+        filename = file.filename.lower()
+        
+        clientes_importados = 0
+        clientes_omitidos = 0
+        errores = []
+        
+        if filename.endswith('.xlsx') or filename.endswith('.xls'):
+            # Importar desde Excel
+            try:
+                from openpyxl import load_workbook
+                
+                wb = load_workbook(file)
+                ws = wb.active
+                
+                # Obtener encabezados
+                headers = [cell.value.lower() if cell.value else '' for cell in ws[1]]
+                
+                for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+                    try:
+                        data = dict(zip(headers, row))
+                        
+                        nombre = data.get('nombre', '')
+                        ip = data.get('ip', data.get('ip_address', ''))
+                        
+                        if not nombre or not ip:
+                            clientes_omitidos += 1
+                            continue
+                        
+                        # Verificar si ya existe
+                        if Cliente.query.filter_by(ip_address=ip).first():
+                            clientes_omitidos += 1
+                            continue
+                        
+                        cliente = Cliente(
+                            nombre=str(nombre),
+                            ip_address=str(ip),
+                            plan=str(data.get('plan', 'Basico')),
+                            velocidad_download=str(data.get('velocidad bajada', data.get('velocidad_download', '10M'))),
+                            velocidad_upload=str(data.get('velocidad subida', data.get('velocidad_upload', '5M'))),
+                            telefono=str(data.get('telefono', '')),
+                            email=str(data.get('email', '')),
+                            direccion=str(data.get('direccion', '')),
+                            cedula=str(data.get('cedula', '')),
+                            estado='activo',
+                            dia_corte=int(data.get('dia corte', data.get('dia_corte', 1)) or 1),
+                            precio_mensual=float(data.get('precio mensual', data.get('precio_mensual', 0)) or 0)
+                        )
+                        
+                        db.session.add(cliente)
+                        clientes_importados += 1
+                        
+                    except Exception as e:
+                        errores.append(f"Fila {row_num}: {str(e)}")
+                        clientes_omitidos += 1
+                
+            except ImportError:
+                return jsonify({'success': False, 'error': 'Libreria openpyxl no instalada'}), 500
+        
+        elif filename.endswith('.csv'):
+            # Importar desde CSV
+            import csv
+            from io import StringIO
+            
+            content = file.read().decode('utf-8')
+            reader = csv.DictReader(StringIO(content))
+            
+            for row_num, row in enumerate(reader, 2):
+                try:
+                    # Normalizar nombres de columnas
+                    data = {k.lower(): v for k, v in row.items()}
+                    
+                    nombre = data.get('nombre', '')
+                    ip = data.get('ip', data.get('ip_address', ''))
+                    
+                    if not nombre or not ip:
+                        clientes_omitidos += 1
+                        continue
+                    
+                    # Verificar si ya existe
+                    if Cliente.query.filter_by(ip_address=ip).first():
+                        clientes_omitidos += 1
+                        continue
+                    
+                    cliente = Cliente(
+                        nombre=nombre,
+                        ip_address=ip,
+                        plan=data.get('plan', 'Basico'),
+                        velocidad_download=data.get('velocidad bajada', data.get('velocidad_download', '10M')),
+                        velocidad_upload=data.get('velocidad subida', data.get('velocidad_upload', '5M')),
+                        telefono=data.get('telefono', ''),
+                        email=data.get('email', ''),
+                        direccion=data.get('direccion', ''),
+                        cedula=data.get('cedula', ''),
+                        estado='activo',
+                        dia_corte=int(data.get('dia corte', data.get('dia_corte', 1)) or 1),
+                        precio_mensual=float(data.get('precio mensual', data.get('precio_mensual', 0)) or 0)
+                    )
+                    
+                    db.session.add(cliente)
+                    clientes_importados += 1
+                    
+                except Exception as e:
+                    errores.append(f"Fila {row_num}: {str(e)}")
+                    clientes_omitidos += 1
+        
+        else:
+            return jsonify({'success': False, 'error': 'Formato no soportado. Use .xlsx, .xls o .csv'}), 400
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Importación completada',
+            'importados': clientes_importados,
+            'omitidos': clientes_omitidos,
+            'errores': errores[:10]  # Solo mostrar primeros 10 errores
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============== REPORTES ==============
+
+@app.route('/api/reportes/resumen', methods=['GET'])
+def reporte_resumen():
+    """Reporte resumen general"""
+    try:
+        total_clientes = Cliente.query.count()
+        clientes_activos = Cliente.query.filter_by(estado='activo').count()
+        clientes_suspendidos = Cliente.query.filter_by(estado='suspendido').count()
+        clientes_cortados = Cliente.query.filter_by(estado='cortado').count()
+        
+        # Pagos del mes
+        hoy = datetime.now()
+        primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        pagos_mes = Pago.query.filter(Pago.fecha_pago >= primer_dia_mes).all()
+        total_recaudado = sum(p.monto for p in pagos_mes)
+        
+        # Proyección mensual
+        total_mensual_esperado = db.session.query(db.func.sum(Cliente.precio_mensual)).filter(
+            Cliente.estado == 'activo'
+        ).scalar() or 0
+        
+        # Clientes por plan
+        from sqlalchemy import func
+        clientes_por_plan = db.session.query(
+            Cliente.plan, 
+            func.count(Cliente.id)
+        ).group_by(Cliente.plan).all()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_clientes': total_clientes,
+                'clientes_activos': clientes_activos,
+                'clientes_suspendidos': clientes_suspendidos,
+                'clientes_cortados': clientes_cortados,
+                'total_recaudado_mes': total_recaudado,
+                'total_mensual_esperado': total_mensual_esperado,
+                'porcentaje_recaudado': (total_recaudado / total_mensual_esperado * 100) if total_mensual_esperado > 0 else 0,
+                'clientes_por_plan': [{'plan': p[0], 'cantidad': p[1]} for p in clientes_por_plan]
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reportes/pagos-mensuales', methods=['GET'])
+def reporte_pagos_mensuales():
+    """Reporte de pagos por mes"""
+    try:
+        from sqlalchemy import func, extract
+        
+        # Últimos 12 meses
+        pagos_por_mes = db.session.query(
+            func.strftime('%Y-%m', Pago.fecha_pago).label('mes'),
+            func.sum(Pago.monto).label('total'),
+            func.count(Pago.id).label('cantidad')
+        ).group_by(
+            func.strftime('%Y-%m', Pago.fecha_pago)
+        ).order_by(
+            func.strftime('%Y-%m', Pago.fecha_pago).desc()
+        ).limit(12).all()
+        
+        return jsonify({
+            'success': True,
+            'data': [{
+                'mes': p.mes,
+                'total': p.total,
+                'cantidad': p.cantidad
+            } for p in pagos_por_mes]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============== RECIBOS ==============
+
+@app.route('/api/recibo/<int:pago_id>', methods=['GET'])
+def generar_recibo(pago_id):
+    """Generar recibo de pago (HTML para imprimir)"""
+    try:
+        pago = Pago.query.get_or_404(pago_id)
+        cliente = pago.cliente
+        
+        return render_template('recibo.html', pago=pago, cliente=cliente)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============== CONFIGURACIÓN ==============
@@ -479,12 +1161,13 @@ def guardar_config_mikrotik():
         config.username = data.get('username', '')
         config.password = data.get('password', '')
         config.use_ssl = data.get('use_ssl', False)
+        config.address_list_cortados = data.get('address_list_cortados', 'MOROSOS')
         config.activo = True
         
         db.session.add(config)
         db.session.commit()
         
-        return jsonify({'success': True, 'message': 'Configuración guardada'})
+        return jsonify({'success': True, 'message': 'Configuracion guardada'})
         
     except Exception as e:
         db.session.rollback()
@@ -510,12 +1193,12 @@ def probar_conexion_mikrotik():
         if success:
             return jsonify({
                 'success': True,
-                'message': f'Conexión exitosa a: {result}'
+                'message': f'Conexion exitosa a: {result}'
             })
         else:
             return jsonify({
                 'success': False,
-                'error': f'Error de conexión: {result}'
+                'error': f'Error de conexion: {result}'
             }), 400
             
     except Exception as e:
@@ -606,8 +1289,8 @@ def init_db():
         # Crear planes por defecto si no existen
         if Plan.query.count() == 0:
             planes_default = [
-                Plan(nombre='Básico 5Mbps', velocidad_download='5M', velocidad_upload='2M', precio=15.00),
-                Plan(nombre='Estándar 10Mbps', velocidad_download='10M', velocidad_upload='5M', precio=25.00),
+                Plan(nombre='Basico 5Mbps', velocidad_download='5M', velocidad_upload='2M', precio=15.00),
+                Plan(nombre='Estandar 10Mbps', velocidad_download='10M', velocidad_upload='5M', precio=25.00),
                 Plan(nombre='Premium 20Mbps', velocidad_download='20M', velocidad_upload='10M', precio=35.00),
                 Plan(nombre='Ultra 50Mbps', velocidad_download='50M', velocidad_upload='25M', precio=50.00),
                 Plan(nombre='Empresarial 100Mbps', velocidad_download='100M', velocidad_upload='50M', precio=100.00),
