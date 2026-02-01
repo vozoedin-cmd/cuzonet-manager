@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Configuración de MikroTik - Sistema de gestión">
+    <title>Configuración - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Configuración</h1>
+                <p class="header-subtitle">Configura la conexión a MikroTik y planes</p>
+            </div>
+        </header>
+
+        <div class="config-grid">
+            <!-- MikroTik Configuration -->
+            <section class="config-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-router"></i> Conexión MikroTik</h2>
+                    <span class="connection-badge" id="connectionBadge">
+                        <i class="fas fa-circle"></i> Sin verificar
+                    </span>
+                </div>
+
+                <form id="mikrotikForm" class="config-form">
+                    <div class="form-group">
+                        <label for="mk_host">
+                            <i class="fas fa-server"></i> Host / IP del Router
+                        </label>
+                        <input type="text" id="mk_host" name="host" value="{{ config.host if config else '' }}"
+                            placeholder="Ej: 192.168.88.1 o mi-router.ddns.net">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mk_port">
+                                <i class="fas fa-plug"></i> Puerto REST API
+                            </label>
+                            <input type="number" id="mk_port" name="port" value="{{ config.port if config else 80 }}"
+                                placeholder="80">
+                            <span class="form-hint">Puerto del servicio www en MikroTik</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mk_ssl">
+                                <i class="fas fa-lock"></i> Usar HTTPS
+                            </label>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="mk_ssl" name="use_ssl" {{ 'checked' if config and
+                                    config.use_ssl else '' }}>
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mk_username">
+                                <i class="fas fa-user"></i> Usuario
+                            </label>
+                            <input type="text" id="mk_username" name="username"
+                                value="{{ config.username if config else '' }}" placeholder="admin">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mk_password">
+                                <i class="fas fa-key"></i> Contraseña
+                            </label>
+                            <input type="password" id="mk_password" name="password"
+                                value="{{ config.password if config else '' }}" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="testConnection()">
+                            <i class="fas fa-plug"></i> Probar Conexión
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+
+                <!-- API Instructions -->
+                <div class="info-box">
+                    <h3><i class="fas fa-info-circle"></i> Configuración en MikroTik</h3>
+                    <p>Para habilitar la REST API en tu router MikroTik:</p>
+                    <ol>
+                        <li>Ir a <strong>IP → Services</strong></li>
+                        <li>Habilitar el servicio <strong>www</strong> (puerto 80) o <strong>www-ssl</strong> (puerto
+                            443)</li>
+                        <li>En <strong>System → Users</strong>, crear un usuario con permisos de <strong>read, write,
+                                api</strong></li>
+                        <li>Asegurarse de que el firewall permita el acceso al puerto configurado</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Plans Configuration -->
+            <section class="config-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-box"></i> Planes de Internet</h2>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('planModal')">
+                        <i class="fas fa-plus"></i> Nuevo Plan
+                    </button>
+                </div>
+
+                <div class="plans-grid">
+                    {% for plan in planes %}
+                    <div class="plan-card">
+                        <div class="plan-header">
+                            <h3>{{ plan.nombre }}</h3>
+                            <button class="btn-icon danger" onclick="eliminarPlan({{ plan.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="plan-speeds">
+                            <div class="speed-item">
+                                <i class="fas fa-arrow-down"></i>
+                                <span>{{ plan.velocidad_download }}</span>
+                            </div>
+                            <div class="speed-item">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>{{ plan.velocidad_upload }}</span>
+                            </div>
+                        </div>
+                        {% if plan.precio %}
+                        <div class="plan-price">
+                            ${{ "%.2f"|format(plan.precio) }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    {% if not planes %}
+                    <div class="empty-state small">
+                        <i class="fas fa-box-open"></i>
+                        <p>No hay planes configurados</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        <!-- System Info -->
+        <section class="system-info">
+            <h2><i class="fas fa-info-circle"></i> Información del Sistema</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Versión</span>
+                    <span class="info-value">1.0.0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Base de Datos</span>
+                    <span class="info-value">SQLite / PostgreSQL</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">API MikroTik</span>
+                    <span class="info-value">REST API</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Nuevo Plan -->
+    <div class="modal-overlay" id="planModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2><i class="fas fa-box"></i> Crear Nuevo Plan</h2>
+                <button class="modal-close" onclick="closeModal('planModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="planForm" class="modal-form">
+                <div class="form-group">
+                    <label for="plan_nombre">
+                        <i class="fas fa-tag"></i> Nombre del Plan *
+                    </label>
+                    <input type="text" id="plan_nombre" name="nombre" required placeholder="Ej: Premium 50Mbps">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="plan_download">
+                            <i class="fas fa-arrow-down"></i> Download *
+                        </label>
+                        <input type="text" id="plan_download" name="velocidad_download" required placeholder="Ej: 50M">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="plan_upload">
+                            <i class="fas fa-arrow-up"></i> Upload *
+                        </label>
+                        <input type="text" id="plan_upload" name="velocidad_upload" required placeholder="Ej: 25M">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="plan_precio">
+                        <i class="fas fa-dollar-sign"></i> Precio (opcional)
+                    </label>
+                    <input type="number" id="plan_precio" name="precio" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('planModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Crear Plan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Configuración específica de esta página
+        document.getElementById('mikrotikForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = {
+                host: document.getElementById('mk_host').value,
+                port: parseInt(document.getElementById('mk_port').value) || 80,
+                username: document.getElementById('mk_username').value,
+                password: document.getElementById('mk_password').value,
+                use_ssl: document.getElementById('mk_ssl').checked
+            };
+
+            try {
+                const response = await fetch('/api/config/mikrotik', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Configuración guardada exitosamente', 'success');
+                    checkMikroTikStatus();
+                } else {
+                    showToast(result.error || 'Error al guardar', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+
+        async function testConnection() {
+            const formData = {
+                host: document.getElementById('mk_host').value,
+                port: parseInt(document.getElementById('mk_port').value) || 80,
+                username: document.getElementById('mk_username').value,
+                password: document.getElementById('mk_password').value,
+                use_ssl: document.getElementById('mk_ssl').checked
+            };
+
+            const badge = document.getElementById('connectionBadge');
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
+            badge.className = 'connection-badge testing';
+
+            try {
+                const response = await fetch('/api/config/mikrotik/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    badge.innerHTML = '<i class="fas fa-check-circle"></i> Conectado';
+                    badge.className = 'connection-badge connected';
+                    showToast(result.message, 'success');
+                } else {
+                    badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
+                    badge.className = 'connection-badge error';
+                    showToast(result.error || 'Error de conexión', 'error');
+                }
+            } catch (error) {
+                badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
+                badge.className = 'connection-badge error';
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        document.getElementById('planForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = {
+                nombre: document.getElementById('plan_nombre').value,
+                velocidad_download: document.getElementById('plan_download').value,
+                velocidad_upload: document.getElementById('plan_upload').value,
+                precio: parseFloat(document.getElementById('plan_precio').value) || 0
+            };
+
+            try {
+                const response = await fetch('/api/plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Plan creado exitosamente', 'success');
+                    closeModal('planModal');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al crear plan', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+
+        async function eliminarPlan(id) {
+            if (!confirm('¿Eliminar este plan?')) return;
+
+            try {
+                const response = await fetch(`/api/plan/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Plan eliminado', 'success');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al eliminar', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>
