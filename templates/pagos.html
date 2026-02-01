@@ -73,6 +73,9 @@
                 <p class="header-subtitle">Registra y administra los pagos de tus clientes</p>
             </div>
             <div class="header-right">
+                <button class="btn btn-secondary" onclick="openRecibosModal()">
+                    <i class="fas fa-print"></i> Generar Recibos
+                </button>
                 <button class="btn btn-primary" onclick="openPagoModal()">
                     <i class="fas fa-plus"></i> Registrar Pago
                 </button>
@@ -262,6 +265,41 @@
         </div>
     </div>
 
+    <!-- Modal Generar Recibos -->
+    <div class="modal-overlay" id="recibosModal">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-print"></i> Generar Recibos</h2>
+                <button class="modal-close" onclick="closeModal('recibosModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-form">
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Selecciona un mes para generar todos los recibos e imprimirlos para entregar a tus clientes.
+                </p>
+
+                <div class="form-group">
+                    <label for="mesRecibos"><i class="fas fa-calendar-alt"></i> Mes</label>
+                    <input type="month" id="mesRecibos" class="form-control">
+                </div>
+
+                <div id="mesesDisponibles" style="margin-top: 15px;">
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Meses con pagos:</p>
+                    <div id="listaMeses" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 25px;">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('recibosModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="generarRecibos()">
+                        <i class="fas fa-print"></i> Generar e Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -286,6 +324,60 @@
         function openPagoModal() {
             openModal('pagoModal');
             document.getElementById('mes_correspondiente').value = new Date().toISOString().slice(0, 7);
+        }
+
+        // Modal recibos
+        async function openRecibosModal() {
+            openModal('recibosModal');
+            document.getElementById('mesRecibos').value = new Date().toISOString().slice(0, 7);
+
+            // Cargar meses disponibles
+            try {
+                const response = await fetch('/api/recibos/meses');
+                const data = await response.json();
+
+                if (data.success && data.meses.length > 0) {
+                    const container = document.getElementById('listaMeses');
+                    container.innerHTML = '';
+
+                    const mesesNombres = {
+                        '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr',
+                        '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+                        '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
+                    };
+
+                    data.meses.slice(0, 6).forEach(mes => {
+                        const [anio, mesNum] = mes.split('-');
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-sm btn-secondary';
+                        btn.style.padding = '6px 12px';
+                        btn.style.fontSize = '12px';
+                        btn.textContent = `${mesesNombres[mesNum] || mesNum} ${anio}`;
+                        btn.onclick = () => {
+                            document.getElementById('mesRecibos').value = mes;
+                        };
+                        container.appendChild(btn);
+                    });
+                } else {
+                    document.getElementById('mesesDisponibles').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error cargando meses:', error);
+            }
+        }
+
+        // Generar recibos
+        function generarRecibos() {
+            const mes = document.getElementById('mesRecibos').value;
+            if (!mes) {
+                showToast('Selecciona un mes', 'warning');
+                return;
+            }
+
+            // Abrir en nueva ventana
+            window.open(`/recibos/mes/${mes}`, '_blank');
+            closeModal('recibosModal');
         }
 
         // Auto-llenar monto al seleccionar cliente
