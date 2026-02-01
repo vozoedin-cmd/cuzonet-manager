@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibos de Pago - CuzoNet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            padding: 15px;
+            font-size: 11px;
+        }
+
+        .page-header {
+            text-align: center;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
+            color: white;
+            border-radius: 8px;
+        }
+
+        .page-header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
+            color: white;
+        }
+
+        .btn-back {
+            background: #6b7280;
+            color: white;
+        }
+
+        .summary {
+            text-align: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Contenedor de recibos - 2 columnas para horizontal */
+        .recibos-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Cada recibo */
+        .recibo {
+            background: white;
+            border: 2px solid #bbb;
+            page-break-inside: avoid;
+        }
+
+        /* Header del recibo */
+        .recibo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .empresa-info img {
+            height: 45px;
+            width: auto;
+        }
+
+        .recibo-imagen {
+            width: 50px;
+            height: 40px;
+            background: #e8f4fc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0066cc;
+        }
+
+        .recibo-imagen i {
+            font-size: 22px;
+        }
+
+        /* Barra de título */
+        .titulo-bar {
+            background: #0066cc;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        /* Fechas */
+        .fechas-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: #f8f9fa;
+            font-size: 9px;
+        }
+
+        /* Contenido del recibo - 2 columnas */
+        .recibo-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 8px 12px;
+        }
+
+        .seccion {
+            border: 1px solid #ddd;
+        }
+
+        .seccion-titulo {
+            background: #e9ecef;
+            padding: 4px 8px;
+            font-weight: bold;
+            font-size: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .seccion-contenido {
+            padding: 6px 8px;
+        }
+
+        .info-linea {
+            display: flex;
+            margin-bottom: 3px;
+            font-size: 9px;
+            line-height: 1.2;
+        }
+
+        .info-linea .label {
+            font-weight: bold;
+            min-width: 55px;
+            color: #0066cc;
+            text-decoration: underline;
+        }
+
+        .info-linea .valor {
+            color: #333;
+            flex: 1;
+        }
+
+        /* Tabla de servicios */
+        .tabla-servicios {
+            padding: 6px 12px;
+        }
+
+        .servicios-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .servicios-table th {
+            background: #e9ecef;
+            padding: 5px 6px;
+            text-align: left;
+            border-bottom: 2px solid #0066cc;
+            font-size: 9px;
+        }
+
+        .servicios-table td {
+            padding: 5px 6px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .servicios-table .total-row td {
+            border-top: 2px solid #0066cc;
+            font-weight: bold;
+            padding-top: 6px;
+        }
+
+        .monto-total {
+            text-align: right;
+            font-size: 13px;
+            color: #0066cc;
+        }
+
+        /* Valor en letras */
+        .valor-letras {
+            background: #0066cc;
+            color: white;
+            padding: 5px 12px;
+            font-size: 9px;
+        }
+
+        .valor-letras strong {
+            color: #ffcc00;
+        }
+
+        /* Footer del recibo */
+        .recibo-footer {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 10px;
+            padding: 8px 12px;
+            border-top: 1px solid #ddd;
+        }
+
+        .servicios-info {
+            font-size: 8px;
+            color: #666;
+            line-height: 1.3;
+            border: 1px solid #ddd;
+            padding: 6px;
+        }
+
+        .firma-section {
+            text-align: center;
+        }
+
+        .firma-section p.titulo-firma {
+            font-size: 8px;
+            margin-bottom: 2px;
+            font-style: italic;
+        }
+
+        .firma-linea {
+            border: 1px solid #333;
+            height: 30px;
+            margin-bottom: 2px;
+        }
+
+        .firma-texto {
+            font-size: 8px;
+            color: #666;
+        }
+
+        /* ========== ESTILOS DE IMPRESIÓN - HORIZONTAL ========== */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .page-header,
+            .controls,
+            .summary {
+                display: none !important;
+            }
+
+            .recibos-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8mm;
+                max-width: 100%;
+            }
+
+            .recibo {
+                border: 1px solid #999;
+                /* 2 recibos lado a lado en hoja horizontal */
+                height: calc(100vh - 16mm);
+                max-height: 190mm;
+            }
+
+            /* Salto de página cada 2 recibos */
+            .recibo:nth-child(2n) {
+                page-break-after: always;
+            }
+        }
+
+        @page {
+            size: letter landscape;
+            margin: 8mm;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            background: white;
+            border-radius: 8px;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state i {
+            font-size: 40px;
+            opacity: 0.5;
+            margin-bottom: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="page-header">
+        <h1><i class="fas fa-receipt"></i> CuzoNet - Recibos de Pago</h1>
+        <p>{{ mes_nombre }} {{ anio }} - {{ pagos|length }} recibos</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn-back" onclick="window.history.back()">
+            <i class="fas fa-arrow-left"></i> Volver
+        </button>
+        <button class="btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> Imprimir Recibos
+        </button>
+    </div>
+
+    <div class="summary">
+        <h2>Resumen: {{ pagos|length }} recibos - Total: Q{{ "%.2f"|format(total) }}</h2>
+    </div>
+
+    <div class="recibos-container">
+        {% if pagos %}
+        {% for pago in pagos %}
+        <div class="recibo">
+            <!-- Header con logo -->
+            <div class="recibo-header">
+                <div class="empresa-info">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="CuzoNet Logo">
+                </div>
+                <div class="recibo-imagen">
+                    <i class="fas fa-wifi"></i>
+                </div>
+            </div>
+
+            <!-- Barra de título -->
+            <div class="titulo-bar">DETALLE DE SERVICIO</div>
+
+            <!-- Fechas -->
+            <div class="fechas-row">
+                <div><strong>FECHA DE EMISIÓN:</strong> {{ pago.fecha_pago.strftime('%d-%m-%Y') if pago.fecha_pago else
+                    '-' }}</div>
+                <div><strong>MES CORRESPONDIENTE:</strong> {{ pago.mes_correspondiente }}</div>
+            </div>
+
+            <!-- Información Cliente y Proveedor -->
+            <div class="recibo-body">
+                <div class="seccion">
+                    <div class="seccion-titulo">Cliente:</div>
+                    <div class="seccion-contenido">
+                        <div class="info-linea">
+                            <span class="label">Nombre /</span>
+                            <span class="valor">{{ pago.cliente.nombre if pago.cliente else 'N/A' }}</span>
+                        </div>
+                        <div class="info-linea">
+                            <span class="label">Dirección /</span>
+                            <span class="valor">{{ pago.cliente.direccion if pago.cliente and pago.cliente.direccion
+                                else '-' }}</span>
+                        </div>
+                        <div class="info-linea">
+                            <span class="label">Teléfono /</span>
+                            <span class="valor">{{ pago.cliente.telefono if pago.cliente and pago.cliente.telefono else
+                                '-' }}</span>
+                        </div>
+                        <div class="info-linea">
+                            <span class="label">IP /</span>
+                            <span class="valor">{{ pago.cliente.ip_address if pago.cliente else 'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="seccion">
+                    <div class="seccion-titulo">Proveedor</div>
+                    <div class="seccion-contenido">
+                        <div class="info-linea">
+                            <span class="label">Nombre /</span>
+                            <span class="valor">CuzoNet</span>
+                        </div>
+                        <div class="info-linea">
+                            <span class="label">Dirección /</span>
+                            <span class="valor">Aldea Chinaha Zapotillo, Chisec A.V.</span>
+                        </div>
+                        <div class="info-linea">
+                            <span class="label">Teléfono /</span>
+                            <span class="valor">32472792</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Servicios -->
+            <div class="tabla-servicios">
+                <table class="servicios-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">Cant.</th>
+                            <th>Descripción del Servicio</th>
+                            <th style="width: 70px; text-align: right;">Valor</th>
+                            <th style="width: 70px; text-align: right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>Servicio de Internet residencial plan {{ pago.cliente.plan.split()[0] if pago.cliente
+                                and pago.cliente.plan else 'Básico' }}</td>
+                            <td style="text-align: right;">Q{{ "%.2f"|format(pago.monto) }}</td>
+                            <td style="text-align: right;">Q{{ "%.2f"|format(pago.monto) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td colspan="3" style="text-align: right;"><strong>TOTAL</strong></td>
+                            <td class="monto-total">Q{{ "%.2f"|format(pago.monto) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Valor en letras -->
+            <div class="valor-letras">
+                <strong>VALOR EN LETRAS:</strong> {{ numero_a_letras(pago.monto) }}
+            </div>
+
+            <!-- Footer -->
+            <div class="recibo-footer">
+                <div class="servicios-info">
+                    <p><strong>Servicios de Internet, Reparación y mantenimiento de Paneles Solares.</strong></p>
+                    <p>Venta de Baterías Solar, Panel Solar, y todo tipo de accesorios.</p>
+                    {% if pago.referencia %}
+                    <p><strong>Referencia:</strong> {{ pago.referencia }}</p>
+                    {% endif %}
+                    {% if pago.metodo_pago %}
+                    <p><strong>Método de pago:</strong> {{ pago.metodo_pago|capitalize }}</p>
+                    {% endif %}
+                </div>
+                <div class="firma-section">
+                    <p class="titulo-firma">Firma y sello</p>
+                    <div class="firma-linea"></div>
+                    <p class="firma-texto">Recibo No. #{{ '%06d' % pago.id }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-receipt"></i>
+            <h3>No hay pagos registrados</h3>
+            <p>No se encontraron pagos para el mes seleccionado</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>
