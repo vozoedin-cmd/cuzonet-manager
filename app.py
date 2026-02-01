@@ -1353,8 +1353,12 @@ def init_db():
         print("[OK] Base de datos inicializada")
 
 
+# Ejecutar migración al importar (para gunicorn)
+init_db()
+
+
 if __name__ == '__main__':
-    init_db()
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
     app.run(host='0.0.0.0', port=port, debug=debug)
+
