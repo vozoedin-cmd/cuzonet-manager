@@ -670,23 +670,24 @@ def mikrotik_status():
                 'message': 'Sin configurar'
             })
         
-        result = api.test_connection()
-        if result.get('success'):
+        # test_connection devuelve (success, message)
+        success, message = api.test_connection()
+        if success:
             # Contar queues
-            queues = api.get_simple_queues()
-            queue_count = len(queues.get('queues', [])) if queues.get('success') else 0
+            queue_success, queues = api.get_simple_queues()
+            queue_count = len(queues) if queue_success and isinstance(queues, list) else 0
             
             return jsonify({
                 'success': True,
                 'connected': True,
-                'message': 'Conectado',
+                'message': f'Conectado: {message}',
                 'queue_count': queue_count
             })
         else:
             return jsonify({
                 'success': True,
                 'connected': False,
-                'message': result.get('error', 'Error de conexión')
+                'message': message
             })
     except Exception as e:
         return jsonify({
