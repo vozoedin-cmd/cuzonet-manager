@@ -508,17 +508,26 @@ async function checkMikroTikStatus() {
 }
 
 /**
- * Sincronizar queues
+ * Sincronizar e importar queues de MikroTik
  */
 async function syncQueues() {
+    if (!confirm('¿Importar clientes desde MikroTik?\n\nEsto creará clientes a partir de los queues de tu router. Los clientes con IPs ya registradas serán omitidos.')) {
+        return;
+    }
+
     showToast('Sincronizando con MikroTik...', 'warning');
 
     try {
-        const response = await fetch('/api/sync/queues');
+        const response = await fetch('/api/sync/import-queues', {
+            method: 'POST'
+        });
         const result = await response.json();
 
         if (result.success) {
-            showToast(`${result.queues.length} queues encontrados en MikroTik`, 'success');
+            showToast(`✅ ${result.importados} clientes importados. ${result.omitidos} omitidos.`, 'success');
+            if (result.importados > 0) {
+                setTimeout(() => location.reload(), 1500);
+            }
         } else {
             showToast(result.error || 'Error al sincronizar', 'error');
         }
