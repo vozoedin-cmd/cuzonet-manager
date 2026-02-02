@@ -1103,38 +1103,92 @@ def importar_clientes():
                 wb = load_workbook(file)
                 ws = wb.active
                 
-                # Obtener encabezados
-                headers = [cell.value.lower() if cell.value else '' for cell in ws[1]]
+                # Obtener encabezados y normalizarlos
+                raw_headers = [cell.value if cell.value else '' for cell in ws[1]]
+                headers = [str(h).lower().strip() for h in raw_headers]
                 
                 for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
                     try:
                         data = dict(zip(headers, row))
                         
-                        nombre = data.get('nombre', '')
-                        ip = data.get('ip', data.get('ip_address', ''))
+                        # Buscar nombre con varias variantes
+                        nombre = (data.get('nombre', '') or 
+                                 data.get('nombre del cliente', '') or 
+                                 data.get('nombre cliente', '') or 
+                                 data.get('cliente', ''))
+                        
+                        # Buscar IP con varias variantes
+                        ip = (data.get('ip', '') or 
+                             data.get('ip_address', '') or 
+                             data.get('ip address', '') or
+                             data.get('direccion ip', ''))
                         
                         if not nombre or not ip:
                             clientes_omitidos += 1
+                            errores.append(f"Fila {row_num}: Falta nombre o IP")
                             continue
                         
                         # Verificar si ya existe
-                        if Cliente.query.filter_by(ip_address=ip).first():
+                        if Cliente.query.filter_by(ip_address=str(ip)).first():
                             clientes_omitidos += 1
+                            errores.append(f"Fila {row_num}: IP {ip} ya existe")
                             continue
+                        
+                        # Obtener plan
+                        plan = (data.get('plan', '') or 'Basico')
+                        
+                        # Obtener velocidades
+                        vel_down = (data.get('velocidad download', '') or 
+                                   data.get('velocidad bajada', '') or 
+                                   data.get('velocidad_download', '') or 
+                                   data.get('download', '') or '10M')
+                        vel_up = (data.get('velocidad upload', '') or 
+                                 data.get('velocidad subida', '') or 
+                                 data.get('velocidad_upload', '') or 
+                                 data.get('upload', '') or '5M')
+                        
+                        # Obtener otros datos
+                        telefono = data.get('telefono', '') or data.get('teléfono', '') or ''
+                        email = data.get('email', '') or data.get('correo', '') or ''
+                        direccion = data.get('direccion', '') or data.get('dirección', '') or ''
+                        cedula = (data.get('cedula', '') or 
+                                 data.get('cédula', '') or 
+                                 data.get('cedula/dpi', '') or 
+                                 data.get('dpi', '') or '')
+                        
+                        # Obtener día de corte
+                        dia_corte_raw = (data.get('dia de corte', '') or 
+                                        data.get('dia corte', '') or 
+                                        data.get('dia_corte', '') or 
+                                        data.get('día de corte', '') or 1)
+                        try:
+                            dia_corte = int(dia_corte_raw) if dia_corte_raw else 1
+                        except:
+                            dia_corte = 1
+                        
+                        # Obtener precio
+                        precio_raw = (data.get('precio mensual (q)', '') or 
+                                     data.get('precio mensual', '') or 
+                                     data.get('precio_mensual', '') or 
+                                     data.get('precio', '') or 0)
+                        try:
+                            precio = float(precio_raw) if precio_raw else 0
+                        except:
+                            precio = 0
                         
                         cliente = Cliente(
                             nombre=str(nombre),
                             ip_address=str(ip),
-                            plan=str(data.get('plan', 'Basico')),
-                            velocidad_download=str(data.get('velocidad bajada', data.get('velocidad_download', '10M'))),
-                            velocidad_upload=str(data.get('velocidad subida', data.get('velocidad_upload', '5M'))),
-                            telefono=str(data.get('telefono', '')),
-                            email=str(data.get('email', '')),
-                            direccion=str(data.get('direccion', '')),
-                            cedula=str(data.get('cedula', '')),
+                            plan=str(plan) if plan else 'Basico',
+                            velocidad_download=str(vel_down) if vel_down else '10M',
+                            velocidad_upload=str(vel_up) if vel_up else '5M',
+                            telefono=str(telefono) if telefono else '',
+                            email=str(email) if email else '',
+                            direccion=str(direccion) if direccion else '',
+                            cedula=str(cedula) if cedula else '',
                             estado='activo',
-                            dia_corte=int(data.get('dia corte', data.get('dia_corte', 1)) or 1),
-                            precio_mensual=float(data.get('precio mensual', data.get('precio_mensual', 0)) or 0)
+                            dia_corte=dia_corte,
+                            precio_mensual=precio
                         )
                         
                         db.session.add(cliente)
