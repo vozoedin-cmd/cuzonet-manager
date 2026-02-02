@@ -1176,6 +1176,28 @@ def importar_clientes():
                         except:
                             precio = 0
                         
+                        # Generar nombre del queue
+                        nombre_limpio = str(nombre).replace(' ', '-').lower()[:30]
+                        queue_name = f"cliente-{nombre_limpio}-{str(ip).replace('.', '-')}"
+                        
+                        # Crear Simple Queue en MikroTik
+                        mikrotik_id = None
+                        api = get_mikrotik_api()
+                        
+                        if api:
+                            success, result = api.create_simple_queue(
+                                name=queue_name,
+                                target=str(ip),
+                                max_limit_download=str(vel_down) if vel_down else '10M',
+                                max_limit_upload=str(vel_up) if vel_up else '5M',
+                                comment=f"Cliente: {nombre}"
+                            )
+                            
+                            if success:
+                                mikrotik_id = result
+                            else:
+                                errores.append(f"Fila {row_num}: Queue no creado - {result}")
+                        
                         cliente = Cliente(
                             nombre=str(nombre),
                             ip_address=str(ip),
@@ -1188,7 +1210,9 @@ def importar_clientes():
                             cedula=str(cedula) if cedula else '',
                             estado='activo',
                             dia_corte=dia_corte,
-                            precio_mensual=precio
+                            precio_mensual=precio,
+                            queue_name=queue_name,
+                            mikrotik_id=mikrotik_id
                         )
                         
                         db.session.add(cliente)
