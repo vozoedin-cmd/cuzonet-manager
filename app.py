@@ -1646,6 +1646,85 @@ def sincronizar_queues():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/sync/import-queues', methods=['POST'])
+def importar_queues_mikrotik():
+    """Importa los queues de MikroTik como clientes en la base de datos"""
+    try:
+        api = get_mikrotik_api()
+        if not api:
+            return jsonify({'success': False, 'error': 'MikroTik no configurado'}), 400
+        
+        success, queues = api.get_simple_queues()
+        
+        if not success:
+            return jsonify({'success': False, 'error': f'Error al obtener queues: {queues}'}), 500
+        
+        importados = 0
+        omitidos = 0
+        errores = []
+        
+        for queue in queues:
+            try:
+                # Extraer datos del queue
+                nombre = queue.get('name', '')
+                target = queue.get('target', '')
+                max_limit = queue.get('max-limit', '10M/10M')
+                comment = queue.get('comment', '')
+                queue_id = queue.get('.id', '')
+                disabled = queue.get('disabled', 'false') == 'true'
+                
+                # Extraer IP del target (formato: IP/32 o IP)
+                ip_address = target.replace('/32', '').strip()
+                
+                # Validar IP
+                if not ip_address or not ip_address.replace('.', '').isdigit() or ip_address.count('.') != 3:
+                    continue
+                
+                # Verificar si ya existe un cliente con esa IP
+                cliente_existente = Cliente.query.filter_by(ip_address=ip_address).first()
+                if cliente_existente:
+                    omitidos += 1
+                    continue
+                
+                # Parsear velocidades (formato: upload/download)
+                velocidades = max_limit.split('/')
+                vel_upload = velocidades[0] if len(velocidades) > 0 else '5M'
+                vel_download = velocidades[1] if len(velocidades) > 1 else '10M'
+                
+                # Crear nuevo cliente
+                nuevo_cliente = Cliente(
+                    nombre=nombre,
+                    ip_address=ip_address,
+                    plan=comment if comment else 'Importado de MikroTik',
+                    velocidad_download=vel_download,
+                    velocidad_upload=vel_upload,
+                    estado='activo' if not disabled else 'suspendido',
+                    queue_id=queue_id,
+                    queue_name=nombre
+                )
+                
+                db.session.add(nuevo_cliente)
+                importados += 1
+                
+            except Exception as e:
+                errores.append(f"{nombre}: {str(e)}")
+                continue
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'importados': importados,
+            'omitidos': omitidos,
+            'errores': errores[:5] if errores else [],
+            'message': f'Se importaron {importados} clientes desde MikroTik. {omitidos} omitidos (ya existían).'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ============== INICIALIZAR DB ==============
 
 def migrate_db():
