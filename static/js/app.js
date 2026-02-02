@@ -94,7 +94,11 @@ if (clienteForm) {
             plan_id: planSelect.value,
             plan: selectedOption.dataset.name || selectedOption.text.split('(')[0].trim(),
             telefono: document.getElementById('telefono').value,
+            email: document.getElementById('email').value,
+            cedula: document.getElementById('cedula').value,
             direccion: document.getElementById('direccion').value,
+            dia_corte: document.getElementById('dia_corte').value || 1,
+            precio_mensual: document.getElementById('precio_mensual').value || selectedOption.dataset.precio || 0,
             velocidad_download: document.getElementById('velocidad_download').value || selectedOption.dataset.download,
             velocidad_upload: document.getElementById('velocidad_upload').value || selectedOption.dataset.upload
         };
@@ -133,10 +137,15 @@ function updatePlanSpeeds() {
 
     const downloadInput = document.getElementById('velocidad_download');
     const uploadInput = document.getElementById('velocidad_upload');
+    const precioInput = document.getElementById('precio_mensual');
 
     if (downloadInput && uploadInput) {
         downloadInput.placeholder = selectedOption.dataset.download || '10M';
         uploadInput.placeholder = selectedOption.dataset.upload || '5M';
+    }
+
+    if (precioInput && selectedOption.dataset.precio) {
+        precioInput.value = selectedOption.dataset.precio;
     }
 }
 
@@ -441,8 +450,6 @@ async function exportClientes() {
     }
 }
 
-// ============== MIKROTIK ==============
-
 /**
  * Verificar estado de MikroTik
  */
@@ -450,11 +457,25 @@ async function checkMikroTikStatus() {
     const statusDiv = document.getElementById('mikrotikStatus');
     if (!statusDiv) return;
 
+    // Mostrar estado de carga
+    statusDiv.innerHTML = `
+        <div class="status-indicator loading"></div>
+        <span>MikroTik: Conectando...</span>
+    `;
+
     try {
-        const response = await fetch('/api/sync/queues');
+        // Usar timeout para evitar espera larga
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch('/api/mikrotik/status', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         const result = await response.json();
 
-        if (result.success) {
+        if (result.success && result.connected) {
             statusDiv.innerHTML = `
                 <div class="status-indicator online"></div>
                 <span>MikroTik: Conectado</span>
@@ -462,20 +483,27 @@ async function checkMikroTikStatus() {
 
             // Actualizar contador de queues si existe
             const queueCount = document.getElementById('queueCount');
-            if (queueCount && result.queues) {
-                queueCount.textContent = result.queues.length;
+            if (queueCount && result.queue_count !== undefined) {
+                queueCount.textContent = result.queue_count;
             }
         } else {
             statusDiv.innerHTML = `
                 <div class="status-indicator offline"></div>
-                <span>MikroTik: Desconectado</span>
+                <span>MikroTik: ${result.message || 'Desconectado'}</span>
             `;
         }
     } catch (error) {
-        statusDiv.innerHTML = `
-            <div class="status-indicator offline"></div>
-            <span>MikroTik: Sin configurar</span>
-        `;
+        if (error.name === 'AbortError') {
+            statusDiv.innerHTML = `
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Timeout</span>
+            `;
+        } else {
+            statusDiv.innerHTML = `
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Sin configurar</span>
+            `;
+        }
     }
 }
 
