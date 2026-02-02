@@ -192,19 +192,38 @@
     <div class="modal-overlay" id="editClienteModal">
         <div class="modal">
             <div class="modal-header">
-                <h2><i class="fas fa-user-edit"></i> Editar</h2><button class="modal-close"
+                <h2><i class="fas fa-user-edit"></i> Editar Cliente</h2><button class="modal-close"
                     onclick="closeModal('editClienteModal')"><i class="fas fa-times"></i></button>
             </div>
             <form id="editClienteForm" class="modal-form">
                 <input type="hidden" id="edit_id">
                 <div class="form-row">
-                    <div class="form-group"><label>Nombre</label><input type="text" id="edit_nombre" required></div>
-                    <div class="form-group"><label>IP</label><input type="text" id="edit_ip_address" required></div>
+                    <div class="form-group"><label>Nombre *</label><input type="text" id="edit_nombre" required></div>
+                    <div class="form-group"><label>IP *</label><input type="text" id="edit_ip_address" required></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Telefono</label><input type="tel" id="edit_telefono"></div>
-                    <div class="form-group"><label>Dia Corte</label><input type="number" id="edit_dia_corte" min="1"
+                    <div class="form-group"><label>Plan</label><input type="text" id="edit_plan"></div>
+                    <div class="form-group"><label>Teléfono</label><input type="tel" id="edit_telefono"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Email</label><input type="email" id="edit_email"></div>
+                    <div class="form-group"><label>Cédula/DPI</label><input type="text" id="edit_cedula"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;"><label>Dirección</label><input type="text"
+                            id="edit_direccion"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Día Corte</label><input type="number" id="edit_dia_corte" min="1"
                             max="28"></div>
+                    <div class="form-group"><label>Precio Mensual (Q)</label><input type="number"
+                            id="edit_precio_mensual" step="0.01" min="0"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Vel. Download</label><input type="text" id="edit_velocidad_download"
+                            placeholder="10M"></div>
+                    <div class="form-group"><label>Vel. Upload</label><input type="text" id="edit_velocidad_upload"
+                            placeholder="5M"></div>
                 </div>
                 <div class="form-actions"><button type="button" class="btn btn-secondary"
                         onclick="closeModal('editClienteModal')">Cancelar</button><button type="submit"
@@ -233,8 +252,61 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        async function editarCliente(id) { try { const r = await fetch(`/api/cliente/${id}`); const d = await r.json(); if (d.success) { document.getElementById('edit_id').value = d.cliente.id; document.getElementById('edit_nombre').value = d.cliente.nombre; document.getElementById('edit_ip_address').value = d.cliente.ip_address; document.getElementById('edit_telefono').value = d.cliente.telefono || ''; document.getElementById('edit_dia_corte').value = d.cliente.dia_corte || 1; openModal('editClienteModal'); } else { showToast('Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
-        document.getElementById('editClienteForm').addEventListener('submit', async function (e) { e.preventDefault(); const id = document.getElementById('edit_id').value; const f = { nombre: document.getElementById('edit_nombre').value, ip_address: document.getElementById('edit_ip_address').value, telefono: document.getElementById('edit_telefono').value, dia_corte: document.getElementById('edit_dia_corte').value }; try { const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) }); const d = await r.json(); if (d.success) { showToast('Actualizado', 'success'); closeModal('editClienteModal'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } });
+        async function editarCliente(id) {
+            try {
+                const r = await fetch(`/api/cliente/${id}`);
+                const d = await r.json();
+                if (d.success) {
+                    document.getElementById('edit_id').value = d.cliente.id;
+                    document.getElementById('edit_nombre').value = d.cliente.nombre || '';
+                    document.getElementById('edit_ip_address').value = d.cliente.ip_address || '';
+                    document.getElementById('edit_plan').value = d.cliente.plan || '';
+                    document.getElementById('edit_telefono').value = d.cliente.telefono || '';
+                    document.getElementById('edit_email').value = d.cliente.email || '';
+                    document.getElementById('edit_cedula').value = d.cliente.cedula || '';
+                    document.getElementById('edit_direccion').value = d.cliente.direccion || '';
+                    document.getElementById('edit_dia_corte').value = d.cliente.dia_corte || 1;
+                    document.getElementById('edit_precio_mensual').value = d.cliente.precio_mensual || 0;
+                    document.getElementById('edit_velocidad_download').value = d.cliente.velocidad_download || '10M';
+                    document.getElementById('edit_velocidad_upload').value = d.cliente.velocidad_upload || '5M';
+                    openModal('editClienteModal');
+                } else {
+                    showToast('Error al cargar cliente', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+        document.getElementById('editClienteForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const f = {
+                nombre: document.getElementById('edit_nombre').value,
+                ip_address: document.getElementById('edit_ip_address').value,
+                plan: document.getElementById('edit_plan').value,
+                telefono: document.getElementById('edit_telefono').value,
+                email: document.getElementById('edit_email').value,
+                cedula: document.getElementById('edit_cedula').value,
+                direccion: document.getElementById('edit_direccion').value,
+                dia_corte: document.getElementById('edit_dia_corte').value,
+                precio_mensual: document.getElementById('edit_precio_mensual').value,
+                velocidad_download: document.getElementById('edit_velocidad_download').value,
+                velocidad_upload: document.getElementById('edit_velocidad_upload').value
+            };
+            try {
+                const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Cliente actualizado', 'success');
+                    closeModal('editClienteModal');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(d.error || 'Error al guardar', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            }
+        });
         async function cortarCliente(id) { if (!confirm('Cortar cliente?')) return; try { const r = await fetch(`/api/cliente/${id}/cortar`, { method: 'POST' }); const d = await r.json(); if (d.success) { showToast('Cortado', 'success'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
         document.getElementById('importForm').addEventListener('submit', async function (e) { e.preventDefault(); const f = new FormData(); f.append('file', document.getElementById('importFile').files[0]); try { const r = await fetch('/api/clientes/importar', { method: 'POST', body: f }); const d = await r.json(); if (d.success) { showToast(`Importados: ${d.importados}`, 'success'); closeModal('importModal'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } });
     </script>
