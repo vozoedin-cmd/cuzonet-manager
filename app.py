@@ -1785,11 +1785,11 @@ def init_db():
         # Crear planes por defecto si no existen
         if Plan.query.count() == 0:
             planes_default = [
-                Plan(nombre='Basico 5Mbps', velocidad_download='5M', velocidad_upload='2M', precio=15.00),
-                Plan(nombre='Estandar 10Mbps', velocidad_download='10M', velocidad_upload='5M', precio=25.00),
-                Plan(nombre='Premium 20Mbps', velocidad_download='20M', velocidad_upload='10M', precio=35.00),
-                Plan(nombre='Ultra 50Mbps', velocidad_download='50M', velocidad_upload='25M', precio=50.00),
-                Plan(nombre='Empresarial 100Mbps', velocidad_download='100M', velocidad_upload='50M', precio=100.00),
+                Plan(nombre='Basico 5Mbps', velocidad_download='5M', velocidad_upload='5M', precio=200.00),
+                Plan(nombre='Estandar 10Mbps', velocidad_download='7M', velocidad_upload='7M', precio=200.00),
+                Plan(nombre='Premium 20Mbps', velocidad_download='10M', velocidad_upload='10M', precio=250.00),
+                Plan(nombre='Ultra 50Mbps', velocidad_download='15M', velocidad_upload='15M', precio=300.00),
+                Plan(nombre='Empresarial 100Mbps', velocidad_download='100M', velocidad_upload='100M', precio=800.00),
             ]
             for plan in planes_default:
                 db.session.add(plan)
@@ -1807,4 +1807,5 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
     app.run(host='0.0.0.0', port=port, debug=debug)
+
 
