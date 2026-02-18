@@ -101,6 +101,9 @@ client.on('message_create', async (message) => {
             case 'pago':
                 await procesarPago(message, partes.slice(1));
                 break;
+            case 'cliente':
+                await registrarCliente(message, partes.slice(1));
+                break;
             case 'consulta':
                 await consultarCliente(message, partes.slice(1));
                 break;
@@ -290,26 +293,128 @@ async function consultarCliente(message, args) {
 }
 
 /**
+ * Registrar un nuevo cliente
+ * Formato: !cliente nombre / IP / plan / telefono / direccion / dia_corte / precio
+ */
+async function registrarCliente(message, args) {
+    // Unir todo y separar por /
+    const textoCompleto = args.join(' ');
+    const campos = textoCompleto.split('/').map(c => c.trim());
+
+    if (campos.length < 2) {
+        await message.reply(
+            '⚠️ *Formato incorrecto.*\n\n' +
+            '📝 *Uso (separar con / ):*\n' +
+            '`!cliente nombre / IP / plan / teléfono / dirección / día_corte / precio`\n\n' +
+            '📌 *Ejemplo completo:*\n' +
+            '`!cliente Juan Perez / 172.16.1.50 / Basico 7Mbps / 32472792 / Aldea Chinaha / 15 / 200`\n\n' +
+            '📌 *Ejemplo mínimo (solo nombre e IP):*\n' +
+            '`!cliente Juan Perez / 172.16.1.50`\n\n' +
+            'ℹ️ Los campos opcionales se dejan vacíos si no los tienes.'
+        );
+        return;
+    }
+
+    const nombre = campos[0] || '';
+    const ip = campos[1] || '';
+    const plan = campos[2] || 'Basico';
+    const telefono = campos[3] || '';
+    const direccion = campos[4] || '';
+    const diaCorteParsed = campos[5] ? parseInt(campos[5]) : 1;
+    const diaCorteFinal = (diaCorteParsed >= 1 && diaCorteParsed <= 28) ? diaCorteParsed : 1;
+    const precio = campos[6] ? parseFloat(campos[6]) : 0;
+
+    // Validar nombre
+    if (!nombre) {
+        await message.reply('⚠️ El *nombre* es obligatorio.');
+        return;
+    }
+
+    // Validar IP
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+        await message.reply('⚠️ La *IP* no es válida. Debe ser formato: `172.16.1.50`');
+        return;
+    }
+
+    try {
+        const respuesta = await axios.post(`${CONFIG.API_URL}/api/cliente`, {
+            nombre: nombre,
+            ip_address: ip,
+            plan: plan,
+            telefono: telefono,
+            direccion: direccion,
+            dia_corte: diaCorteFinal,
+            precio_mensual: precio,
+            velocidad_download: '10M',
+            velocidad_upload: '5M',
+        });
+
+        if (respuesta.data.success) {
+            await message.reply(
+                `✅ *CLIENTE REGISTRADO*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `👤 *Nombre:* ${nombre}\n` +
+                `🌐 *IP:* ${ip}\n` +
+                `📡 *Plan:* ${plan}\n` +
+                `📞 *Teléfono:* ${telefono || 'N/A'}\n` +
+                `📍 *Dirección:* ${direccion || 'N/A'}\n` +
+                `✂️ *Día de corte:* ${diaCorteFinal}\n` +
+                `💰 *Precio:* Q${precio.toFixed(2)}`
+            );
+            console.log(`✅ Cliente registrado: ${nombre} (${ip})`);
+        } else {
+            await message.reply(`❌ Error: ${respuesta.data.error || 'No se pudo registrar'}`);
+        }
+    } catch (error) {
+        if (error.response && error.response.data) {
+            await message.reply(`❌ ${error.response.data.error || 'Error al registrar cliente'}`);
+        } else {
+            console.error('Error registrando cliente:', error.message);
+            await message.reply('❌ No se pudo conectar con el sistema.');
+        }
+    }
+}
+
+/**
  * Mostrar ayuda
  */
 async function mostrarAyuda(message) {
     await message.reply(
-        `🤖 *CuzoNet Bot - Comandos*\n\n` +
-        `📝 *Registrar pago:*\n` +
-        `\`!pago [nombre] [monto]\`\n` +
-        `\`!pago [IP] [monto]\`\n` +
-        `\`!pago [nombre] [monto] [método]\`\n` +
-        `\`!pago [nombre] [monto] [método] ref:123\`\n\n` +
-        `🔍 *Consultar cliente:*\n` +
-        `\`!consulta [nombre]\`\n` +
-        `\`!consulta [IP]\`\n\n` +
-        `💳 *Métodos de pago:*\n` +
-        `efectivo, transferencia, deposito, tarjeta\n\n` +
-        `📌 *Ejemplos:*\n` +
-        `\`!pago Juan Perez 200\`\n` +
-        `\`!pago 172.16.1.18 150 transferencia\`\n` +
+        `╔══════════════════════════╗\n` +
+        `║  🌐 *CuzoNet Bot* 🤖     ║\n` +
+        `║  _Panel de Comandos_     ║\n` +
+        `╚══════════════════════════╝\n\n` +
+
+        `💵 *REGISTRAR PAGO*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `▸ \`!pago [nombre] [monto]\`\n` +
+        `▸ \`!pago [IP] [monto]\`\n` +
+        `▸ \`!pago [nombre] [monto] [método]\`\n\n` +
+
+        `👤 *REGISTRAR CLIENTE*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `▸ \`!cliente nombre / IP / plan / tel / dirección / día_corte / precio\`\n\n` +
+
+        `🔍 *CONSULTAR CLIENTE*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `▸ \`!consulta [nombre o IP]\`\n\n` +
+
+        `══════════════════════════\n` +
+        `📌 *EJEMPLOS*\n` +
+        `══════════════════════════\n\n` +
+        `💵 Pago simple:\n` +
+        `\`!pago Juan Perez 200\`\n\n` +
+        `💳 Pago con método:\n` +
+        `\`!pago 172.16.1.18 150 transferencia\`\n\n` +
+        `👤 Cliente completo:\n` +
+        `\`!cliente Juan Perez / 172.16.1.50 / Basico 7Mbps / 32472792 / Aldea Chinaha / 15 / 200\`\n\n` +
+        `👤 Cliente mínimo:\n` +
+        `\`!cliente Juan Perez / 172.16.1.50\`\n\n` +
+        `🔍 Consulta:\n` +
         `\`!consulta Adan Choc\`\n\n` +
-        `ℹ️ *Nota:* El bot busca por coincidencia parcial de nombre.`
+
+        `💳 *Métodos de pago:* efectivo, transferencia, deposito, tarjeta\n\n` +
+        `ℹ️ _Separa los campos del cliente con  /  (barra)_`
     );
 }
 
