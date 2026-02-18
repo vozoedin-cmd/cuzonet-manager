@@ -38,14 +38,31 @@ const CONFIG = {
 };
 
 // ============== CLIENTE WHATSAPP ==============
+const puppeteerArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+];
+
+// En servidor Linux, agregar flags de bajo consumo de memoria
+if (IS_SERVER) {
+    puppeteerArgs.push(
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--no-first-run',
+        '--single-process',
+        '--no-zygote',
+        '--js-flags=--max-old-space-size=256'
+    );
+}
+
 const puppeteerConfig = {
     headless: true,
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-    ],
+    args: puppeteerArgs,
 };
 
 // En servidor Linux, usar Chromium del sistema
