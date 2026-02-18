@@ -1,0 +1,815 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-network-wired"></i><span>CuzoNet</span></div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="/" class="nav-link"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
+            <li class="nav-item active"><a href="/clientes" class="nav-link"><i
+                        class="fas fa-users"></i><span>Clientes</span></a></li>
+            <li class="nav-item"><a href="/pagos" class="nav-link"><i
+                        class="fas fa-money-bill-wave"></i><span>Pagos</span></a></li>
+            <li class="nav-item"><a href="/reportes" class="nav-link"><i
+                        class="fas fa-chart-bar"></i><span>Reportes</span></a></li>
+            <li class="nav-item"><a href="/configuracion" class="nav-link"><i
+                        class="fas fa-cog"></i><span>Configuracion</span></a></li>
+            <li class="nav-item"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
+            <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1>Gestion de Clientes</h1>
+                <p class="header-subtitle">Administra todos tus clientes</p>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-secondary" onclick="openModal('importModal')"><i class="fas fa-upload"></i>
+                    Importar</button>
+                <button class="btn btn-secondary" onclick="window.open('/api/clientes/exportar')"><i
+                        class="fas fa-download"></i> Exportar</button>
+                <button class="btn btn-warning" onclick="window.open('/avisos-cobro')"
+                    style="background: #e67e22; color: white;"><i class="fas fa-file-invoice-dollar"></i> Avisos de
+                    Cobro</button>
+                <button class="btn btn-primary" onclick="openModal('clienteModal')"><i class="fas fa-plus"></i> Nuevo
+                    Cliente</button>
+            </div>
+        </header>
+
+        <section class="filters-section">
+            <div class="search-box large"><i class="fas fa-search"></i><input type="text" id="searchInput"
+                    placeholder="Buscar..." onkeyup="filterTable()"></div>
+            <div class="filter-group">
+                <select id="filterEstado" onchange="filterTable()">
+                    <option value="">Todos</option>
+                    <option value="activo">Activos</option>
+                    <option value="suspendido">Suspendidos</option>
+                    <option value="cortado">Cortados</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="table-section">
+            <div class="table-container">
+                <table class="data-table" id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                            <th class="sortable" data-sort="nombre" onclick="sortTable('nombre')">Cliente <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="ip" onclick="sortTable('ip')">IP <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="plan" onclick="sortTable('plan')">Plan <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="velocidad" onclick="sortTable('velocidad')">Velocidad <i class="fas fa-sort"></i></th>
+                            <th>Dia Corte</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                        <tr data-id="{{ cliente.id }}" data-estado="{{ cliente.estado }}"
+                            data-nombre="{{ cliente.nombre }}" data-ip="{{ cliente.ip_address }}"
+                            data-plan="{{ cliente.plan }}" data-velocidad="{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload }}">
+                            <td><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
+                            <td>
+                                <div class="client-info">
+                                    <div class="client-avatar">{{ cliente.nombre[0].upper() }}</div>
+                                    <div class="client-details">
+                                        <span class="client-name">{{ cliente.nombre }}</span>
+                                        <span class="client-phone">{{ cliente.telefono or '' }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><code class="ip-badge">{{ cliente.ip_address }}</code></td>
+                            <td>{{ cliente.plan }}</td>
+                            <td><span class="speed-badge">{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload
+                                    }}</span></td>
+                            <td><span class="day-badge">{{ cliente.dia_corte or 1 }}</span></td>
+                            <td>
+                                {% if cliente.estado == 'activo' %}<span class="status-badge active"><i
+                                        class="fas fa-circle"></i> Activo</span>
+                                {% elif cliente.estado == 'cortado' %}<span class="status-badge cut"><i
+                                        class="fas fa-ban"></i> Cortado</span>
+                                {% else %}<span class="status-badge suspended"><i class="fas fa-pause"></i>
+                                    Suspendido</span>{% endif %}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-icon info" onclick="editarCliente({{ cliente.id }})"
+                                        title="Editar"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-icon cobro" onclick="generarAvisoIndividual({{ cliente.id }})"
+                                        title="Aviso de Cobro"><i class="fas fa-file-invoice-dollar"></i></button>
+                                    <button class="btn-icon" onclick="window.open('/ficha-cliente/{{ cliente.id }}', '_blank')"
+                                        title="Ficha del Cliente" style="background: rgba(14,165,233,0.15); color: #0ea5e9;"><i class="fas fa-id-card"></i></button>
+                                    {% if cliente.telefono %}
+                                    <button class="btn-icon whatsapp" onclick="enviarWhatsApp('{{ cliente.telefono }}', '{{ cliente.nombre }}', '{{ cliente.precio_mensual or 0 }}', '{{ cliente.plan }}')"
+                                        title="WhatsApp"><i class="fab fa-whatsapp"></i></button>
+                                    {% endif %}
+                                    {% if cliente.estado == 'activo' %}
+                                    <button class="btn-icon warning" onclick="suspenderCliente({{ cliente.id }})"
+                                        title="Suspender"><i class="fas fa-pause"></i></button>
+                                    <button class="btn-icon cut" onclick="cortarCliente({{ cliente.id }})"
+                                        title="Cortar"><i class="fas fa-ban"></i></button>
+                                    {% else %}
+                                    <button class="btn-icon success" onclick="activarCliente({{ cliente.id }})"
+                                        title="Activar"><i class="fas fa-play"></i></button>
+                                    {% endif %}
+                                    <button class="btn-icon danger"
+                                        onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')"
+                                        title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not clientes %}
+                        <tr>
+                            <td colspan="8" class="empty-state"><i class="fas fa-users"></i>
+                                <p>No hay clientes</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="bulk-actions" id="bulkActions" style="display:none;">
+                <span id="selectedCount">0</span>
+                <button class="btn btn-warning" onclick="bulkSuspend()"><i class="fas fa-pause"></i></button>
+                <button class="btn btn-success" onclick="bulkActivate()"><i class="fas fa-play"></i></button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Nuevo -->
+    <div class="modal-overlay" id="clienteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Nuevo Cliente</h2><button class="modal-close"
+                    onclick="closeModal('clienteModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="clienteForm" class="modal-form">
+                <div class="form-row">
+                    <div class="form-group"><label>Nombre *</label><input type="text" id="nombre" name="nombre" required
+                            placeholder="Ej: Juan Pérez"></div>
+                    <div class="form-group"><label>IP *</label><input type="text" id="ip_address" name="ip_address"
+                            required pattern="^(\d{1,3}\.){3}\d{1,3}$" placeholder="Ej: 192.168.1.100"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Plan</label><select id="plan" name="plan"
+                            onchange="updatePlanSpeeds()">{% for plan in planes %}<option value="{{ plan.id }}"
+                                data-download="{{ plan.velocidad_download }}" data-upload="{{ plan.velocidad_upload }}"
+                                data-precio="{{ plan.precio }}">
+                                {{ plan.nombre }}</option>{% endfor %}</select></div>
+                    <div class="form-group"><label>Telefono</label><input type="tel" id="telefono" name="telefono"
+                            placeholder="Ej: 32472792">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Email</label><input type="email" id="email" name="email"
+                            placeholder="Ej: cliente@email.com"></div>
+                    <div class="form-group"><label>Cédula/DPI</label><input type="text" id="cedula" name="cedula"
+                            placeholder="Ej: 1234567890101"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;"><label>Dirección</label><input type="text" id="direccion"
+                            name="direccion" placeholder="Ej: Aldea Chinaha, Chisec A.V."></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Dia Corte</label><input type="number" id="dia_corte" name="dia_corte"
+                            min="1" max="28" value="1" placeholder="1-28"></div>
+                    <div class="form-group"><label>Precio Mensual (Q)</label><input type="number" id="precio_mensual"
+                            name="precio_mensual" step="0.01" min="0" value="0" placeholder="Ej: 150.00"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Download</label><input type="text" id="velocidad_download"
+                            name="velocidad_download" placeholder="Ej: 10M"></div>
+                    <div class="form-group"><label>Upload</label><input type="text" id="velocidad_upload"
+                            name="velocidad_upload" placeholder="Ej: 5M"></div>
+                </div>
+                <div class="form-actions"><button type="button" class="btn btn-secondary"
+                        onclick="closeModal('clienteModal')">Cancelar</button><button type="submit"
+                        class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar -->
+    <div class="modal-overlay" id="editClienteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Editar Cliente</h2><button class="modal-close"
+                    onclick="closeModal('editClienteModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editClienteForm" class="modal-form">
+                <input type="hidden" id="edit_id">
+                <div class="form-row">
+                    <div class="form-group"><label>Nombre *</label><input type="text" id="edit_nombre" required></div>
+                    <div class="form-group"><label>IP *</label><input type="text" id="edit_ip_address" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Plan</label><input type="text" id="edit_plan"></div>
+                    <div class="form-group"><label>Teléfono</label><input type="tel" id="edit_telefono"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Email</label><input type="email" id="edit_email"></div>
+                    <div class="form-group"><label>Cédula/DPI</label><input type="text" id="edit_cedula"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;"><label>Dirección</label><input type="text"
+                            id="edit_direccion"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Día Corte</label><input type="number" id="edit_dia_corte" min="1"
+                            max="28"></div>
+                    <div class="form-group"><label>Precio Mensual (Q)</label><input type="number"
+                            id="edit_precio_mensual" step="0.01" min="0"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Vel. Download</label><input type="text" id="edit_velocidad_download"
+                            placeholder="10M"></div>
+                    <div class="form-group"><label>Vel. Upload</label><input type="text" id="edit_velocidad_upload"
+                            placeholder="5M"></div>
+                </div>
+                <div class="form-actions"><button type="button" class="btn btn-secondary"
+                        onclick="closeModal('editClienteModal')">Cancelar</button><button type="submit"
+                        class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Importar PRO -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-excel"></i> Importar Clientes</h2>
+                <button class="modal-close" onclick="closeModal('importModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="import-container">
+                <!-- Instrucciones -->
+                <div class="import-instructions">
+                    <div class="instruction-header">
+                        <i class="fas fa-info-circle"></i>
+                        <h3>Instrucciones de Importación</h3>
+                    </div>
+                    <div class="instruction-steps">
+                        <div class="step">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <strong>Prepara tu archivo</strong>
+                                <p>Excel (.xlsx) o CSV con las columnas indicadas abajo</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <strong>Columnas requeridas</strong>
+                                <p><code>Nombre</code> e <code>IP</code> son obligatorios</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <strong>IPs duplicadas</strong>
+                                <p>Se omitirán automáticamente las IPs ya registradas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de columnas -->
+                <div class="columns-table-container">
+                    <h4><i class="fas fa-table"></i> Columnas Soportadas</h4>
+                    <div class="columns-grid">
+                        <div class="column-item required">
+                            <span class="col-name">Nombre *</span>
+                            <span class="col-example">Juan Pérez</span>
+                        </div>
+                        <div class="column-item required">
+                            <span class="col-name">IP *</span>
+                            <span class="col-example">192.168.1.100</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Plan</span>
+                            <span class="col-example">Básico 5Mbps</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Teléfono</span>
+                            <span class="col-example">32472792</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Email</span>
+                            <span class="col-example">cliente@email.com</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Dirección</span>
+                            <span class="col-example">Aldea Chinaha</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Cédula/DPI</span>
+                            <span class="col-example">1234567890101</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Día de Corte</span>
+                            <span class="col-example">15</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Precio Mensual</span>
+                            <span class="col-example">150.00</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Velocidad Download</span>
+                            <span class="col-example">10M</span>
+                        </div>
+                        <div class="column-item">
+                            <span class="col-name">Velocidad Upload</span>
+                            <span class="col-example">5M</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zona de carga -->
+                <form id="importForm" enctype="multipart/form-data">
+                    <div class="file-upload-pro">
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" required>
+                        <label for="importFile" class="upload-label">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="upload-text">
+                                <span class="upload-title">Arrastra tu archivo aquí</span>
+                                <span class="upload-subtitle">o haz clic para seleccionar</span>
+                                <span class="upload-formats"><i class="fas fa-file-excel"></i> .xlsx, .xls, .csv</span>
+                            </div>
+                        </label>
+                        <div class="file-selected" id="fileSelected" style="display: none;">
+                            <i class="fas fa-file-excel"></i>
+                            <span id="fileName"></span>
+                            <button type="button" class="btn-remove-file" onclick="clearFile()"><i
+                                    class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="import-actions">
+                        <a href="/api/clientes/plantilla" class="btn btn-secondary" download>
+                            <i class="fas fa-download"></i> Descargar Plantilla
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-import" id="btnImport" disabled>
+                            <i class="fas fa-upload"></i> Importar Clientes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        async function editarCliente(id) {
+            try {
+                const r = await fetch(`/api/cliente/${id}`);
+                const d = await r.json();
+                if (d.success) {
+                    document.getElementById('edit_id').value = d.cliente.id;
+                    document.getElementById('edit_nombre').value = d.cliente.nombre || '';
+                    document.getElementById('edit_ip_address').value = d.cliente.ip_address || '';
+                    document.getElementById('edit_plan').value = d.cliente.plan || '';
+                    document.getElementById('edit_telefono').value = d.cliente.telefono || '';
+                    document.getElementById('edit_email').value = d.cliente.email || '';
+                    document.getElementById('edit_cedula').value = d.cliente.cedula || '';
+                    document.getElementById('edit_direccion').value = d.cliente.direccion || '';
+                    document.getElementById('edit_dia_corte').value = d.cliente.dia_corte || 1;
+                    document.getElementById('edit_precio_mensual').value = d.cliente.precio_mensual || 0;
+                    document.getElementById('edit_velocidad_download').value = d.cliente.velocidad_download || '10M';
+                    document.getElementById('edit_velocidad_upload').value = d.cliente.velocidad_upload || '5M';
+                    openModal('editClienteModal');
+                } else {
+                    showToast('Error al cargar cliente', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+        document.getElementById('editClienteForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const f = {
+                nombre: document.getElementById('edit_nombre').value,
+                ip_address: document.getElementById('edit_ip_address').value,
+                plan: document.getElementById('edit_plan').value,
+                telefono: document.getElementById('edit_telefono').value,
+                email: document.getElementById('edit_email').value,
+                cedula: document.getElementById('edit_cedula').value,
+                direccion: document.getElementById('edit_direccion').value,
+                dia_corte: document.getElementById('edit_dia_corte').value,
+                precio_mensual: document.getElementById('edit_precio_mensual').value,
+                velocidad_download: document.getElementById('edit_velocidad_download').value,
+                velocidad_upload: document.getElementById('edit_velocidad_upload').value
+            };
+            try {
+                const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Cliente actualizado', 'success');
+                    closeModal('editClienteModal');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(d.error || 'Error al guardar', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+        async function cortarCliente(id) { if (!confirm('Cortar cliente?')) return; try { const r = await fetch(`/api/cliente/${id}/cortar`, { method: 'POST' }); const d = await r.json(); if (d.success) { showToast('Cortado', 'success'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
+        document.getElementById('importForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnImport');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+
+            const f = new FormData();
+            f.append('file', document.getElementById('importFile').files[0]);
+            try {
+                const r = await fetch('/api/clientes/importar', { method: 'POST', body: f });
+                const d = await r.json();
+                if (d.success) {
+                    showToast(`âœ… Importados: ${d.importados} clientes${d.omitidos ? ` (${d.omitidos} omitidos)` : ''}`, 'success');
+                    closeModal('importModal');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(d.error || 'Error', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-upload"></i> Importar Clientes';
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload"></i> Importar Clientes';
+            }
+        });
+
+        // Manejar selección de archivo
+        document.getElementById('importFile').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            const uploadLabel = document.querySelector('.upload-label');
+            const fileSelected = document.getElementById('fileSelected');
+            const fileName = document.getElementById('fileName');
+            const btnImport = document.getElementById('btnImport');
+
+            if (file) {
+                uploadLabel.style.display = 'none';
+                fileSelected.style.display = 'flex';
+                fileName.textContent = file.name;
+                btnImport.disabled = false;
+            }
+        });
+
+        function clearFile() {
+            document.getElementById('importFile').value = '';
+            document.querySelector('.upload-label').style.display = 'flex';
+            document.getElementById('fileSelected').style.display = 'none';
+            document.getElementById('btnImport').disabled = true;
+        }
+    </script>
+    <style>
+        .btn-icon.cut {
+            background: rgba(220, 53, 69, .2);
+            color: #dc3545
+        }
+
+        .btn-icon.cut:hover {
+            background: #dc3545;
+            color: #fff
+        }
+
+        .btn-icon.cobro {
+            background: rgba(73, 173, 227, .2);
+            color: #49ade3
+        }
+
+        .btn-icon.cobro:hover {
+            background: #49ade3;
+            color: #fff
+        }
+
+        .btn-icon.whatsapp {
+            background: rgba(37, 211, 102, .2);
+            color: #25d366
+        }
+
+        .btn-icon.whatsapp:hover {
+            background: #25d366;
+            color: #fff
+        }
+
+        .status-badge.cut {
+            background: rgba(220, 53, 69, .2);
+            color: #dc3545
+        }
+
+        .day-badge {
+            background: rgba(14, 165, 233, .2);
+            color: #0ea5e9;
+            padding: 4px 12px;
+            border-radius: 20px
+        }
+
+        /* Modal Large */
+        .modal.modal-large {
+            max-width: 700px;
+            width: 95%;
+        }
+
+        /* Import Container */
+        .import-container {
+            padding: 20px;
+        }
+
+        /* Instrucciones */
+        .import-instructions {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .instruction-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .instruction-header i {
+            font-size: 24px;
+            color: #0ea5e9;
+        }
+
+        .instruction-header h3 {
+            margin: 0;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .instruction-steps {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .step-content strong {
+            display: block;
+            color: #fff;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            color: #aaa;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .step-content code {
+            background: rgba(14, 165, 233, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #0ea5e9;
+        }
+
+        /* Tabla de columnas */
+        .columns-table-container {
+            margin-bottom: 20px;
+        }
+
+        .columns-table-container h4 {
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .columns-table-container h4 i {
+            color: #0ea5e9;
+        }
+
+        .columns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 8px;
+        }
+
+        .column-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .column-item.required {
+            border-color: rgba(14, 165, 233, 0.5);
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .col-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 12px;
+        }
+
+        .column-item.required .col-name {
+            color: #0ea5e9;
+        }
+
+        .col-example {
+            color: #888;
+            font-size: 11px;
+            font-style: italic;
+        }
+
+        /* Zona de carga PRO */
+        .file-upload-pro {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .file-upload-pro input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .upload-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            border: 2px dashed rgba(14, 165, 233, 0.5);
+            border-radius: 12px;
+            background: rgba(14, 165, 233, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-label:hover {
+            border-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #0ea5e9;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .upload-title {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .upload-subtitle {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .upload-formats {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #0ea5e9;
+            font-size: 12px;
+            margin-top: 8px;
+            background: rgba(14, 165, 233, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        /* Archivo seleccionado */
+        .file-selected {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            background: rgba(40, 167, 69, 0.1);
+            border: 2px solid rgba(40, 167, 69, 0.5);
+            border-radius: 12px;
+        }
+
+        .file-selected i {
+            font-size: 32px;
+            color: #28a745;
+        }
+
+        .file-selected span {
+            flex: 1;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .btn-remove-file {
+            background: rgba(220, 53, 69, 0.2);
+            border: none;
+            color: #dc3545;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-remove-file:hover {
+            background: #dc3545;
+            color: white;
+        }
+
+        /* Acciones de importación */
+        .import-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .import-actions .btn {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 14px;
+        }
+
+        .btn-import:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</body>
+
+</html>

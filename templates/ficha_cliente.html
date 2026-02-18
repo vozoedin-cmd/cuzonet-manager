@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha de Cliente - {{ cliente.nombre }} - CuzoNet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+
+        .ficha-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .ficha-header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ficha-header-left h1 {
+            font-size: 26px;
+            margin-bottom: 4px;
+        }
+
+        .ficha-header-left p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .ficha-header-right {
+            text-align: right;
+            font-size: 13px;
+        }
+
+        .ficha-header-right .ficha-number {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .ficha-body {
+            padding: 30px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0ea5e9;
+            border-bottom: 2px solid #0ea5e9;
+            padding-bottom: 6px;
+            margin-bottom: 15px;
+            margin-top: 25px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 30px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            font-weight: 500;
+            color: #222;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-activo {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .status-cortado {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .status-suspendido {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .plan-highlight {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .plan-highlight .plan-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0369a1;
+        }
+
+        .plan-highlight .plan-speed {
+            font-size: 13px;
+            color: #0ea5e9;
+        }
+
+        .plan-highlight .plan-price {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0ea5e9;
+        }
+
+        /* Tabla de pagos */
+        .pagos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .pagos-table th {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pagos-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .pagos-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .no-pagos {
+            text-align: center;
+            color: #94a3b8;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        /* Firmas */
+        .firmas-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+        }
+
+        .firma-box {
+            text-align: center;
+            width: 45%;
+        }
+
+        .firma-line {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            margin-top: 60px;
+        }
+
+        .firma-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Footer */
+        .ficha-footer {
+            background: #f8fafc;
+            padding: 15px 30px;
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        /* Botones de acción (no se imprimen) */
+        .actions-bar {
+            max-width: 800px;
+            margin: 0 auto 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print:hover {
+            opacity: 0.9;
+        }
+
+        .btn-back {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-back:hover {
+            opacity: 0.9;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+
+            .ficha-container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .actions-bar {
+                display: none !important;
+            }
+
+            .ficha-header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .status-badge,
+            .plan-highlight,
+            .pagos-table th {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Barra de acciones -->
+    <div class="actions-bar">
+        <a href="/clientes" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+        <button class="btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> Imprimir Ficha
+        </button>
+    </div>
+
+    <div class="ficha-container">
+        <!-- Header -->
+        <div class="ficha-header">
+            <div class="ficha-header-left">
+                <h1><i class="fas fa-network-wired"></i> CuzoNet</h1>
+                <p>Ficha Técnica de Cliente</p>
+            </div>
+            <div class="ficha-header-right">
+                <div class="ficha-number">Cliente #{{ cliente.id }}</div>
+                <div>Fecha: {{ now }}</div>
+            </div>
+        </div>
+
+        <div class="ficha-body">
+            <!-- Datos Personales -->
+            <div class="section-title"><i class="fas fa-user"></i> Datos Personales</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Nombre Completo</span>
+                    <span class="info-value">{{ cliente.nombre }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Cédula / DPI</span>
+                    <span class="info-value">{{ cliente.cedula or '—' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Teléfono</span>
+                    <span class="info-value">{{ cliente.telefono or '—' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Email</span>
+                    <span class="info-value">{{ cliente.email or '—' }}</span>
+                </div>
+                <div class="info-item" style="grid-column: 1 / -1;">
+                    <span class="info-label">Dirección</span>
+                    <span class="info-value">{{ cliente.direccion or '—' }}</span>
+                </div>
+            </div>
+
+            <!-- Datos del Servicio -->
+            <div class="section-title"><i class="fas fa-wifi"></i> Datos del Servicio</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Dirección IP</span>
+                    <span class="info-value">{{ cliente.ip_address }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Estado</span>
+                    <span class="info-value">
+                        {% if cliente.estado == 'activo' %}
+                        <span class="status-badge status-activo">Activo</span>
+                        {% elif cliente.estado == 'cortado' %}
+                        <span class="status-badge status-cortado">Cortado</span>
+                        {% else %}
+                        <span class="status-badge status-suspendido">Suspendido</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Día de Corte</span>
+                    <span class="info-value">{{ cliente.dia_corte }} de cada mes</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Fecha de Registro</span>
+                    <span class="info-value">{{ cliente.fecha_registro.strftime('%d/%m/%Y') if cliente.fecha_registro else '—' }}</span>
+                </div>
+            </div>
+
+            <div class="plan-highlight">
+                <div>
+                    <div class="plan-name">{{ cliente.plan }}</div>
+                    <div class="plan-speed">
+                        <i class="fas fa-arrow-down"></i> {{ cliente.velocidad_download }} / 
+                        <i class="fas fa-arrow-up"></i> {{ cliente.velocidad_upload }}
+                    </div>
+                </div>
+                <div class="plan-price">Q{{ "%.2f"|format(cliente.precio_mensual or 0) }}/mes</div>
+            </div>
+
+            <!-- Datos de Facturación -->
+            <div class="section-title"><i class="fas fa-dollar-sign"></i> Datos de Facturación</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Último Pago</span>
+                    <span class="info-value">{{ cliente.fecha_ultimo_pago.strftime('%d/%m/%Y') if cliente.fecha_ultimo_pago else 'Sin pagos' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Próximo Pago</span>
+                    <span class="info-value">{{ cliente.fecha_proximo_pago.strftime('%d/%m/%Y') if cliente.fecha_proximo_pago else '—' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Saldo Pendiente</span>
+                    <span class="info-value" style="color: {{ '#dc2626' if (cliente.saldo_pendiente or 0) > 0 else '#16a34a' }}; font-weight: 700;">
+                        Q{{ "%.2f"|format(cliente.saldo_pendiente or 0) }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Queue MikroTik</span>
+                    <span class="info-value">{{ cliente.queue_name or '—' }}</span>
+                </div>
+            </div>
+
+            <!-- Historial de Pagos -->
+            <div class="section-title"><i class="fas fa-history"></i> Últimos Pagos</div>
+            {% if pagos %}
+            <table class="pagos-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Mes</th>
+                        <th>Monto</th>
+                        <th>Método</th>
+                        <th>Referencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pago in pagos %}
+                    <tr>
+                        <td>{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else '—' }}</td>
+                        <td>{{ pago.mes_correspondiente or '—' }}</td>
+                        <td style="font-weight: 600;">Q{{ "%.2f"|format(pago.monto) }}</td>
+                        <td>{{ pago.metodo_pago or '—' }}</td>
+                        <td>{{ pago.referencia or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="no-pagos">No hay pagos registrados</p>
+            {% endif %}
+
+            <!-- Firmas -->
+            <div class="firmas-section">
+                <div class="firma-box">
+                    <div class="firma-line"></div>
+                    <div class="firma-label">Firma del Cliente</div>
+                </div>
+                <div class="firma-box">
+                    <div class="firma-line"></div>
+                    <div class="firma-label">Firma del Técnico</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ficha-footer">
+            CuzoNet Manager — Documento generado el {{ now }} — Este documento es válido como constancia de servicio.
+        </div>
+    </div>
+</body>
+
+</html>

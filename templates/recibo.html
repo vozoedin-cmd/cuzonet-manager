@@ -1,0 +1,262 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Pago - CuzoNet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .recibo-container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .recibo-header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .recibo-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .recibo-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .recibo-body {
+            padding: 30px 20px;
+        }
+
+        .recibo-numero {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .recibo-numero span {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .recibo-numero strong {
+            display: block;
+            font-size: 18px;
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .info-section {
+            margin-bottom: 25px;
+        }
+
+        .info-section h3 {
+            color: #0ea5e9;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed #e9ecef;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-row .label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .info-row .value {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .monto-total {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .monto-total span {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .monto-total strong {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .recibo-footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .recibo-footer p {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .recibo-footer .gracias {
+            color: #0ea5e9;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.2s;
+        }
+
+        .btn-print:hover {
+            transform: scale(1.05);
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .recibo-container {
+                box-shadow: none;
+            }
+
+            .btn-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="recibo-container">
+        <div class="recibo-header">
+            <h1>CuzoNet</h1>
+            <p>Recibo de Pago</p>
+        </div>
+
+        <div class="recibo-body">
+            <div class="recibo-numero">
+                <span>Numero de Recibo</span>
+                <strong>#{{ '%06d' % pago.id }}</strong>
+            </div>
+
+            <div class="info-section">
+                <h3>Informacion del Cliente</h3>
+                <div class="info-row">
+                    <span class="label">Nombre:</span>
+                    <span class="value">{{ cliente.nombre }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">IP:</span>
+                    <span class="value">{{ cliente.ip_address }}</span>
+                </div>
+                {% if cliente.telefono %}
+                <div class="info-row">
+                    <span class="label">Telefono:</span>
+                    <span class="value">{{ cliente.telefono }}</span>
+                </div>
+                {% endif %}
+                <div class="info-row">
+                    <span class="label">Plan:</span>
+                    <span class="value">{{ cliente.plan }}</span>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>Detalles del Pago</h3>
+                <div class="info-row">
+                    <span class="label">Fecha:</span>
+                    <span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y %H:%M') if pago.fecha_pago else '-'
+                        }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Mes correspondiente:</span>
+                    <span class="value">{{ pago.mes_correspondiente }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Metodo de pago:</span>
+                    <span class="value">{{ pago.metodo_pago|capitalize }}</span>
+                </div>
+                {% if pago.referencia %}
+                <div class="info-row">
+                    <span class="label">Referencia:</span>
+                    <span class="value">{{ pago.referencia }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="monto-total">
+                <span>Monto Pagado</span>
+                <strong>Q{{ "%.2f"|format(pago.monto) }}</strong>
+            </div>
+
+            {% if pago.notas %}
+            <div class="info-section">
+                <h3>Notas</h3>
+                <p style="color: #666; font-size: 14px;">{{ pago.notas }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="recibo-footer">
+            <p>Este recibo es un comprobante valido de pago</p>
+            <p class="gracias">Gracias por su pago!</p>
+            <button class="btn-print" onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimir Recibo
+            </button>
+        </div>
+    </div>
+</body>
+
+</html>

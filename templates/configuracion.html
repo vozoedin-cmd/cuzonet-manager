@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Configuración de MikroTik - Sistema de gestión">
+    <title>Configuración - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/pagos" class="nav-link">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>Pagos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reportes" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reportes</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
+                </a>
+            </li>
+            <li class="nav-item"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
+            <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Configuración</h1>
+                <p class="header-subtitle">Configura la conexión a MikroTik y planes</p>
+            </div>
+        </header>
+
+        <div class="config-grid">
+            <!-- MikroTik Configuration -->
+            <section class="config-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-router"></i> Conexión MikroTik</h2>
+                    <span class="connection-badge" id="connectionBadge">
+                        <i class="fas fa-circle"></i> Sin verificar
+                    </span>
+                </div>
+
+                <form id="mikrotikForm" class="config-form">
+                    <div class="form-group">
+                        <label for="mk_host">
+                            <i class="fas fa-server"></i> Host / IP del Router
+                        </label>
+                        <input type="text" id="mk_host" name="host" value="{{ config.host if config else '' }}"
+                            placeholder="Ej: 192.168.88.1 o mi-router.ddns.net">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mk_port">
+                                <i class="fas fa-plug"></i> Puerto REST API
+                            </label>
+                            <input type="number" id="mk_port" name="port" value="{{ config.port if config else 80 }}"
+                                placeholder="80">
+                            <span class="form-hint">Puerto del servicio www en MikroTik</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mk_ssl">
+                                <i class="fas fa-lock"></i> Usar HTTPS
+                            </label>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="mk_ssl" name="use_ssl" {{ 'checked' if config and
+                                    config.use_ssl else '' }}>
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mk_username">
+                                <i class="fas fa-user"></i> Usuario
+                            </label>
+                            <input type="text" id="mk_username" name="username"
+                                value="{{ config.username if config else '' }}" placeholder="admin">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mk_password">
+                                <i class="fas fa-key"></i> Contraseña
+                            </label>
+                            <input type="password" id="mk_password" name="password"
+                                value="{{ config.password if config else '' }}" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="testConnection()">
+                            <i class="fas fa-plug"></i> Probar Conexión
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+
+                <!-- API Instructions -->
+                <div class="info-box">
+                    <h3><i class="fas fa-info-circle"></i> Configuración en MikroTik</h3>
+                    <p>Para habilitar la REST API en tu router MikroTik:</p>
+                    <ol>
+                        <li>Ir a <strong>IP → Services</strong></li>
+                        <li>Habilitar el servicio <strong>www</strong> (puerto 80) o <strong>www-ssl</strong> (puerto
+                            443)</li>
+                        <li>En <strong>System → Users</strong>, crear un usuario con permisos de <strong>read, write,
+                                api</strong></li>
+                        <li>Asegurarse de que el firewall permita el acceso al puerto configurado</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Plans Configuration -->
+            <section class="config-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-box"></i> Planes de Internet</h2>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('planModal')">
+                        <i class="fas fa-plus"></i> Nuevo Plan
+                    </button>
+                </div>
+
+                <div class="plans-grid">
+                    {% for plan in planes %}
+                    <div class="plan-card">
+                        <div class="plan-header">
+                            <h3>{{ plan.nombre }}</h3>
+                            <div class="plan-actions">
+                                <button class="btn-icon" onclick="abrirEditarPlan({{ plan.id }}, '{{ plan.nombre }}', '{{ plan.velocidad_download }}', '{{ plan.velocidad_upload }}', {{ plan.precio or 0 }})" title="Editar plan">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon danger" onclick="eliminarPlan({{ plan.id }})" title="Eliminar plan">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="plan-speeds">
+                            <div class="speed-item">
+                                <i class="fas fa-arrow-down"></i>
+                                <span>{{ plan.velocidad_download }}</span>
+                            </div>
+                            <div class="speed-item">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>{{ plan.velocidad_upload }}</span>
+                            </div>
+                        </div>
+                        {% if plan.precio %}
+                        <div class="plan-price">
+                            ${{ "%.2f"|format(plan.precio) }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    {% if not planes %}
+                    <div class="empty-state small">
+                        <i class="fas fa-box-open"></i>
+                        <p>No hay planes configurados</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        <!-- Backup Section -->
+        <section class="config-section" style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2><i class="fas fa-shield-alt"></i> Copia de Seguridad Completa</h2>
+                <button class="btn btn-primary btn-sm" onclick="cargarInfoBackup()">
+                    <i class="fas fa-sync-alt"></i> Actualizar Info
+                </button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Descarga una copia de seguridad completa de <strong>todos los datos del sistema</strong>. Se recomienda hacer respaldos periódicamente.
+                </p>
+
+                <!-- Info de datos a respaldar -->
+                <div id="backupInfoGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1px solid var(--border-color);">
+                        <i class="fas fa-users" style="font-size: 1.5rem; color: var(--primary); margin-bottom: 0.5rem; display:block;"></i>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);" id="backupClientes">--</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Clientes</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1px solid var(--border-color);">
+                        <i class="fas fa-money-bill-wave" style="font-size: 1.5rem; color: var(--success); margin-bottom: 0.5rem; display:block;"></i>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);" id="backupPagos">--</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Pagos</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1px solid var(--border-color);">
+                        <i class="fas fa-box" style="font-size: 1.5rem; color: var(--warning); margin-bottom: 0.5rem; display:block;"></i>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);" id="backupPlanes">--</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Planes</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1px solid var(--border-color);">
+                        <i class="fas fa-history" style="font-size: 1.5rem; color: var(--info, #3b82f6); margin-bottom: 0.5rem; display:block;"></i>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);" id="backupLogs">--</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Actividad</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1px solid var(--border-color);">
+                        <i class="fas fa-user-shield" style="font-size: 1.5rem; color: var(--danger, #ef4444); margin-bottom: 0.5rem; display:block;"></i>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);" id="backupUsuarios">--</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Usuarios</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                    <button class="btn btn-primary" onclick="descargarBackupCompleto()" id="btnBackupCompleto" style="font-size: 1rem; padding: 12px 24px;">
+                        <i class="fas fa-download"></i> Descargar Copia de Seguridad Completa (ZIP)
+                    </button>
+                    <button class="btn btn-secondary" onclick="descargarBackup()" style="font-size: 0.9rem; padding: 12px 24px;">
+                        <i class="fas fa-database"></i> Solo Base de Datos (.db)
+                    </button>
+                    <button class="btn btn-secondary" onclick="openModal('importBackupModal')" style="font-size: 0.9rem; padding: 12px 24px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; color: #fff;">
+                        <i class="fas fa-upload"></i> Importar / Restaurar Backup
+                    </button>
+                </div>
+
+                <div class="info-box" style="margin-top: 1.5rem;">
+                    <h3><i class="fas fa-info-circle"></i> ¿Qué incluye la copia de seguridad completa?</h3>
+                    <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-secondary);">
+                        <li><strong>Clientes</strong> — Todos los datos, IPs, planes, coordenadas del mapa, estados</li>
+                        <li><strong>Pagos</strong> — Historial completo de todos los pagos registrados</li>
+                        <li><strong>Planes</strong> — Todos los planes de internet configurados</li>
+                        <li><strong>Configuración MikroTik</strong> — Datos de conexión al router</li>
+                        <li><strong>Registro de Actividad</strong> — Historial de acciones del sistema</li>
+                        <li><strong>Usuarios</strong> — Cuentas del sistema (sin contraseñas)</li>
+                        <li><strong>Base de datos SQLite</strong> — Archivo completo de la base de datos</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Info -->
+        <section class="system-info">
+            <h2><i class="fas fa-info-circle"></i> Información del Sistema</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Versión</span>
+                    <span class="info-value">1.0.0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Base de Datos</span>
+                    <span class="info-value">SQLite / PostgreSQL</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">API MikroTik</span>
+                    <span class="info-value">REST API</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Nuevo Plan -->
+    <div class="modal-overlay" id="planModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2><i class="fas fa-box"></i> Crear Nuevo Plan</h2>
+                <button class="modal-close" onclick="closeModal('planModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="planForm" class="modal-form">
+                <div class="form-group">
+                    <label for="plan_nombre">
+                        <i class="fas fa-tag"></i> Nombre del Plan *
+                    </label>
+                    <input type="text" id="plan_nombre" name="nombre" required placeholder="Ej: Premium 50Mbps">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="plan_download">
+                            <i class="fas fa-arrow-down"></i> Download *
+                        </label>
+                        <input type="text" id="plan_download" name="velocidad_download" required placeholder="Ej: 50M">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="plan_upload">
+                            <i class="fas fa-arrow-up"></i> Upload *
+                        </label>
+                        <input type="text" id="plan_upload" name="velocidad_upload" required placeholder="Ej: 25M">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="plan_precio">
+                        <i class="fas fa-dollar-sign"></i> Precio (opcional)
+                    </label>
+                    <input type="number" id="plan_precio" name="precio" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('planModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Crear Plan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Plan -->
+    <div class="modal-overlay" id="editPlanModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Editar Plan</h2>
+                <button class="modal-close" onclick="closeModal('editPlanModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="editPlanForm" class="modal-form">
+                <input type="hidden" id="edit_plan_id">
+                <div class="form-group">
+                    <label for="edit_plan_nombre">
+                        <i class="fas fa-tag"></i> Nombre del Plan *
+                    </label>
+                    <input type="text" id="edit_plan_nombre" name="nombre" required placeholder="Ej: Premium 50Mbps">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_plan_download">
+                            <i class="fas fa-arrow-down"></i> Download *
+                        </label>
+                        <input type="text" id="edit_plan_download" name="velocidad_download" required placeholder="Ej: 50M">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_plan_upload">
+                            <i class="fas fa-arrow-up"></i> Upload *
+                        </label>
+                        <input type="text" id="edit_plan_upload" name="velocidad_upload" required placeholder="Ej: 25M">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_plan_precio">
+                        <i class="fas fa-dollar-sign"></i> Precio (opcional)
+                    </label>
+                    <input type="number" id="edit_plan_precio" name="precio" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editPlanModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Importar Backup -->
+    <div class="modal-overlay" id="importBackupModal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-upload" style="color: #f59e0b;"></i> Importar / Restaurar Backup</h2>
+                <button class="modal-close" onclick="closeModal('importBackupModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-form" style="padding: 1.5rem;">
+                <div class="info-box" style="margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
+                    <h3><i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> Importante</h3>
+                    <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+                        <li>Selecciona el archivo <strong>ZIP de copia de seguridad</strong> generado por este sistema</li>
+                        <li>Los clientes con la misma IP se <strong>actualizarán</strong> con los datos del backup</li>
+                        <li>Los clientes nuevos (IP diferente) se <strong>agregarán</strong></li>
+                        <li>Los pagos duplicados (misma fecha, monto y mes) <strong>no se repetirán</strong></li>
+                        <li>Los planes existentes se <strong>actualizarán</strong>, los nuevos se agregarán</li>
+                    </ul>
+                </div>
+
+                <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 2rem; text-align: center; margin-bottom: 1.5rem; transition: all 0.3s;" id="dropZone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem; display: block;"></i>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Arrastra tu archivo ZIP aquí o haz clic para seleccionar</p>
+                    <input type="file" id="backupFileInput" accept=".zip" style="display: none;" onchange="archivoSeleccionado(this)">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('backupFileInput').click()">
+                        <i class="fas fa-folder-open"></i> Seleccionar Archivo ZIP
+                    </button>
+                    <div id="archivoInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                        <i class="fas fa-file-archive" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+                        <span id="archivoNombre" style="font-weight: 600; color: var(--text-primary);"></span>
+                        <span id="archivoSize" style="color: var(--text-secondary); margin-left: 0.5rem;"></span>
+                    </div>
+                </div>
+
+                <!-- Barra de progreso -->
+                <div id="importProgress" style="display: none; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-secondary); font-size: 0.9rem;">Restaurando datos...</span>
+                        <span style="color: var(--text-secondary); font-size: 0.9rem;" id="importPercent">0%</span>
+                    </div>
+                    <div style="background: var(--bg-tertiary); border-radius: 10px; height: 10px; overflow: hidden;">
+                        <div id="importProgressBar" style="background: linear-gradient(90deg, #f59e0b, #10b981); height: 100%; width: 0%; border-radius: 10px; transition: width 0.5s;"></div>
+                    </div>
+                </div>
+
+                <!-- Resultados -->
+                <div id="importResultados" style="display: none; margin-bottom: 1.5rem;"></div>
+
+                <div class="form-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('importBackupModal'); resetImport();">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnImportar" onclick="importarBackup()" disabled style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">
+                        <i class="fas fa-upload"></i> Restaurar Datos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Configuración específica de esta página
+        document.getElementById('mikrotikForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = {
+                host: document.getElementById('mk_host').value,
+                port: parseInt(document.getElementById('mk_port').value) || 80,
+                username: document.getElementById('mk_username').value,
+                password: document.getElementById('mk_password').value,
+                use_ssl: document.getElementById('mk_ssl').checked
+            };
+
+            try {
+                const response = await fetch('/api/config/mikrotik', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Configuración guardada exitosamente', 'success');
+                    checkMikroTikStatus();
+                } else {
+                    showToast(result.error || 'Error al guardar', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+
+        async function testConnection() {
+            const formData = {
+                host: document.getElementById('mk_host').value,
+                port: parseInt(document.getElementById('mk_port').value) || 80,
+                username: document.getElementById('mk_username').value,
+                password: document.getElementById('mk_password').value,
+                use_ssl: document.getElementById('mk_ssl').checked
+            };
+
+            const badge = document.getElementById('connectionBadge');
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
+            badge.className = 'connection-badge testing';
+
+            try {
+                const response = await fetch('/api/config/mikrotik/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    badge.innerHTML = '<i class="fas fa-check-circle"></i> Conectado';
+                    badge.className = 'connection-badge connected';
+                    showToast(result.message, 'success');
+                } else {
+                    badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
+                    badge.className = 'connection-badge error';
+                    showToast(result.error || 'Error de conexión', 'error');
+                }
+            } catch (error) {
+                badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
+                badge.className = 'connection-badge error';
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        document.getElementById('planForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = {
+                nombre: document.getElementById('plan_nombre').value,
+                velocidad_download: document.getElementById('plan_download').value,
+                velocidad_upload: document.getElementById('plan_upload').value,
+                precio: parseFloat(document.getElementById('plan_precio').value) || 0
+            };
+
+            try {
+                const response = await fetch('/api/plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Plan creado exitosamente', 'success');
+                    closeModal('planModal');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al crear plan', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+
+        function abrirEditarPlan(id, nombre, download, upload, precio) {
+            document.getElementById('edit_plan_id').value = id;
+            document.getElementById('edit_plan_nombre').value = nombre;
+            document.getElementById('edit_plan_download').value = download;
+            document.getElementById('edit_plan_upload').value = upload;
+            document.getElementById('edit_plan_precio').value = precio > 0 ? precio : '';
+            openModal('editPlanModal');
+        }
+
+        document.getElementById('editPlanForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const id = document.getElementById('edit_plan_id').value;
+            const formData = {
+                nombre: document.getElementById('edit_plan_nombre').value,
+                velocidad_download: document.getElementById('edit_plan_download').value,
+                velocidad_upload: document.getElementById('edit_plan_upload').value,
+                precio: parseFloat(document.getElementById('edit_plan_precio').value) || 0
+            };
+
+            try {
+                const response = await fetch(`/api/plan/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Plan actualizado exitosamente', 'success');
+                    closeModal('editPlanModal');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al actualizar plan', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        });
+
+        async function eliminarPlan(id) {
+            if (!confirm('¿Eliminar este plan?')) return;
+
+            try {
+                const response = await fetch(`/api/plan/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Plan eliminado', 'success');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al eliminar', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        function descargarBackup() {
+            showToast('Descargando base de datos...', 'info');
+            window.location.href = '/api/backup';
+        }
+
+        function descargarBackupCompleto() {
+            const btn = document.getElementById('btnBackupCompleto');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando copia de seguridad...';
+            btn.disabled = true;
+            
+            showToast('Preparando copia de seguridad completa...', 'info');
+            
+            fetch('/api/backup/completo')
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al generar backup');
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    a.download = `cuzonet_backup_completo_${fecha}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    showToast('Copia de seguridad completa descargada exitosamente', 'success');
+                })
+                .catch(error => {
+                    showToast('Error al generar la copia de seguridad: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                });
+        }
+
+        async function cargarInfoBackup() {
+            try {
+                const response = await fetch('/api/backup/info');
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('backupClientes').textContent = result.info.clientes;
+                    document.getElementById('backupPagos').textContent = result.info.pagos;
+                    document.getElementById('backupPlanes').textContent = result.info.planes;
+                    document.getElementById('backupLogs').textContent = result.info.registros_actividad;
+                    document.getElementById('backupUsuarios').textContent = result.info.usuarios;
+                }
+            } catch (error) {
+                console.error('Error cargando info backup:', error);
+            }
+        }
+
+        // Cargar info backup al abrir la página
+        cargarInfoBackup();
+
+        // ============ IMPORTAR BACKUP ============
+
+        function archivoSeleccionado(input) {
+            const file = input.files[0];
+            if (file) {
+                document.getElementById('archivoInfo').style.display = 'block';
+                document.getElementById('archivoNombre').textContent = file.name;
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                document.getElementById('archivoSize').textContent = `(${sizeMB} MB)`;
+                document.getElementById('btnImportar').disabled = false;
+                document.getElementById('importResultados').style.display = 'none';
+                document.getElementById('importProgress').style.display = 'none';
+            }
+        }
+
+        // Drag & Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#f59e0b';
+            dropZone.style.background = 'rgba(245, 158, 11, 0.05)';
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = 'var(--border-color)';
+            dropZone.style.background = 'transparent';
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border-color)';
+            dropZone.style.background = 'transparent';
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.name.toLowerCase().endsWith('.zip')) {
+                    document.getElementById('backupFileInput').files = e.dataTransfer.files;
+                    archivoSeleccionado(document.getElementById('backupFileInput'));
+                } else {
+                    showToast('Solo se aceptan archivos ZIP', 'error');
+                }
+            }
+        });
+
+        async function importarBackup() {
+            const fileInput = document.getElementById('backupFileInput');
+            if (!fileInput.files[0]) {
+                showToast('Selecciona un archivo ZIP primero', 'error');
+                return;
+            }
+
+            if (!confirm('¿Estás seguro de restaurar este backup?\n\nLos datos existentes se actualizarán y los nuevos se agregarán.')) {
+                return;
+            }
+
+            const btn = document.getElementById('btnImportar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restaurando...';
+            
+            // Mostrar progreso
+            const progressDiv = document.getElementById('importProgress');
+            const progressBar = document.getElementById('importProgressBar');
+            const progressPercent = document.getElementById('importPercent');
+            progressDiv.style.display = 'block';
+            
+            // Simular progreso mientras espera
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                if (progress < 85) {
+                    progress += Math.random() * 15;
+                    if (progress > 85) progress = 85;
+                    progressBar.style.width = progress + '%';
+                    progressPercent.textContent = Math.round(progress) + '%';
+                }
+            }, 300);
+
+            const formData = new FormData();
+            formData.append('archivo', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/api/backup/restaurar', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const r = result.resultados;
+                    let html = '<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 1.5rem;">';
+                    html += '<h3 style="color: #10b981; margin-bottom: 1rem;"><i class="fas fa-check-circle"></i> Restauración Completada</h3>';
+                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem;">';
+                    html += `<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--text-primary);">${r.clientes_importados}</div><div style="font-size:0.8rem;color:var(--text-secondary);">Clientes</div></div>`;
+                    html += `<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--text-primary);">${r.pagos_importados}</div><div style="font-size:0.8rem;color:var(--text-secondary);">Pagos</div></div>`;
+                    html += `<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--text-primary);">${r.planes_importados}</div><div style="font-size:0.8rem;color:var(--text-secondary);">Planes</div></div>`;
+                    html += `<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--text-primary);">${r.config_importada ? 'Sí' : 'No'}</div><div style="font-size:0.8rem;color:var(--text-secondary);">Config MikroTik</div></div>`;
+                    html += '</div>';
+                    if (r.errores && r.errores.length > 0) {
+                        html += '<div style="margin-top: 1rem; color: #ef4444; font-size: 0.85rem;"><strong>Advertencias:</strong><ul style="padding-left: 1.5rem;">';
+                        r.errores.forEach(e => html += `<li>${e}</li>`);
+                        html += '</ul></div>';
+                    }
+                    html += '</div>';
+
+                    document.getElementById('importResultados').innerHTML = html;
+                    document.getElementById('importResultados').style.display = 'block';
+                    showToast('Backup restaurado exitosamente', 'success');
+                    
+                    // Actualizar info
+                    cargarInfoBackup();
+                } else {
+                    showToast(result.error || 'Error al restaurar backup', 'error');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                showToast('Error de conexión al restaurar: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = '<i class="fas fa-upload"></i> Restaurar Datos';
+                btn.disabled = false;
+            }
+        }
+
+        function resetImport() {
+            document.getElementById('backupFileInput').value = '';
+            document.getElementById('archivoInfo').style.display = 'none';
+            document.getElementById('importProgress').style.display = 'none';
+            document.getElementById('importResultados').style.display = 'none';
+            document.getElementById('btnImportar').disabled = true;
+            document.getElementById('btnImportar').innerHTML = '<i class="fas fa-upload"></i> Restaurar Datos';
+            document.getElementById('importProgressBar').style.width = '0%';
+        }
+    </script>
+</body>
+
+</html>

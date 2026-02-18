@@ -1,0 +1,875 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Clientes - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- MarkerCluster -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <!-- Heatmap -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        .map-wrapper {
+            display: flex;
+            gap: 0;
+            height: calc(100vh - 220px);
+            min-height: 400px;
+        }
+        #map {
+            flex: 1;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            z-index: 1;
+        }
+        .map-side-panel {
+            width: 300px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            margin-left: 1rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.3s, margin 0.3s;
+        }
+        .map-side-panel.collapsed {
+            width: 0;
+            margin-left: 0;
+            border: none;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .panel-header h3 {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-header h3 i { color: var(--primary); }
+        .panel-search {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            position: relative;
+        }
+        .panel-search input {
+            width: 100%;
+            padding: 8px 12px 8px 32px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.82rem;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        .panel-search i {
+            position: absolute;
+            left: 22px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .panel-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .panel-client {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-client:hover { background: rgba(14,165,233,0.08); }
+        .panel-client-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .panel-client-info { min-width: 0; flex: 1; }
+        .panel-client-name {
+            font-weight: 600;
+            font-size: 0.84rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .panel-client-detail {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .map-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.82rem;
+            padding: 7px 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .toolbar-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .toolbar-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background: var(--border-color);
+            margin: 0 4px;
+        }
+        .map-stats {
+            display: flex;
+            gap: 1.2rem;
+            margin-left: auto;
+        }
+        .map-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+        .map-stat .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px !important;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25) !important;
+        }
+        .leaflet-popup-content { margin: 0 !important; }
+        .client-popup {
+            font-family: 'Inter', sans-serif;
+            min-width: 240px;
+            padding: 16px;
+        }
+        .client-popup .popup-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .client-popup .popup-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .client-popup h4 {
+            margin: 0;
+            color: #0ea5e9;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        .client-popup .popup-plan {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .client-popup .popup-details {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .client-popup .popup-details p {
+            margin: 0;
+            font-size: 12px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .client-popup .popup-details p i { width: 14px; text-align: center; color: #94a3b8; }
+        .client-popup .popup-status {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .popup-activo { background: #dcfce7; color: #16a34a; }
+        .popup-cortado { background: #fee2e2; color: #dc2626; }
+        .popup-suspendido { background: #fef3c7; color: #d97706; }
+        .popup-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .popup-action-btn {
+            flex: 1;
+            padding: 6px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .popup-action-btn:hover { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+        .popup-action-btn.whatsapp:hover { background: #25d366; border-color: #25d366; }
+        .popup-action-btn.copy:hover { background: #8b5cf6; border-color: #8b5cf6; }
+        .cobertura-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+        .cobertura-form label { color: var(--text-secondary); font-size: 0.85rem; }
+        .cobertura-form input, .cobertura-form select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        .range-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .range-display input[type="range"] {
+            flex: 1;
+            padding: 0;
+        }
+        .range-display span {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--primary);
+            min-width: 70px;
+        }
+        .marker-cluster-small { background-color: rgba(16,185,129,0.3) !important; }
+        .marker-cluster-small div { background-color: rgba(16,185,129,0.8) !important; color: #fff !important; }
+        .marker-cluster-medium { background-color: rgba(14,165,233,0.3) !important; }
+        .marker-cluster-medium div { background-color: rgba(14,165,233,0.8) !important; color: #fff !important; }
+        .marker-cluster-large { background-color: rgba(239,68,68,0.3) !important; }
+        .marker-cluster-large div { background-color: rgba(239,68,68,0.8) !important; color: #fff !important; }
+        .ubicacion-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+        .ubicacion-form .form-row-map { display: flex; gap: 10px; }
+        .ubicacion-form input { flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem; }
+        .ubicacion-form select { flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem; }
+        .leaflet-control-layers { border-radius: 10px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important; }
+        @media (max-width: 900px) {
+            .map-side-panel { display: none; }
+            .map-wrapper { height: calc(100vh - 200px); }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="/" class="nav-link"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
+            <li class="nav-item"><a href="/clientes" class="nav-link"><i class="fas fa-users"></i><span>Clientes</span></a></li>
+            <li class="nav-item"><a href="/pagos" class="nav-link"><i class="fas fa-money-bill-wave"></i><span>Pagos</span></a></li>
+            <li class="nav-item"><a href="/reportes" class="nav-link"><i class="fas fa-chart-bar"></i><span>Reportes</span></a></li>
+            <li class="nav-item"><a href="/configuracion" class="nav-link"><i class="fas fa-cog"></i><span>Configuracion</span></a></li>
+            <li class="nav-item active"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
+            <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-map-marked-alt"></i> Mapa de Clientes</h1>
+                <p class="header-subtitle">Ubicaci&oacute;n geogr&aacute;fica de los clientes</p>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" onclick="openModal('ubicacionModal')">
+                    <i class="fas fa-map-pin"></i> Asignar Ubicaci&oacute;n
+                </button>
+            </div>
+        </header>
+
+        <div class="map-toolbar">
+            <button class="toolbar-btn" onclick="centrarMapa()" title="Centrar mapa">
+                <i class="fas fa-crosshairs"></i> Centrar
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="toolbar-btn active" id="filtroActivo" onclick="toggleFiltro('activo', this)">
+                <div class="dot" style="background:#10b981;width:8px;height:8px;border-radius:50%;"></div> Activos
+            </button>
+            <button class="toolbar-btn active" id="filtroSuspendido" onclick="toggleFiltro('suspendido', this)">
+                <div class="dot" style="background:#f59e0b;width:8px;height:8px;border-radius:50%;"></div> Suspendidos
+            </button>
+            <button class="toolbar-btn active" id="filtroCortado" onclick="toggleFiltro('cortado', this)">
+                <div class="dot" style="background:#ef4444;width:8px;height:8px;border-radius:50%;"></div> Cortados
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="toolbar-btn" id="btnHeatmap" onclick="toggleHeatmap()">
+                <i class="fas fa-fire"></i> Calor
+            </button>
+            <button class="toolbar-btn" id="btnCobertura" onclick="openModal('coberturaModal')">
+                <i class="fas fa-broadcast-tower"></i> Cobertura
+            </button>
+            <button class="toolbar-btn active" id="btnPanel" onclick="togglePanel()">
+                <i class="fas fa-list"></i> Panel
+            </button>
+            <div class="map-stats">
+                <div class="map-stat"><div class="dot" style="background:#10b981;"></div> <strong id="mapActivos">0</strong></div>
+                <div class="map-stat"><div class="dot" style="background:#f59e0b;"></div> <strong id="mapSuspendidos">0</strong></div>
+                <div class="map-stat"><div class="dot" style="background:#ef4444;"></div> <strong id="mapCortados">0</strong></div>
+                <div class="map-stat"><i class="fas fa-map-marker-alt" style="color:var(--primary);"></i> <strong id="mapTotal">0</strong></div>
+            </div>
+        </div>
+
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-side-panel" id="sidePanel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-users"></i> Clientes</h3>
+                    <span id="panelCount" style="font-size:0.8rem;color:var(--text-muted);">0</span>
+                </div>
+                <div class="panel-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="panelSearchInput" placeholder="Buscar cliente..." oninput="filtrarPanel()">
+                </div>
+                <div class="panel-list" id="panelList">
+                    <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.85rem;">Cargando...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Asignar Ubicacion -->
+    <div class="modal-overlay" id="ubicacionModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-map-pin"></i> Asignar Ubicaci&oacute;n</h2>
+                <button class="modal-close" onclick="closeModal('ubicacionModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-form" style="padding: 20px;">
+                <div class="ubicacion-form">
+                    <label style="color:var(--text-secondary);">Seleccionar Cliente:</label>
+                    <select id="ubicacionCliente" onchange="cargarUbicacionActual()">
+                        <option value="">-- Seleccionar --</option>
+                    </select>
+                    <label style="color:var(--text-secondary);">Coordenadas (clic en el mapa o ingresa manualmente):</label>
+                    <div class="form-row-map">
+                        <input type="number" step="any" id="ubicacionLat" placeholder="Latitud (ej: 14.6349)">
+                        <input type="number" step="any" id="ubicacionLng" placeholder="Longitud (ej: -90.5069)">
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);">
+                        <i class="fas fa-info-circle"></i> Haz clic en el mapa para seleccionar la ubicaci&oacute;n.
+                    </p>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button class="btn btn-secondary" onclick="closeModal('ubicacionModal')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:8px 20px;border-radius:var(--radius-sm);cursor:pointer;">Cancelar</button>
+                        <button class="btn btn-primary" onclick="guardarUbicacion()">
+                            <i class="fas fa-save"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Radio de Cobertura -->
+    <div class="modal-overlay" id="coberturaModal">
+        <div class="modal" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-broadcast-tower"></i> Radio de Cobertura</h2>
+                <button class="modal-close" onclick="closeModal('coberturaModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-form" style="padding: 20px;">
+                <div class="cobertura-form">
+                    <label>Punto central (clic en el mapa o ingresa coordenadas):</label>
+                    <div style="display:flex;gap:10px;">
+                        <input type="number" step="any" id="coberturaLat" placeholder="Latitud">
+                        <input type="number" step="any" id="coberturaLng" placeholder="Longitud">
+                    </div>
+                    <label>Radio de cobertura:</label>
+                    <div class="range-display">
+                        <input type="range" id="coberturaRadio" min="100" max="5000" value="1000" step="100" oninput="document.getElementById('radioValueText').textContent = this.value + ' m'">
+                        <span id="radioValueText">1000 m</span>
+                    </div>
+                    <label>Color del c&iacute;rculo:</label>
+                    <select id="coberturaColor">
+                        <option value="#0ea5e9">Azul</option>
+                        <option value="#10b981">Verde</option>
+                        <option value="#f59e0b">Amarillo</option>
+                        <option value="#ef4444">Rojo</option>
+                        <option value="#8b5cf6">Morado</option>
+                    </select>
+                    <p style="font-size:0.8rem;color:var(--text-muted);">
+                        <i class="fas fa-info-circle"></i> Clic en el mapa para colocar el centro. Puedes agregar m&uacute;ltiples c&iacute;rculos.
+                    </p>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button class="toolbar-btn" onclick="limpiarCobertura()" style="color:#ef4444;">
+                            <i class="fas fa-trash"></i> Limpiar todos
+                        </button>
+                        <button class="btn btn-primary" onclick="agregarCobertura()">
+                            <i class="fas fa-plus-circle"></i> Agregar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        let allClientes = [];
+        let markersMap = {};
+        let clusterGroup = null;
+        let heatLayer = null;
+        let heatmapActive = false;
+        let coberturaCircles = [];
+        let tempMarker = null;
+        const filtrosEstado = { activo: true, suspendido: true, cortado: true };
+
+        const map = L.map('map').setView([14.6349, -90.5069], 13);
+
+        // Capa principal: CartoDB Voyager (más confiable que OSM directo)
+        const layerOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20,
+            crossOrigin: true
+        });
+        // Fallback: OSM directo
+        const layerOSMClassic = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 19,
+            crossOrigin: true
+        });
+        const layerSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri', maxZoom: 19,
+            crossOrigin: true
+        });
+        const layerTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenTopoMap', maxZoom: 17,
+            crossOrigin: true
+        });
+        const layerDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CartoDB', subdomains: 'abcd', maxZoom: 20,
+            crossOrigin: true
+        });
+        layerOSM.addTo(map);
+
+        // Si los tiles fallan, cambiar automáticamente al fallback
+        var tileErrorCount = 0;
+        layerOSM.on('tileerror', function() {
+            tileErrorCount++;
+            if (tileErrorCount > 5) {
+                map.removeLayer(layerOSM);
+                layerOSMClassic.addTo(map);
+                console.warn('Tiles principales fallaron, usando fallback OSM');
+            }
+        });
+
+        L.control.layers({
+            'Calles': layerOSM,
+            'Calles (OSM)': layerOSMClassic,
+            'Satelite': layerSatellite,
+            'Topografico': layerTopo,
+            'Oscuro': layerDark
+        }, null, { position: 'topright' }).addTo(map);
+
+        clusterGroup = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: true,
+            zoomToBoundsOnClick: true,
+            iconCreateFunction: function(cluster) {
+                const count = cluster.getChildCount();
+                let cls = 'marker-cluster-small';
+                if (count > 20) cls = 'marker-cluster-large';
+                else if (count > 10) cls = 'marker-cluster-medium';
+                return L.divIcon({
+                    html: '<div style="font-family:Inter,sans-serif;font-weight:700;font-size:13px;">' + count + '</div>',
+                    className: 'marker-cluster ' + cls,
+                    iconSize: L.point(40, 40)
+                });
+            }
+        });
+        map.addLayer(clusterGroup);
+
+        function getMarkerColor(estado) {
+            switch(estado) {
+                case 'activo': return '#10b981';
+                case 'suspendido': return '#f59e0b';
+                case 'cortado': return '#ef4444';
+                default: return '#64748b';
+            }
+        }
+        function getAvatarColor(estado) {
+            switch(estado) {
+                case 'activo': return '#10b981';
+                case 'suspendido': return '#d97706';
+                case 'cortado': return '#dc2626';
+                default: return '#64748b';
+            }
+        }
+        function createIcon(color) {
+            return L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="background:'+color+';width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+        }
+
+        function buildPopup(c) {
+            var estadoClass = 'popup-' + c.estado;
+            var avatarColor = getAvatarColor(c.estado);
+            var initials = c.nombre.split(' ').map(function(w){return w[0]}).join('').substring(0,2).toUpperCase();
+            var tel = c.telefono ? c.telefono.replace(/[^0-9]/g, '') : '';
+            var whatsappUrl = tel ? 'https://wa.me/502' + tel : '#';
+            var disabledWA = !tel ? ' style="opacity:0.4;pointer-events:none;"' : '';
+            return '<div class="client-popup">' +
+                '<div class="popup-top">' +
+                    '<div class="popup-avatar" style="background:'+avatarColor+';">'+initials+'</div>' +
+                    '<div><h4>'+c.nombre+'</h4><span class="popup-plan"><i class="fas fa-box"></i> '+c.plan+'</span></div>' +
+                    '<span class="popup-status '+estadoClass+'" style="margin-left:auto;">'+c.estado.toUpperCase()+'</span>' +
+                '</div>' +
+                '<div class="popup-details">' +
+                    '<p><i class="fas fa-network-wired"></i> <strong>'+c.ip_address+'</strong></p>' +
+                    '<p><i class="fas fa-phone"></i> '+(c.telefono || 'Sin telefono')+'</p>' +
+                    '<p><i class="fas fa-map-marker-alt"></i> '+(c.direccion || 'Sin direccion')+'</p>' +
+                    '<p><i class="fas fa-globe"></i> '+c.latitud.toFixed(5)+', '+c.longitud.toFixed(5)+'</p>' +
+                '</div>' +
+                '<div class="popup-actions">' +
+                    '<a href="'+whatsappUrl+'" target="_blank" class="popup-action-btn whatsapp"'+disabledWA+'><i class="fab fa-whatsapp"></i> WhatsApp</a>' +
+                    '<a href="/ficha-cliente/'+c.id+'" class="popup-action-btn"><i class="fas fa-id-card"></i> Ficha</a>' +
+                    '<button class="popup-action-btn copy" onclick="copiarIP(\''+c.ip_address+'\')"><i class="fas fa-copy"></i> IP</button>' +
+                '</div>' +
+            '</div>';
+        }
+
+        function copiarIP(ip) {
+            navigator.clipboard.writeText(ip).then(function() {
+                showToast('IP copiada: ' + ip, 'success');
+            }).catch(function() {
+                var ta = document.createElement('textarea');
+                ta.value = ip;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('IP copiada: ' + ip, 'success');
+            });
+        }
+
+        async function cargarClientes() {
+            try {
+                var res = await fetch('/api/clientes/mapa');
+                var data = await res.json();
+                if (!data.success) return;
+                allClientes = data.clientes;
+                renderMarkers();
+                renderPanel();
+            } catch(e) {
+                console.error('Error cargando mapa:', e);
+            }
+        }
+
+        function renderMarkers() {
+            clusterGroup.clearLayers();
+            markersMap = {};
+            var activos = 0, suspendidos = 0, cortados = 0;
+            allClientes.forEach(function(c) {
+                if (c.estado === 'activo') activos++;
+                else if (c.estado === 'suspendido') suspendidos++;
+                else cortados++;
+                if (!filtrosEstado[c.estado]) return;
+                var color = getMarkerColor(c.estado);
+                var marker = L.marker([c.latitud, c.longitud], { icon: createIcon(color) });
+                marker.bindPopup(buildPopup(c), { maxWidth: 300 });
+                marker._clienteId = c.id;
+                clusterGroup.addLayer(marker);
+                markersMap[c.id] = marker;
+            });
+            document.getElementById('mapActivos').textContent = activos;
+            document.getElementById('mapSuspendidos').textContent = suspendidos;
+            document.getElementById('mapCortados').textContent = cortados;
+            document.getElementById('mapTotal').textContent = allClientes.length;
+            if (clusterGroup.getLayers().length > 0) {
+                map.fitBounds(clusterGroup.getBounds().pad(0.1));
+            }
+            if (heatmapActive) updateHeatmap();
+        }
+
+        function toggleFiltro(estado, btn) {
+            filtrosEstado[estado] = !filtrosEstado[estado];
+            btn.classList.toggle('active', filtrosEstado[estado]);
+            renderMarkers();
+            renderPanel();
+        }
+
+        function renderPanel() {
+            var list = document.getElementById('panelList');
+            var visibles = allClientes.filter(function(c) { return filtrosEstado[c.estado]; });
+            document.getElementById('panelCount').textContent = visibles.length;
+            if (visibles.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.85rem;">Sin clientes geolocalizados</div>';
+                return;
+            }
+            var html = '';
+            visibles.sort(function(a,b) { return a.nombre.localeCompare(b.nombre); }).forEach(function(c) {
+                var color = getMarkerColor(c.estado);
+                html += '<div class="panel-client" data-id="'+c.id+'" data-name="'+c.nombre.toLowerCase()+'" onclick="volarACliente('+c.id+')">' +
+                    '<div class="panel-client-dot" style="background:'+color+';"></div>' +
+                    '<div class="panel-client-info">' +
+                        '<div class="panel-client-name">'+c.nombre+'</div>' +
+                        '<div class="panel-client-detail">'+c.ip_address+' &middot; '+c.plan+'</div>' +
+                    '</div></div>';
+            });
+            list.innerHTML = html;
+        }
+
+        function filtrarPanel() {
+            var search = document.getElementById('panelSearchInput').value.toLowerCase();
+            document.querySelectorAll('.panel-client').forEach(function(el) {
+                el.style.display = el.dataset.name.includes(search) ? '' : 'none';
+            });
+        }
+
+        function volarACliente(id) {
+            var marker = markersMap[id];
+            if (!marker) {
+                showToast('Cliente no visible con filtros actuales', 'warning');
+                return;
+            }
+            clusterGroup.zoomToShowLayer(marker, function() {
+                marker.openPopup();
+            });
+        }
+
+        function togglePanel() {
+            var panel = document.getElementById('sidePanel');
+            var btn = document.getElementById('btnPanel');
+            panel.classList.toggle('collapsed');
+            btn.classList.toggle('active');
+            setTimeout(function() { map.invalidateSize(); }, 350);
+        }
+
+        function toggleHeatmap() {
+            heatmapActive = !heatmapActive;
+            document.getElementById('btnHeatmap').classList.toggle('active', heatmapActive);
+            if (heatmapActive) {
+                updateHeatmap();
+            } else {
+                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+            }
+        }
+
+        function updateHeatmap() {
+            if (heatLayer) map.removeLayer(heatLayer);
+            var points = allClientes
+                .filter(function(c) { return filtrosEstado[c.estado]; })
+                .map(function(c) { return [c.latitud, c.longitud, 0.8]; });
+            heatLayer = L.heatLayer(points, {
+                radius: 30, blur: 20, maxZoom: 17,
+                gradient: { 0.2: '#0ea5e9', 0.4: '#06b6d4', 0.6: '#10b981', 0.8: '#f59e0b', 1.0: '#ef4444' }
+            }).addTo(map);
+        }
+
+        function agregarCobertura() {
+            var lat = parseFloat(document.getElementById('coberturaLat').value);
+            var lng = parseFloat(document.getElementById('coberturaLng').value);
+            var radio = parseInt(document.getElementById('coberturaRadio').value);
+            var color = document.getElementById('coberturaColor').value;
+            if (isNaN(lat) || isNaN(lng)) return showToast('Haz clic en el mapa o ingresa coordenadas', 'warning');
+            var circle = L.circle([lat, lng], {
+                radius: radio, color: color, fillColor: color,
+                fillOpacity: 0.12, weight: 2, dashArray: '8 4'
+            }).addTo(map);
+            var antennaIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="background:'+color+';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><i class="fas fa-broadcast-tower" style="color:white;font-size:10px;"></i></div>',
+                iconSize: [28, 28], iconAnchor: [14, 14]
+            });
+            var centerMarker = L.marker([lat, lng], { icon: antennaIcon }).addTo(map);
+            var dentro = 0;
+            allClientes.forEach(function(c) {
+                var dist = map.distance([lat, lng], [c.latitud, c.longitud]);
+                if (dist <= radio) dentro++;
+            });
+            centerMarker.bindPopup(
+                '<div class="client-popup" style="min-width:160px;">' +
+                '<h4><i class="fas fa-broadcast-tower"></i> Punto de Cobertura</h4>' +
+                '<div class="popup-details">' +
+                '<p><i class="fas fa-ruler"></i> Radio: <strong>'+radio+' m</strong></p>' +
+                '<p><i class="fas fa-users"></i> Clientes dentro: <strong>'+dentro+'</strong></p>' +
+                '<p><i class="fas fa-globe"></i> '+lat.toFixed(5)+', '+lng.toFixed(5)+'</p>' +
+                '</div></div>'
+            ).openPopup();
+            coberturaCircles.push(circle, centerMarker);
+            showToast('Cobertura: '+dentro+' clientes en '+radio+'m', 'success');
+        }
+
+        function limpiarCobertura() {
+            coberturaCircles.forEach(function(el) { map.removeLayer(el); });
+            coberturaCircles = [];
+            showToast('Circulos de cobertura eliminados', 'info');
+        }
+
+        function centrarMapa() {
+            if (clusterGroup.getLayers().length > 0) {
+                map.fitBounds(clusterGroup.getBounds().pad(0.1));
+            } else {
+                map.setView([14.6349, -90.5069], 13);
+            }
+        }
+
+        map.on('click', function(e) {
+            document.getElementById('ubicacionLat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('ubicacionLng').value = e.latlng.lng.toFixed(6);
+            document.getElementById('coberturaLat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('coberturaLng').value = e.latlng.lng.toFixed(6);
+            if (tempMarker) map.removeLayer(tempMarker);
+            tempMarker = L.marker(e.latlng, {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#0ea5e9;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(14,165,233,0.5);"></div>',
+                    iconSize: [24, 24], iconAnchor: [12, 12]
+                })
+            }).addTo(map);
+        });
+
+        async function cargarClientesSelect() {
+            try {
+                var res = await fetch('/api/clientes');
+                var data = await res.json();
+                if (!data.success) return;
+                var select = document.getElementById('ubicacionCliente');
+                data.clientes.forEach(function(c) {
+                    var opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.nombre + ' (' + c.ip_address + ')';
+                    opt.dataset.lat = c.latitud || '';
+                    opt.dataset.lng = c.longitud || '';
+                    select.appendChild(opt);
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        function cargarUbicacionActual() {
+            var select = document.getElementById('ubicacionCliente');
+            var opt = select.options[select.selectedIndex];
+            if (opt && opt.dataset.lat) {
+                document.getElementById('ubicacionLat').value = opt.dataset.lat;
+                document.getElementById('ubicacionLng').value = opt.dataset.lng;
+            }
+        }
+
+        async function guardarUbicacion() {
+            var clienteId = document.getElementById('ubicacionCliente').value;
+            var lat = parseFloat(document.getElementById('ubicacionLat').value);
+            var lng = parseFloat(document.getElementById('ubicacionLng').value);
+            if (!clienteId) return showToast('Selecciona un cliente', 'warning');
+            if (isNaN(lat) || isNaN(lng)) return showToast('Ingresa coordenadas validas', 'warning');
+            try {
+                var res = await fetch('/api/cliente/' + clienteId + '/ubicacion', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ latitud: lat, longitud: lng })
+                });
+                var data = await res.json();
+                if (data.success) {
+                    showToast('Ubicacion guardada', 'success');
+                    closeModal('ubicacionModal');
+                    if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+                    cargarClientes();
+                } else {
+                    showToast(data.error || 'Error', 'error');
+                }
+            } catch(e) { showToast('Error de conexion', 'error'); }
+        }
+
+        function toggleTheme() {
+            var isLight = document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            document.getElementById('themeIcon').className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+            document.getElementById('themeText').textContent = isLight ? 'Modo Oscuro' : 'Modo Claro';
+        }
+        (function() { if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); document.getElementById('themeIcon').className='fas fa-sun'; document.getElementById('themeText').textContent='Modo Oscuro'; } })();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Forzar recalculo del tamaño del mapa después de que el DOM esté listo
+            setTimeout(function() { map.invalidateSize(); }, 100);
+            setTimeout(function() { map.invalidateSize(); }, 500);
+            cargarClientes();
+            cargarClientesSelect();
+        });
+    </script>
+</body>
+</html>

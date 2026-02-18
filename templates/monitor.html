@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Bandwidth - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1rem;
+        }
+        .queue-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .queue-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-glow);
+        }
+        .queue-card.disabled {
+            opacity: 0.5;
+        }
+        /* Alerta consumo alto */
+        .queue-card.alert-warning {
+            border-color: #f59e0b !important;
+            animation: pulse-warning 2s infinite;
+        }
+        .queue-card.alert-danger {
+            border-color: #ef4444 !important;
+            animation: pulse-danger 1.5s infinite;
+        }
+        .queue-card .alert-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: none;
+        }
+        .queue-card.alert-warning .alert-badge {
+            display: inline-block;
+            background: rgba(245,158,11,0.2);
+            color: #f59e0b;
+        }
+        .queue-card.alert-danger .alert-badge {
+            display: inline-block;
+            background: rgba(239,68,68,0.2);
+            color: #ef4444;
+        }
+        @keyframes pulse-warning {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+            50% { box-shadow: 0 0 15px 3px rgba(245,158,11,0.2); }
+        }
+        @keyframes pulse-danger {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+            50% { box-shadow: 0 0 20px 5px rgba(239,68,68,0.25); }
+        }
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .queue-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        .queue-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .queue-target {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--primary);
+            background: rgba(14,165,233,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .bandwidth-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .bw-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bw-icon {
+            width: 28px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .bw-icon.download { color: #10b981; }
+        .bw-icon.upload { color: #0ea5e9; }
+        .bw-bar-container {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        .bw-bar {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            min-width: 2px;
+        }
+        .bw-bar.download { background: linear-gradient(90deg, #10b981, #34d399); }
+        .bw-bar.upload { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+        .bw-value {
+            min-width: 80px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .bw-max {
+            min-width: 60px;
+            text-align: right;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .queue-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .total-bytes {
+            display: flex;
+            gap: 15px;
+        }
+        .monitor-header-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .monitor-stat {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+        .monitor-stat-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .monitor-stat h3 {
+            font-size: 1.3rem;
+            color: var(--text-primary);
+        }
+        .monitor-stat p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse-anim 1.5s infinite;
+        }
+        @keyframes pulse-anim {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ========== Gráfica de Bandwidth en Tiempo Real ========== */
+        .chart-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .chart-section h3 {
+            color: var(--text-primary);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-section h3 i { color: var(--primary); }
+        #bwChartCanvas {
+            max-height: 220px;
+        }
+
+        /* ========== Top 5 Consumidores ========== */
+        .top5-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .top5-section h3 {
+            color: var(--text-primary);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .top5-section h3 i { color: #f59e0b; }
+        .top5-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
+        }
+        .top5-card {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 0.75rem;
+            text-align: center;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+        .top5-rank {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .top5-rank.r1 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .top5-rank.r2 { background: linear-gradient(135deg, #94a3b8, #64748b); }
+        .top5-rank.r3 { background: linear-gradient(135deg, #b45309, #92400e); }
+        .top5-rank.r4, .top5-rank.r5 { background: linear-gradient(135deg, #475569, #334155); }
+        .top5-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .top5-speed {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #10b981;
+            font-weight: 600;
+        }
+        .top5-speed-up {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #0ea5e9;
+        }
+
+        /* ========== Toolbar (Ordenar + Vista) ========== */
+        .monitor-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sort-btn, .view-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-family: inherit;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sort-btn:hover, .view-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .sort-btn.active, .view-btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        /* ========== Indicador Circular ========== */
+        .circular-indicator {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+        .circular-indicator svg {
+            width: 48px;
+            height: 48px;
+            transform: rotate(-90deg);
+        }
+        .circular-bg { fill: none; stroke: var(--bg-tertiary); stroke-width: 4; }
+        .circular-fg { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease, stroke 0.3s; }
+        .circular-text {
+            font-size: 10px;
+            font-weight: 700;
+            fill: var(--text-primary);
+            text-anchor: middle;
+            dominant-baseline: central;
+            transform: rotate(90deg);
+            transform-origin: center;
+        }
+
+        /* ========== Vista Tabla ========== */
+        .monitor-table-container {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .monitor-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .monitor-table thead th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .monitor-table thead th:hover {
+            color: var(--primary);
+        }
+        .monitor-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        .monitor-table tbody tr:hover {
+            background: rgba(14,165,233,0.05);
+        }
+        .monitor-table tbody tr.alert-warning {
+            background: rgba(245,158,11,0.08);
+        }
+        .monitor-table tbody tr.alert-danger {
+            background: rgba(239,68,68,0.08);
+        }
+        .monitor-table td {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .table-bar-mini {
+            width: 80px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        .table-bar-mini .fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+        .table-bar-mini .fill.download { background: #10b981; }
+        .table-bar-mini .fill.upload { background: #0ea5e9; }
+        .table-circular-mini {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .table-circular-mini svg {
+            width: 28px;
+            height: 28px;
+            transform: rotate(-90deg);
+        }
+        .table-circular-mini .circular-text {
+            font-size: 7px;
+        }
+
+        @media (max-width: 768px) {
+            .top5-grid { grid-template-columns: repeat(2, 1fr); }
+            .monitor-toolbar { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link"><i class="fas fa-home"></i><span>Dashboard</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link"><i class="fas fa-users"></i><span>Clientes</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/pagos" class="nav-link"><i class="fas fa-money-bill-wave"></i><span>Pagos</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/reportes" class="nav-link"><i class="fas fa-chart-bar"></i><span>Reportes</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/configuracion" class="nav-link"><i class="fas fa-cog"></i><span>Configuracion</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a>
+            </li>
+            <li class="nav-item active">
+                <a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a>
+            </li>
+            <li class="nav-item">
+                <a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-tachometer-alt"></i> Monitor de Bandwidth</h1>
+                <p class="header-subtitle">Consumo en tiempo real desde MikroTik</p>
+            </div>
+            <div class="header-right">
+                <div class="auto-refresh">
+                    <div class="pulse-dot"></div>
+                    <span>Auto-refresh: <strong>10s</strong></span>
+                </div>
+                <button class="btn btn-primary" onclick="cargarBandwidth()" style="margin-left:10px;">
+                    <i class="fas fa-sync"></i> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats totales -->
+        <div class="monitor-header-stats">
+            <div class="monitor-stat">
+                <div class="monitor-stat-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div>
+                    <h3 id="totalDownload">0 bps</h3>
+                    <p>Download Total</p>
+                </div>
+            </div>
+            <div class="monitor-stat">
+                <div class="monitor-stat-icon" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div>
+                    <h3 id="totalUpload">0 bps</h3>
+                    <p>Upload Total</p>
+                </div>
+            </div>
+            <div class="monitor-stat">
+                <div class="monitor-stat-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4;">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div>
+                    <h3 id="totalQueues">0</h3>
+                    <p>Queues Activos</p>
+                </div>
+            </div>
+            <div class="monitor-stat">
+                <div class="monitor-stat-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <h3 id="totalAlertas">0</h3>
+                    <p>Alertas</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfica de Bandwidth en Tiempo Real -->
+        <div class="chart-section">
+            <h3><i class="fas fa-chart-area"></i> Bandwidth Total - Últimos 5 minutos</h3>
+            <canvas id="bwChartCanvas"></canvas>
+        </div>
+
+        <!-- Top 5 Consumidores -->
+        <div class="top5-section">
+            <h3><i class="fas fa-trophy"></i> Top 5 Consumidores</h3>
+            <div class="top5-grid" id="top5Grid">
+                <div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:1rem;">
+                    Cargando...
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar: Buscar + Ordenar + Vista -->
+        <div class="monitor-toolbar">
+            <div class="toolbar-left">
+                <div class="search-box" style="margin:0;min-width:220px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchMonitor" placeholder="Buscar queue..." onkeyup="filtrarQueues()">
+                </div>
+                <button class="sort-btn active" data-sort="download" onclick="setSortMode('download', this)">
+                    <i class="fas fa-sort-amount-down"></i> Mayor Consumo
+                </button>
+                <button class="sort-btn" data-sort="name" onclick="setSortMode('name', this)">
+                    <i class="fas fa-sort-alpha-down"></i> Nombre
+                </button>
+                <button class="sort-btn" data-sort="status" onclick="setSortMode('status', this)">
+                    <i class="fas fa-circle"></i> Estado
+                </button>
+                <button class="sort-btn" data-sort="percent" onclick="setSortMode('percent', this)">
+                    <i class="fas fa-percentage"></i> % Uso
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <button class="view-btn active" id="viewCards" onclick="setView('cards')">
+                    <i class="fas fa-th-large"></i> Tarjetas
+                </button>
+                <button class="view-btn" id="viewTable" onclick="setView('table')">
+                    <i class="fas fa-table"></i> Tabla
+                </button>
+            </div>
+        </div>
+
+        <!-- Vista Tarjetas -->
+        <div class="monitor-grid" id="monitorGrid">
+            <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">
+                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                <p style="margin-top:1rem;">Cargando datos de MikroTik...</p>
+            </div>
+        </div>
+
+        <!-- Vista Tabla -->
+        <div class="monitor-table-container" id="monitorTableContainer">
+            <table class="monitor-table">
+                <thead>
+                    <tr>
+                        <th onclick="setSortMode('percent')">% Uso</th>
+                        <th onclick="setSortMode('name')">Queue</th>
+                        <th>Target</th>
+                        <th onclick="setSortMode('download')">Download</th>
+                        <th>Max Down</th>
+                        <th>Upload</th>
+                        <th>Max Up</th>
+                        <th>Total Down</th>
+                        <th>Total Up</th>
+                        <th onclick="setSortMode('status')">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="monitorTableBody"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // ========== Estado global ==========
+        let currentQueues = [];
+        let sortMode = 'download';
+        let currentView = 'cards';
+        const HISTORY_MAX = 30; // 30 puntos x 10s = 5 minutos
+        const bwHistory = { labels: [], download: [], upload: [] };
+        let bwChart = null;
+
+        // ========== Utilidades ==========
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatBits(bitsPerSec) {
+            if (bitsPerSec === 0) return '0 bps';
+            const k = 1000;
+            const sizes = ['bps', 'Kbps', 'Mbps', 'Gbps'];
+            const i = Math.floor(Math.log(bitsPerSec) / Math.log(k));
+            return parseFloat((bitsPerSec / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function parseSpeed(speed) {
+            if (!speed) return 0;
+            const s = speed.toString().toUpperCase();
+            const num = parseFloat(s);
+            if (isNaN(num)) return 0;
+            if (s.includes('G')) return num * 1000000000;
+            if (s.includes('M')) return num * 1000000;
+            if (s.includes('K')) return num * 1000;
+            return num;
+        }
+
+        function getUsagePercent(q) {
+            const downloadRate = q.download_rate * 8;
+            const maxDown = parseSpeed(q.max_download);
+            return maxDown > 0 ? Math.min((downloadRate / maxDown) * 100, 100) : 0;
+        }
+
+        function getAlertClass(percent) {
+            if (percent >= 95) return 'alert-danger';
+            if (percent >= 80) return 'alert-warning';
+            return '';
+        }
+
+        function getAlertText(percent) {
+            if (percent >= 95) return 'CRITICO';
+            if (percent >= 80) return 'ALTO';
+            return '';
+        }
+
+        function circularSVG(percent, size = 48, stroke = 4) {
+            const r = (size / 2) - stroke;
+            const circ = 2 * Math.PI * r;
+            const offset = circ - (percent / 100) * circ;
+            let color = '#10b981';
+            if (percent >= 95) color = '#ef4444';
+            else if (percent >= 80) color = '#f59e0b';
+            else if (percent >= 50) color = '#06b6d4';
+            return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                <circle class="circular-bg" cx="${size/2}" cy="${size/2}" r="${r}" stroke-width="${stroke}"/>
+                <circle class="circular-fg" cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}"
+                    stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-width="${stroke}"/>
+                <text class="circular-text" x="${size/2}" y="${size/2}"
+                    style="font-size:${size < 35 ? 7 : 10}px">${Math.round(percent)}%</text>
+            </svg>`;
+        }
+
+        // ========== Gráfica Tiempo Real ==========
+        function initChart() {
+            const ctx = document.getElementById('bwChartCanvas').getContext('2d');
+            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || 'rgba(255,255,255,0.08)';
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#888';
+            bwChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Download',
+                            data: [],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16,185,129,0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Upload',
+                            data: [],
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14,165,233,0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: {
+                            labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 20 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#e2e8f0',
+                            borderColor: 'rgba(14,165,233,0.3)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: ctx => ctx.dataset.label + ': ' + formatBits(ctx.raw)
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, maxRotation: 0, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                callback: v => formatBits(v)
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(totalDown, totalUp) {
+            const now = new Date();
+            const label = now.getHours().toString().padStart(2,'0') + ':' +
+                          now.getMinutes().toString().padStart(2,'0') + ':' +
+                          now.getSeconds().toString().padStart(2,'0');
+
+            bwHistory.labels.push(label);
+            bwHistory.download.push(totalDown);
+            bwHistory.upload.push(totalUp);
+
+            if (bwHistory.labels.length > HISTORY_MAX) {
+                bwHistory.labels.shift();
+                bwHistory.download.shift();
+                bwHistory.upload.shift();
+            }
+
+            bwChart.data.labels = [...bwHistory.labels];
+            bwChart.data.datasets[0].data = [...bwHistory.download];
+            bwChart.data.datasets[1].data = [...bwHistory.upload];
+            bwChart.update('none');
+        }
+
+        // ========== Top 5 Consumidores ==========
+        function renderTop5(queues) {
+            const sorted = [...queues].filter(q => !q.disabled).sort((a, b) => (b.download_rate * 8) - (a.download_rate * 8)).slice(0, 5);
+            if (sorted.length === 0) {
+                document.getElementById('top5Grid').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:0.5rem;">Sin datos</div>';
+                return;
+            }
+            let html = '';
+            sorted.forEach((q, i) => {
+                const dlBits = q.download_rate * 8;
+                const ulBits = q.upload_rate * 8;
+                html += `
+                <div class="top5-card">
+                    <div class="top5-rank r${i+1}">${i+1}</div>
+                    <div class="top5-name" title="${q.name}">${q.name}</div>
+                    <div class="top5-speed"><i class="fas fa-arrow-down"></i> ${formatBits(dlBits)}</div>
+                    <div class="top5-speed-up"><i class="fas fa-arrow-up"></i> ${formatBits(ulBits)}</div>
+                </div>`;
+            });
+            document.getElementById('top5Grid').innerHTML = html;
+        }
+
+        // ========== Ordenamiento ==========
+        function sortQueues(queues, mode) {
+            const sorted = [...queues];
+            switch (mode) {
+                case 'download':
+                    sorted.sort((a, b) => (b.download_rate) - (a.download_rate));
+                    break;
+                case 'name':
+                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'status':
+                    sorted.sort((a, b) => (a.disabled === b.disabled) ? (b.download_rate - a.download_rate) : (a.disabled ? 1 : -1));
+                    break;
+                case 'percent':
+                    sorted.sort((a, b) => getUsagePercent(b) - getUsagePercent(a));
+                    break;
+            }
+            return sorted;
+        }
+
+        function setSortMode(mode, btn) {
+            sortMode = mode;
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            else document.querySelector(`.sort-btn[data-sort="${mode}"]`)?.classList.add('active');
+            renderQueues();
+        }
+
+        // ========== Vista toggle ==========
+        function setView(view) {
+            currentView = view;
+            document.getElementById('viewCards').classList.toggle('active', view === 'cards');
+            document.getElementById('viewTable').classList.toggle('active', view === 'table');
+            document.getElementById('monitorGrid').style.display = view === 'cards' ? '' : 'none';
+            document.getElementById('monitorTableContainer').style.display = view === 'table' ? '' : 'none';
+            renderQueues();
+        }
+
+        // ========== Render principal ==========
+        function renderQueues() {
+            const sorted = sortQueues(currentQueues, sortMode);
+            if (currentView === 'cards') renderCards(sorted);
+            else renderTable(sorted);
+        }
+
+        function renderCards(queues) {
+            if (queues.length === 0) {
+                document.getElementById('monitorGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><i class="fas fa-server fa-2x"></i><p style="margin-top:1rem;">No hay queues configurados</p></div>';
+                return;
+            }
+            let html = '';
+            queues.forEach(q => {
+                const downloadRate = q.download_rate * 8;
+                const uploadRate = q.upload_rate * 8;
+                const maxDown = parseSpeed(q.max_download);
+                const maxUp = parseSpeed(q.max_upload);
+                const downPercent = maxDown > 0 ? Math.min((downloadRate / maxDown) * 100, 100) : 0;
+                const upPercent = maxUp > 0 ? Math.min((uploadRate / maxUp) * 100, 100) : 0;
+                const usagePct = getUsagePercent(q);
+                const alertCls = getAlertClass(usagePct);
+                const alertTxt = getAlertText(usagePct);
+
+                html += `
+                <div class="queue-card ${q.disabled ? 'disabled' : ''} ${alertCls}" data-name="${q.name.toLowerCase()}">
+                    <span class="alert-badge"><i class="fas fa-exclamation-triangle"></i> ${alertTxt}</span>
+                    <div class="queue-header">
+                        <div class="queue-header-left">
+                            <div class="circular-indicator">${circularSVG(usagePct)}</div>
+                            <div style="min-width:0;">
+                                <div class="queue-name">${q.name}</div>
+                                <span class="queue-target">${q.target}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bandwidth-bars">
+                        <div class="bw-item">
+                            <div class="bw-icon download"><i class="fas fa-arrow-down"></i></div>
+                            <div class="bw-bar-container">
+                                <div class="bw-bar download" style="width:${downPercent}%"></div>
+                            </div>
+                            <div class="bw-value">${formatBits(downloadRate)}</div>
+                            <div class="bw-max">/ ${q.max_download || '∞'}</div>
+                        </div>
+                        <div class="bw-item">
+                            <div class="bw-icon upload"><i class="fas fa-arrow-up"></i></div>
+                            <div class="bw-bar-container">
+                                <div class="bw-bar upload" style="width:${upPercent}%"></div>
+                            </div>
+                            <div class="bw-value">${formatBits(uploadRate)}</div>
+                            <div class="bw-max">/ ${q.max_upload || '∞'}</div>
+                        </div>
+                    </div>
+                    <div class="queue-footer">
+                        <div class="total-bytes">
+                            <span><i class="fas fa-arrow-down" style="color:#10b981;"></i> ${formatBytes(q.download_bytes)}</span>
+                            <span><i class="fas fa-arrow-up" style="color:#0ea5e9;"></i> ${formatBytes(q.upload_bytes)}</span>
+                        </div>
+                        <span>${q.disabled ? '<i class="fas fa-pause" style="color:#f59e0b;"></i> Deshabilitado' : '<i class="fas fa-check" style="color:#10b981;"></i> Activo'}</span>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('monitorGrid').innerHTML = html;
+            filtrarQueues();
+        }
+
+        function renderTable(queues) {
+            if (queues.length === 0) {
+                document.getElementById('monitorTableBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">No hay queues</td></tr>';
+                return;
+            }
+            let html = '';
+            queues.forEach(q => {
+                const downloadRate = q.download_rate * 8;
+                const uploadRate = q.upload_rate * 8;
+                const maxDown = parseSpeed(q.max_download);
+                const maxUp = parseSpeed(q.max_upload);
+                const downPercent = maxDown > 0 ? Math.min((downloadRate / maxDown) * 100, 100) : 0;
+                const upPercent = maxUp > 0 ? Math.min((uploadRate / maxUp) * 100, 100) : 0;
+                const usagePct = getUsagePercent(q);
+                const alertCls = getAlertClass(usagePct);
+
+                html += `
+                <tr class="${alertCls}" data-name="${q.name.toLowerCase()}">
+                    <td>
+                        <div class="table-circular-mini">${circularSVG(usagePct, 28, 3)}</div>
+                    </td>
+                    <td style="font-weight:600;">${q.name}</td>
+                    <td><span class="queue-target">${q.target}</span></td>
+                    <td>
+                        <div class="table-bar-mini"><div class="fill download" style="width:${downPercent}%"></div></div>
+                        <span style="font-family:monospace;font-weight:600;color:#10b981;">${formatBits(downloadRate)}</span>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:0.8rem;">${q.max_download || '∞'}</td>
+                    <td>
+                        <div class="table-bar-mini"><div class="fill upload" style="width:${upPercent}%"></div></div>
+                        <span style="font-family:monospace;font-weight:600;color:#0ea5e9;">${formatBits(uploadRate)}</span>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:0.8rem;">${q.max_upload || '∞'}</td>
+                    <td>${formatBytes(q.download_bytes)}</td>
+                    <td>${formatBytes(q.upload_bytes)}</td>
+                    <td>${q.disabled
+                        ? '<span style="color:#f59e0b;"><i class="fas fa-pause"></i> Off</span>'
+                        : '<span style="color:#10b981;"><i class="fas fa-check"></i> On</span>'}</td>
+                </tr>`;
+            });
+            document.getElementById('monitorTableBody').innerHTML = html;
+            filtrarQueues();
+        }
+
+        // ========== Cargar datos ==========
+        async function cargarBandwidth() {
+            try {
+                const res = await fetch('/api/monitor/bandwidth');
+                const data = await res.json();
+
+                if (!data.success) {
+                    document.getElementById('monitorGrid').innerHTML = `
+                        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">
+                            <i class="fas fa-exclamation-triangle fa-2x" style="color:var(--warning);"></i>
+                            <p style="margin-top:1rem;">${data.error || 'Error al conectar con MikroTik'}</p>
+                        </div>`;
+                    return;
+                }
+
+                const queues = data.queues;
+                currentQueues = queues;
+                let totalDown = 0, totalUp = 0, activos = 0, alertas = 0;
+
+                queues.forEach(q => {
+                    const downloadRate = q.download_rate * 8;
+                    const uploadRate = q.upload_rate * 8;
+                    totalDown += downloadRate;
+                    totalUp += uploadRate;
+                    if (!q.disabled) activos++;
+                    const pct = getUsagePercent(q);
+                    if (pct >= 80) alertas++;
+                });
+
+                document.getElementById('totalDownload').textContent = formatBits(totalDown);
+                document.getElementById('totalUpload').textContent = formatBits(totalUp);
+                document.getElementById('totalQueues').textContent = activos;
+                document.getElementById('totalAlertas').textContent = alertas;
+                document.getElementById('totalAlertas').style.color = alertas > 0 ? '#ef4444' : '';
+
+                // Actualizar gráfica
+                updateChart(totalDown, totalUp);
+                // Top 5
+                renderTop5(queues);
+                // Render queues
+                renderQueues();
+
+            } catch(e) {
+                console.error('Error:', e);
+            }
+        }
+
+        function filtrarQueues() {
+            const search = document.getElementById('searchMonitor').value.toLowerCase();
+            if (currentView === 'cards') {
+                document.querySelectorAll('.queue-card').forEach(card => {
+                    card.style.display = card.dataset.name.includes(search) ? '' : 'none';
+                });
+            } else {
+                document.querySelectorAll('#monitorTableBody tr').forEach(row => {
+                    row.style.display = row.dataset.name?.includes(search) ? '' : 'none';
+                });
+            }
+        }
+
+        // ========== Theme toggle ==========
+        function toggleTheme() {
+            const isLight = document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            document.getElementById('themeIcon').className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+            document.getElementById('themeText').textContent = isLight ? 'Modo Oscuro' : 'Modo Claro';
+        }
+        (function() { if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); document.getElementById('themeIcon').className='fas fa-sun'; document.getElementById('themeText').textContent='Modo Oscuro'; } })();
+
+        // ========== Inicialización ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            cargarBandwidth();
+            setInterval(cargarBandwidth, 10000);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de registro de clientes con integracion MikroTik Simple Queue">
+    <title>CuzoNet Manager - Gestion de Clientes MikroTik</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/pagos" class="nav-link">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>Pagos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reportes" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reportes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuracion</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/mapa" class="nav-link">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>Mapa</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/monitor" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Monitor</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/actividad" class="nav-link">
+                    <i class="fas fa-history"></i>
+                    <span>Actividad</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Dashboard</h1>
+                <p class="header-subtitle">Panel de control de clientes</p>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" onclick="openModal('clienteModal')">
+                    <i class="fas fa-plus"></i>
+                    Nuevo Cliente
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ total_clientes }}</h3>
+                    <p>Total Clientes</p>
+                </div>
+                <div class="stat-trend up">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ clientes_activos }}</h3>
+                    <p>Activos</p>
+                </div>
+                <div class="stat-badge active">En linea</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon red">
+                    <i class="fas fa-ban"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>{{ clientes_suspendidos }}</h3>
+                    <p>Suspendidos</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="queueCount">-</h3>
+                    <p>Queues MikroTik</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="quick-actions">
+            <h2>Acciones Rapidas</h2>
+            <div class="actions-grid">
+                <button class="action-btn" onclick="openModal('clienteModal')">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Registrar Cliente</span>
+                </button>
+                <button class="action-btn" onclick="syncQueues()">
+                    <i class="fas fa-sync"></i>
+                    <span>Sincronizar MikroTik</span>
+                </button>
+                <button class="action-btn" onclick="window.location.href='/configuracion'">
+                    <i class="fas fa-router"></i>
+                    <span>Configurar Router</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-line" style="color: var(--primary);"></i> Ingresos Mensuales</h3>
+                <canvas id="ingresosChart" height="200"></canvas>
+            </div>
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-pie" style="color: var(--secondary);"></i> Distribución por Plan</h3>
+                <canvas id="planesChart" height="200"></canvas>
+            </div>
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-bar" style="color: var(--success);"></i> Clientes Nuevos</h3>
+                <canvas id="clientesNuevosChart" height="200"></canvas>
+            </div>
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-doughnut" style="color: var(--warning);"></i> Estado de Clientes</h3>
+                <canvas id="estadosChart" height="200"></canvas>
+            </div>
+        </section>
+
+        <!-- Recent Clients Table -->
+        <section class="table-section">
+            <div class="table-header">
+                <h2>Clientes Recientes</h2>
+                <div class="table-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar cliente..." onkeyup="filterTable()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>IP Address</th>
+                            <th>Plan</th>
+                            <th>Velocidad</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes[:10] %}
+                        <tr data-id="{{ cliente.id }}">
+                            <td>
+                                <div class="client-info">
+                                    <div class="client-avatar">
+                                        {{ cliente.nombre[0].upper() }}
+                                    </div>
+                                    <div class="client-details">
+                                        <span class="client-name">{{ cliente.nombre }}</span>
+                                        <span class="client-phone">{{ cliente.telefono or 'Sin telefono' }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <code class="ip-badge">{{ cliente.ip_address }}</code>
+                            </td>
+                            <td>{{ cliente.plan }}</td>
+                            <td>
+                                <span class="speed-badge">
+                                    <i class="fas fa-arrow-down"></i> {{ cliente.velocidad_download }}
+                                    <i class="fas fa-arrow-up"></i> {{ cliente.velocidad_upload }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if cliente.estado == 'activo' %}
+                                <span class="status-badge active">
+                                    <i class="fas fa-circle"></i> Activo
+                                </span>
+                                {% elif cliente.estado == 'cortado' %}
+                                <span class="status-badge cut">
+                                    <i class="fas fa-ban"></i> Cortado
+                                </span>
+                                {% else %}
+                                <span class="status-badge suspended">
+                                    <i class="fas fa-pause"></i> Suspendido
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    {% if cliente.estado == 'activo' %}
+                                    <button class="btn-icon warning" onclick="suspenderCliente({{ cliente.id }})"
+                                        title="Suspender">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn-icon success" onclick="activarCliente({{ cliente.id }})"
+                                        title="Activar">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn-icon danger"
+                                        onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')"
+                                        title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% if not clientes %}
+                        <tr>
+                            <td colspan="6" class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>No hay clientes registrados</p>
+                                <button class="btn btn-primary" onclick="openModal('clienteModal')">
+                                    Registrar primer cliente
+                                </button>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Nuevo Cliente -->
+    <div class="modal-overlay" id="clienteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Registrar Nuevo Cliente</h2>
+                <button class="modal-close" onclick="closeModal('clienteModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="clienteForm" class="modal-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombre">
+                            <i class="fas fa-user"></i> Nombre Completo *
+                        </label>
+                        <input type="text" id="nombre" name="nombre" required placeholder="Ej: Juan Perez">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ip_address">
+                            <i class="fas fa-network-wired"></i> Direccion IP *
+                        </label>
+                        <input type="text" id="ip_address" name="ip_address" required placeholder="Ej: 192.168.1.100"
+                            pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="plan">
+                            <i class="fas fa-box"></i> Plan de Internet
+                        </label>
+                        <select id="plan" name="plan" onchange="updatePlanSpeeds()">
+                            {% for plan in planes %}
+                            <option value="{{ plan.id }}" data-download="{{ plan.velocidad_download }}"
+                                data-upload="{{ plan.velocidad_upload }}">
+                                {{ plan.nombre }} ({{ plan.velocidad_download }} / {{ plan.velocidad_upload }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="telefono">
+                            <i class="fas fa-phone"></i> Telefono
+                        </label>
+                        <input type="tel" id="telefono" name="telefono" placeholder="Ej: +1234567890">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group speed-inputs">
+                        <label>
+                            <i class="fas fa-tachometer-alt"></i> Velocidad Personalizada
+                        </label>
+                        <div class="speed-row">
+                            <div class="speed-input">
+                                <span class="speed-label">Download</span>
+                                <input type="text" id="velocidad_download" name="velocidad_download" placeholder="10M">
+                            </div>
+                            <div class="speed-input">
+                                <span class="speed-label">Upload</span>
+                                <input type="text" id="velocidad_upload" name="velocidad_upload" placeholder="5M">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group full">
+                    <label for="direccion">
+                        <i class="fas fa-map-marker-alt"></i> Direccion
+                    </label>
+                    <textarea id="direccion" name="direccion" rows="2" placeholder="Direccion del cliente"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('clienteModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Registrar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <script>
+    // ============== DARK/LIGHT MODE ==============
+    function toggleTheme() {
+        const body = document.body;
+        const isLight = body.classList.toggle('light-mode');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        updateThemeIcon(isLight);
+    }
+    function updateThemeIcon(isLight) {
+        const icon = document.getElementById('themeIcon');
+        const text = document.getElementById('themeText');
+        if (icon) { icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon'; }
+        if (text) { text.textContent = isLight ? 'Modo Oscuro' : 'Modo Claro'; }
+    }
+    // Cargar tema guardado
+    (function() {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'light') { document.body.classList.add('light-mode'); updateThemeIcon(true); }
+    })();
+
+    // ============== CHARTS ==============
+    async function loadCharts() {
+        try {
+            const res = await fetch('/api/dashboard/charts');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#8b99b0';
+            const gridColor = 'rgba(139,153,176,0.1)';
+
+            // Ingresos Mensuales (Línea)
+            new Chart(document.getElementById('ingresosChart'), {
+                type: 'line',
+                data: {
+                    labels: data.ingresos_mensuales.map(d => d.mes),
+                    datasets: [{
+                        label: 'Ingresos (Q)',
+                        data: data.ingresos_mensuales.map(d => d.total),
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14,165,233,0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#0ea5e9',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: textColor } } },
+                    scales: {
+                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                        y: { ticks: { color: textColor, callback: v => 'Q' + v }, grid: { color: gridColor } }
+                    }
+                }
+            });
+
+            // Distribución por Plan (Doughnut)
+            const planColors = ['#0ea5e9','#06b6d4','#14b8a6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+            new Chart(document.getElementById('planesChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.planes_distribucion.map(d => d.plan),
+                    datasets: [{
+                        data: data.planes_distribucion.map(d => d.cantidad),
+                        backgroundColor: planColors.slice(0, data.planes_distribucion.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'right', labels: { color: textColor, padding: 12 } } }
+                }
+            });
+
+            // Clientes Nuevos (Barras)
+            new Chart(document.getElementById('clientesNuevosChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.clientes_nuevos.map(d => d.mes),
+                    datasets: [{
+                        label: 'Nuevos Clientes',
+                        data: data.clientes_nuevos.map(d => d.total),
+                        backgroundColor: 'rgba(16,185,129,0.7)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: textColor } } },
+                    scales: {
+                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                        y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } }
+                    }
+                }
+            });
+
+            // Estados (Doughnut)
+            const estadoColors = { 'activo': '#10b981', 'suspendido': '#f59e0b', 'cortado': '#ef4444' };
+            new Chart(document.getElementById('estadosChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.estados_distribucion.map(d => d.estado.charAt(0).toUpperCase() + d.estado.slice(1)),
+                    datasets: [{
+                        data: data.estados_distribucion.map(d => d.cantidad),
+                        backgroundColor: data.estados_distribucion.map(d => estadoColors[d.estado] || '#64748b'),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'right', labels: { color: textColor, padding: 12 } } }
+                }
+            });
+        } catch (e) {
+            console.error('Error cargando gráficas:', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadCharts);
+    </script>
+
+    <style>
+        .status-badge.cut {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+    </style>
+</body>
+
+</html>
