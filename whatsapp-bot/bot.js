@@ -13,12 +13,18 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// Detectar si estamos en servidor Linux
+const IS_SERVER = os.platform() === 'linux';
 
 // ============== CONFIGURACIÓN ==============
 const CONFIG = {
     // URL de tu sistema CuzoNet (cambiar según tu servidor)
-    // Usa tu URL de DigitalOcean o localhost si corres local
-    API_URL: process.env.API_URL || 'https://rb-cuzonet-app-t5sph.ondigitalocean.app',
+    // En servidor: localhost, en local: DigitalOcean
+    API_URL: process.env.API_URL || (IS_SERVER ? 'http://127.0.0.1:5000' : 'https://rb-cuzonet-app-t5sph.ondigitalocean.app'),
 
     // ID del grupo de WhatsApp donde operará el bot (se muestra al iniciar)
     // Déjalo vacío '' para que funcione en TODOS los grupos/chats
@@ -32,17 +38,24 @@ const CONFIG = {
 };
 
 // ============== CLIENTE WHATSAPP ==============
+const puppeteerConfig = {
+    headless: true,
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+    ],
+};
+
+// En servidor Linux, usar Chromium del sistema
+if (IS_SERVER) {
+    puppeteerConfig.executablePath = '/snap/bin/chromium';
+}
+
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './sesion_whatsapp' }),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-        ],
-    },
+    puppeteer: puppeteerConfig,
 });
 
 // ============== EVENTOS ==============
@@ -50,6 +63,18 @@ client.on('qr', (qr) => {
     console.log('\n📱 Escanea este código QR con WhatsApp:\n');
     qrcode.generate(qr, { small: true });
     console.log('\nAbre WhatsApp > Dispositivos vinculados > Vincular dispositivo\n');
+
+    // En servidor, guardar QR como pagina web accesible
+    if (IS_SERVER) {
+        try {
+            const staticDir = path.join(__dirname, '..', 'static');
+            const qrDataPath = path.join(staticDir, 'qr_data.txt');
+            fs.writeFileSync(qrDataPath, qr);
+            console.log('📸 QR guardado en web: http://167.99.58.189/static/qr.html');
+        } catch (err) {
+            console.error('Error guardando QR:', err.message);
+        }
+    }
 });
 
 client.on('ready', async () => {
