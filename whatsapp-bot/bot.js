@@ -230,12 +230,25 @@ async function procesarPago(message, args) {
     }
 
     // Buscar cliente
-    const cliente = await buscarCliente(identificador);
+    let cliente;
+    try {
+        cliente = await buscarCliente(identificador);
+    } catch (error) {
+        if (error.message === 'NO_CONEXION') {
+            await message.reply('❌ No se pudo conectar con el sistema CuzoNet. Verifica que esté corriendo.');
+        } else if (error.message === 'SIN_CLIENTES') {
+            await message.reply('⚠️ No hay clientes registrados en el sistema.');
+        } else {
+            await message.reply('❌ Error al consultar la API del sistema.');
+        }
+        return;
+    }
 
     if (!cliente) {
         await message.reply(
             `❌ No se encontró ningún cliente con: *${identificador}*\n\n` +
-            '💡 Verifica el nombre o IP e intenta de nuevo.'
+            '💡 Verifica el nombre o IP e intenta de nuevo.\n' +
+            '💡 Prueba con la IP del cliente si el nombre no funciona.'
         );
         return;
     }
@@ -300,7 +313,19 @@ async function consultarCliente(message, args) {
     }
 
     const identificador = args.join(' ');
-    const cliente = await buscarCliente(identificador);
+    let cliente;
+    try {
+        cliente = await buscarCliente(identificador);
+    } catch (error) {
+        if (error.message === 'NO_CONEXION') {
+            await message.reply('❌ No se pudo conectar con el sistema CuzoNet. Verifica que esté corriendo.');
+        } else if (error.message === 'SIN_CLIENTES') {
+            await message.reply('⚠️ No hay clientes registrados en el sistema.');
+        } else {
+            await message.reply('❌ Error al consultar la API del sistema.');
+        }
+        return;
+    }
 
     if (!cliente) {
         await message.reply(`❌ No se encontró: *${identificador}*`);
@@ -336,82 +361,216 @@ async function consultarCliente(message, args) {
 
 /**
  * Registrar un nuevo cliente
- * Formato: !cliente nombre / IP / plan / telefono / direccion / dia_corte / precio
+ * Formato FLEXIBLE: !cliente nombre / IP / y los demás campos en CUALQUIER ORDEN
+ * El bot detecta automáticamente qué es cada campo:
+ *   - IP: formato xxx.xxx.xxx.xxx
+ *   - Teléfono: 8 dígitos seguidos
+ *   - Plan: contiene "mbps", "basico", "estandar", "premium", etc.
+ *   - Precio: número >= 50 (ej: 200, 150)
+ *   - Día de corte: número entre 1 y 28
+ *   - Dirección: todo lo demás (texto con letras)
  */
 async function registrarCliente(message, args) {
     // Unir todo y separar por /
     const textoCompleto = args.join(' ');
-    const campos = textoCompleto.split('/').map(c => c.trim());
+    const campos = textoCompleto.split('/').map(c => c.trim()).filter(c => c.length > 0);
 
     if (campos.length < 2) {
         await message.reply(
             '⚠️ *Formato incorrecto.*\n\n' +
             '📝 *Uso (separar con / ):*\n' +
-            '`!cliente nombre / IP / plan / teléfono / dirección / día_corte / precio`\n\n' +
-            '📌 *Ejemplo completo:*\n' +
+            '`!cliente nombre / IP / y los demás datos`\n\n' +
+            '🤖 *El bot detecta automáticamente:*\n' +
+            '• Teléfono (8 dígitos)\n' +
+            '• Plan (ej: Basico 7Mbps)\n' +
+            '• Precio (número >= 50)\n' +
+            '• Día de corte (número 1-28)\n' +
+            '• Dirección (texto restante)\n\n' +
+            '📌 *Ejemplo:*\n' +
+            '`!cliente Juan Perez / 172.16.1.50 / 32472792 / Aldea Chinaha / 15 / 200`\n\n' +
+            '📌 *Con plan:*\n' +
             '`!cliente Juan Perez / 172.16.1.50 / Basico 7Mbps / 32472792 / Aldea Chinaha / 15 / 200`\n\n' +
-            '📌 *Ejemplo mínimo (solo nombre e IP):*\n' +
+            '📌 *Mínimo (nombre + IP):*\n' +
             '`!cliente Juan Perez / 172.16.1.50`\n\n' +
-            'ℹ️ Los campos opcionales se dejan vacíos si no los tienes.'
+            'ℹ️ No importa el orden después de nombre e IP.'
         );
         return;
     }
 
-    const nombre = campos[0] || '';
-    const ip = campos[1] || '';
-    const plan = campos[2] || 'Basico';
-    const telefono = campos[3] || '';
-    const direccion = campos[4] || '';
-    const diaCorteParsed = campos[5] ? parseInt(campos[5]) : 1;
-    const diaCorteFinal = (diaCorteParsed >= 1 && diaCorteParsed <= 28) ? diaCorteParsed : 1;
-    const precio = campos[6] ? parseFloat(campos[6]) : 0;
+    // El primer campo SIEMPRE es el nombre
+    const nombre = campos[0];
 
-    // Validar nombre
+    // Detectar automáticamente cada campo restante
+    let ip = '';
+    let plan = 'Basico 7Mbps';
+    let telefono = '';
+    let direccion = '';
+    let diaCorteFinal = 1;
+    let precio = 0;
+    let velocidadDown = '7M';
+    let velocidadUp = '7M';
+
+    const camposRestantes = campos.slice(1);
+    const camposNoIdentificados = [];
+
+    for (const campo of camposRestantes) {
+        // Detectar IP (xxx.xxx.xxx.xxx)
+        if (/^(\d{1,3}\.){3}\d{1,3}$/.test(campo)) {
+            ip = campo;
+        }
+        // Detectar Plan (contiene mbps, basico, estandar, premium, etc.)
+        else if (/mbps|básico|basico|estandar|estándar|premium|avanzado|mega/i.test(campo)) {
+            plan = campo;
+            // Extraer velocidad del plan si menciona Mbps
+            const matchVel = campo.match(/(\d+)\s*mbps/i);
+            if (matchVel) {
+                velocidadDown = matchVel[1] + 'M';
+                velocidadUp = matchVel[1] + 'M';
+            }
+        }
+        // Detectar Teléfono (solo dígitos, 8 o más caracteres)
+        else if (/^\d{8,}$/.test(campo.replace(/[-\s\+]/g, ''))) {
+            telefono = campo;
+        }
+        // Detectar solo un número
+        else if (/^\d+(\.\d+)?$/.test(campo)) {
+            const num = parseFloat(campo);
+            if (num >= 1 && num <= 28 && diaCorteFinal === 1 && precio === 0) {
+                // Si es un número pequeño (1-28) y aún no tenemos día de corte
+                // Lo guardamos temporalmente como posible día de corte
+                // pero si viene otro número después, este podría ser precio
+                if (num >= 50) {
+                    // Probablemente es precio (50+)
+                    precio = num;
+                } else {
+                    // Probablemente es día de corte (1-28)
+                    diaCorteFinal = num;
+                }
+            } else if (num >= 50) {
+                precio = num;
+            } else if (num >= 1 && num <= 28 && diaCorteFinal === 1) {
+                diaCorteFinal = num;
+            }
+        }
+        // Todo lo demás es dirección
+        else if (/[a-záéíóúñ]/i.test(campo)) {
+            // Si tiene letras y no es plan ni nombre, es dirección
+            if (direccion) {
+                direccion += ', ' + campo;
+            } else {
+                direccion = campo;
+            }
+        }
+    }
+
+    // Validaciones
     if (!nombre) {
         await message.reply('⚠️ El *nombre* es obligatorio.');
         return;
     }
 
-    // Validar IP
-    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-        await message.reply('⚠️ La *IP* no es válida. Debe ser formato: `172.16.1.50`');
+    if (!ip) {
+        await message.reply(
+            '⚠️ No detecté la *IP* del cliente.\n\n' +
+            'Asegúrate de incluir la IP en formato: `172.16.1.50`\n\n' +
+            'Ejemplo: `!cliente Juan Perez / 172.16.1.50 / 200`'
+        );
         return;
     }
 
-    try {
-        const respuesta = await axios.post(`${CONFIG.API_URL}/api/cliente`, {
-            nombre: nombre,
-            ip_address: ip,
-            plan: plan,
-            telefono: telefono,
-            direccion: direccion,
-            dia_corte: diaCorteFinal,
-            precio_mensual: precio,
-            velocidad_download: '10M',
-            velocidad_upload: '5M',
-        });
+    // Mostrar resumen antes de registrar para que el usuario confirme visualmente
+    console.log(`📝 Registrando/actualizando cliente: ${nombre} | IP: ${ip} | Plan: ${plan} | Tel: ${telefono} | Dir: ${direccion} | Corte: ${diaCorteFinal} | Precio: ${precio}`);
 
-        if (respuesta.data.success) {
-            await message.reply(
-                `✅ *CLIENTE REGISTRADO*\n` +
-                `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-                `👤 *Nombre:* ${nombre}\n` +
-                `🌐 *IP:* ${ip}\n` +
-                `📡 *Plan:* ${plan}\n` +
-                `📞 *Teléfono:* ${telefono || 'N/A'}\n` +
-                `📍 *Dirección:* ${direccion || 'N/A'}\n` +
-                `✂️ *Día de corte:* ${diaCorteFinal}\n` +
-                `💰 *Precio:* Q${precio.toFixed(2)}`
-            );
-            console.log(`✅ Cliente registrado: ${nombre} (${ip})`);
+    // Primero verificar si la IP ya existe para decidir si crear o actualizar
+    let clienteExistente = null;
+    try {
+        const resp = await axios.get(`${CONFIG.API_URL}/api/clientes`);
+        if (resp.data.success && resp.data.clientes) {
+            clienteExistente = resp.data.clientes.find(c => c.ip_address === ip);
+        }
+    } catch (e) {
+        console.error('Error verificando cliente existente:', e.message);
+    }
+
+    try {
+        if (clienteExistente) {
+            // === ACTUALIZAR CLIENTE EXISTENTE ===
+            const datosActualizar = {};
+            // Siempre enviar nombre
+            datosActualizar.nombre = nombre;
+            // Enviar todos los campos que el usuario proporcionó
+            if (telefono) datosActualizar.telefono = telefono;
+            if (direccion) datosActualizar.direccion = direccion;
+            // Siempre enviar plan, velocidades, precio y día de corte
+            datosActualizar.plan = plan;
+            datosActualizar.velocidad_download = velocidadDown;
+            datosActualizar.velocidad_upload = velocidadUp;
+            if (precio > 0) datosActualizar.precio_mensual = precio;
+            datosActualizar.dia_corte = diaCorteFinal;
+
+            const respuesta = await axios.put(`${CONFIG.API_URL}/api/cliente/${clienteExistente.id}`, datosActualizar);
+
+            if (respuesta.data.success) {
+                // Mostrar qué cambió
+                const cambios = [];
+                if (nombre !== clienteExistente.nombre) cambios.push(`👤 Nombre: ${clienteExistente.nombre} → *${nombre}*`);
+                if (telefono && telefono !== (clienteExistente.telefono || '')) cambios.push(`📞 Teléfono: ${clienteExistente.telefono || 'N/A'} → *${telefono}*`);
+                if (direccion && direccion !== (clienteExistente.direccion || '')) cambios.push(`📍 Dirección: ${clienteExistente.direccion || 'N/A'} → *${direccion}*`);
+                if (plan !== 'Basico 7Mbps' && plan !== clienteExistente.plan) cambios.push(`📡 Plan: ${clienteExistente.plan} → *${plan}*`);
+                if (precio > 0 && precio !== clienteExistente.precio_mensual) cambios.push(`💰 Precio: Q${clienteExistente.precio_mensual} → *Q${precio}*`);
+                if (diaCorteFinal !== clienteExistente.dia_corte) cambios.push(`✂️ Día corte: ${clienteExistente.dia_corte} → *${diaCorteFinal}*`);
+
+                const cambiosTexto = cambios.length > 0 
+                    ? cambios.join('\n') 
+                    : '_Sin cambios detectados_';
+
+                await message.reply(
+                    `🔄 *CLIENTE ACTUALIZADO*\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                    `👤 *${nombre}*\n` +
+                    `🌐 *IP:* ${ip}\n\n` +
+                    `📝 *Cambios:*\n${cambiosTexto}`
+                );
+                console.log(`🔄 Cliente actualizado: ${nombre} (${ip})`);
+            } else {
+                await message.reply(`❌ Error al actualizar: ${respuesta.data.error || 'Error desconocido'}`);
+            }
         } else {
-            await message.reply(`❌ Error: ${respuesta.data.error || 'No se pudo registrar'}`);
+            // === CREAR CLIENTE NUEVO ===
+            const respuesta = await axios.post(`${CONFIG.API_URL}/api/cliente`, {
+                nombre: nombre,
+                ip_address: ip,
+                plan: plan,
+                telefono: telefono,
+                direccion: direccion,
+                dia_corte: diaCorteFinal,
+                precio_mensual: precio,
+                velocidad_download: velocidadDown,
+                velocidad_upload: velocidadUp,
+            });
+
+            if (respuesta.data.success) {
+                await message.reply(
+                    `✅ *CLIENTE REGISTRADO*\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                    `👤 *Nombre:* ${nombre}\n` +
+                    `🌐 *IP:* ${ip}\n` +
+                    `📡 *Plan:* ${plan}\n` +
+                    `📞 *Teléfono:* ${telefono || 'N/A'}\n` +
+                    `📍 *Dirección:* ${direccion || 'N/A'}\n` +
+                    `✂️ *Día de corte:* ${diaCorteFinal}\n` +
+                    `💰 *Precio:* Q${precio.toFixed(2)}`
+                );
+                console.log(`✅ Cliente registrado: ${nombre} (${ip})`);
+            } else {
+                await message.reply(`❌ Error: ${respuesta.data.error || 'No se pudo registrar'}`);
+            }
         }
     } catch (error) {
         if (error.response && error.response.data) {
-            await message.reply(`❌ ${error.response.data.error || 'Error al registrar cliente'}`);
+            await message.reply(`❌ ${error.response.data.error || 'Error al procesar cliente'}`);
         } else {
-            console.error('Error registrando cliente:', error.message);
+            console.error('Error procesando cliente:', error.message);
             await message.reply('❌ No se pudo conectar con el sistema.');
         }
     }
@@ -435,7 +594,8 @@ async function mostrarAyuda(message) {
 
         `👤 *REGISTRAR CLIENTE*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `▸ \`!cliente nombre / IP / plan / tel / dirección / día_corte / precio\`\n\n` +
+        `▸ \`!cliente nombre / IP / datos...\`\n` +
+        `🤖 _Detecta automáticamente: tel, plan, precio, dirección, día de corte_\n\n` +
 
         `🔍 *CONSULTAR CLIENTE*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -449,6 +609,8 @@ async function mostrarAyuda(message) {
         `💳 Pago con método:\n` +
         `\`!pago 172.16.1.18 150 transferencia\`\n\n` +
         `👤 Cliente completo:\n` +
+        `\`!cliente Juan Perez / 172.16.1.50 / 32472792 / Aldea Chinaha / 15 / 200\`\n\n` +
+        `👤 Con plan:\n` +
         `\`!cliente Juan Perez / 172.16.1.50 / Basico 7Mbps / 32472792 / Aldea Chinaha / 15 / 200\`\n\n` +
         `👤 Cliente mínimo:\n` +
         `\`!cliente Juan Perez / 172.16.1.50\`\n\n` +
@@ -464,39 +626,67 @@ async function mostrarAyuda(message) {
 
 /**
  * Buscar cliente por nombre o IP en el sistema
+ * Retorna: cliente, array de clientes, null (no encontrado), o lanza error si la API falla
  */
 async function buscarCliente(identificador) {
+    // Obtener todos los clientes desde la API
+    let respuesta;
     try {
-        // Obtener todos los clientes
-        const respuesta = await axios.get(`${CONFIG.API_URL}/api/clientes`);
-
-        if (!respuesta.data.success) return null;
-
-        const clientes = respuesta.data.clientes;
-
-        // Verificar si es una IP
-        const esIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(identificador);
-
-        if (esIP) {
-            // Buscar por IP exacta
-            const cliente = clientes.find((c) => c.ip_address === identificador);
-            return cliente || null;
-        }
-
-        // Buscar por nombre (coincidencia parcial, sin importar mayúsculas/tildes)
-        const busqueda = normalizarTexto(identificador);
-        const coincidencias = clientes.filter((c) => {
-            const nombre = normalizarTexto(c.nombre);
-            return nombre.includes(busqueda) || busqueda.includes(nombre);
-        });
-
-        if (coincidencias.length === 0) return null;
-        if (coincidencias.length === 1) return coincidencias[0];
-        return coincidencias; // Múltiples coincidencias
+        respuesta = await axios.get(`${CONFIG.API_URL}/api/clientes`);
     } catch (error) {
-        console.error('Error buscando cliente:', error.message);
-        return null;
+        console.error('Error conectando con la API:', error.message);
+        throw new Error('NO_CONEXION');
     }
+
+    if (!respuesta.data || !respuesta.data.success) {
+        console.error('API respondió sin éxito:', JSON.stringify(respuesta.data));
+        throw new Error('API_ERROR');
+    }
+
+    const clientes = respuesta.data.clientes;
+    console.log(`📊 Total clientes en sistema: ${clientes.length}`);
+
+    if (!clientes || clientes.length === 0) {
+        throw new Error('SIN_CLIENTES');
+    }
+
+    // Verificar si es una IP
+    const esIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(identificador);
+
+    if (esIP) {
+        // Buscar por IP exacta
+        const cliente = clientes.find((c) => c.ip_address === identificador);
+        return cliente || null;
+    }
+
+    // Buscar por nombre (coincidencia parcial, sin importar mayúsculas/tildes)
+    const busqueda = normalizarTexto(identificador);
+    console.log(`🔍 Buscando: "${busqueda}"`);
+
+    // Primero buscar coincidencia exacta
+    const exacta = clientes.find((c) => normalizarTexto(c.nombre) === busqueda);
+    if (exacta) return exacta;
+
+    // Luego buscar coincidencia parcial
+    const coincidencias = clientes.filter((c) => {
+        const nombre = normalizarTexto(c.nombre);
+        return nombre.includes(busqueda) || busqueda.includes(nombre);
+    });
+
+    // Si no hay coincidencias parciales, buscar por palabras individuales
+    if (coincidencias.length === 0) {
+        const palabras = busqueda.split(/\s+/);
+        const porPalabras = clientes.filter((c) => {
+            const nombre = normalizarTexto(c.nombre);
+            return palabras.every((p) => nombre.includes(p));
+        });
+        if (porPalabras.length === 1) return porPalabras[0];
+        if (porPalabras.length > 1) return porPalabras;
+    }
+
+    if (coincidencias.length === 0) return null;
+    if (coincidencias.length === 1) return coincidencias[0];
+    return coincidencias; // Múltiples coincidencias
 }
 
 /**

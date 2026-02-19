@@ -1104,6 +1104,10 @@ def actualizar_cliente(id):
         if 'precio_mensual' in data:
             cliente.precio_mensual = float(data['precio_mensual'])
         
+        # Actualizar plan como texto directo (desde WhatsApp Bot u otras fuentes)
+        if data.get('plan') and not data.get('plan_id'):
+            cliente.plan = data['plan']
+        
         # Actualizar plan y velocidades
         if data.get('plan_id'):
             plan = Plan.query.get(data['plan_id'])
