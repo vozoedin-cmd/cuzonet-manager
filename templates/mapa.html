@@ -502,7 +502,7 @@
 
         const map = L.map('map').setView([14.6349, -90.5069], 13);
 
-        // Capa principal: CartoDB Voyager (más confiable que OSM directo)
+        // Capa principal: CartoDB Voyager (mï¿½s confiable que OSM directo)
         const layerOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
             subdomains: 'abcd',
@@ -529,7 +529,7 @@
         });
         layerOSM.addTo(map);
 
-        // Si los tiles fallan, cambiar automáticamente al fallback
+        // Si los tiles fallan, cambiar automï¿½ticamente al fallback
         var tileErrorCount = 0;
         layerOSM.on('tileerror', function() {
             tileErrorCount++;
@@ -869,7 +869,7 @@
         (function() { if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); document.getElementById('themeIcon').className='fas fa-sun'; document.getElementById('themeText').textContent='Modo Oscuro'; } })();
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Forzar recalculo del tamaño del mapa después de que el DOM esté listo
+            // Forzar recalculo del tamaï¿½o del mapa despuï¿½s de que el DOM estï¿½ listo
             setTimeout(function() { map.invalidateSize(); }, 100);
             setTimeout(function() { map.invalidateSize(); }, 500);
             cargarClientes();
