@@ -174,6 +174,26 @@ function updatePlanSpeeds() {
 }
 
 /**
+ * Actualizar velocidades al cambiar plan en el modal EDITAR
+ */
+function updateEditPlanSpeeds() {
+    const planSelect = document.getElementById('edit_plan');
+    if (!planSelect) return;
+    const selectedOption = planSelect.options[planSelect.selectedIndex];
+
+    const downloadInput = document.getElementById('edit_velocidad_download');
+    const uploadInput   = document.getElementById('edit_velocidad_upload');
+    const precioInput   = document.getElementById('edit_precio_mensual');
+
+    if (downloadInput && selectedOption.dataset.download)
+        downloadInput.value = selectedOption.dataset.download;
+    if (uploadInput && selectedOption.dataset.upload)
+        uploadInput.value = selectedOption.dataset.upload;
+    if (precioInput && selectedOption.dataset.precio)
+        precioInput.value = selectedOption.dataset.precio;
+}
+
+/**
  * Suspender cliente
  */
 async function suspenderCliente(id) {
@@ -505,6 +525,16 @@ function filterTable() {
 
         row.style.display = (matchSearch && matchEstado && matchPlan) ? '' : 'none';
     });
+
+    // Actualizar contador de resultados visibles
+    const counter = document.getElementById('clienteCount');
+    if (counter) {
+        const visible = table.querySelectorAll('tbody tr[data-id]:not([style*="none"])');
+        const total   = rows.length;
+        counter.textContent = visible.length < total
+            ? `${visible.length} de ${total} clientes`
+            : `${total} clientes`;
+    }
 }
 
 /**
@@ -720,6 +750,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar velocidades del plan
     updatePlanSpeeds();
+
+    // Inicializar contador de clientes
+    filterTable();
 });
 
 // Agregar estilos adicionales para detalles de cliente

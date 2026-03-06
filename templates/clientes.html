@@ -68,14 +68,25 @@
 
         <section class="filters-section">
             <div class="search-box large"><i class="fas fa-search"></i><input type="text" id="searchInput"
-                    placeholder="Buscar..." onkeyup="filterTable()"></div>
+                    placeholder="Buscar por nombre, IP o plan..." onkeyup="filterTable()"></div>
             <div class="filter-group">
                 <select id="filterEstado" onchange="filterTable()">
-                    <option value="">Todos</option>
+                    <option value="">Todos los estados</option>
                     <option value="activo">Activos</option>
                     <option value="suspendido">Suspendidos</option>
                     <option value="cortado">Cortados</option>
                 </select>
+            </div>
+            <div class="filter-group">
+                <select id="filterPlan" onchange="filterTable()">
+                    <option value="">Todos los planes</option>
+                    {% for plan in planes %}
+                    <option value="{{ plan.nombre }}">{{ plan.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group" style="margin-left:auto;">
+                <span id="clienteCount" style="color:var(--text-secondary);font-size:0.875rem;padding:0 8px;"></span>
             </div>
         </section>
 
@@ -124,6 +135,8 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
+                                    <button class="btn-icon view" onclick="viewCliente({{ cliente.id }})"
+                                        title="Ver detalles"><i class="fas fa-eye"></i></button>
                                     <button class="btn-icon info" onclick="editarCliente({{ cliente.id }})"
                                         title="Editar"><i class="fas fa-edit"></i></button>
                                     <button class="btn-icon cobro" onclick="generarAvisoIndividual({{ cliente.id }})"
@@ -161,9 +174,10 @@
                 </table>
             </div>
             <div class="bulk-actions" id="bulkActions" style="display:none;">
-                <span id="selectedCount">0</span>
-                <button class="btn btn-warning" onclick="bulkSuspend()"><i class="fas fa-pause"></i></button>
-                <button class="btn btn-success" onclick="bulkActivate()"><i class="fas fa-play"></i></button>
+                <span id="selectedCount" style="font-size:0.875rem;color:var(--text-secondary);">0 seleccionados</span>
+                <button class="btn btn-warning" onclick="bulkSuspend()"><i class="fas fa-pause"></i> Suspender</button>
+                <button class="btn btn-success" onclick="bulkActivate()"><i class="fas fa-play"></i> Activar</button>
+                <button class="btn btn-danger" onclick="bulkDelete()" style="background:rgba(220,53,69,.15);color:#dc3545;border:1px solid rgba(220,53,69,.3);"><i class="fas fa-trash"></i> Eliminar</button>
             </div>
         </section>
     </main>
@@ -235,7 +249,13 @@
                     <div class="form-group"><label>IP *</label><input type="text" id="edit_ip_address" required></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Plan</label><input type="text" id="edit_plan"></div>
+                    <div class="form-group"><label>Plan</label>
+                        <select id="edit_plan" onchange="updateEditPlanSpeeds()">
+                            {% for plan in planes %}
+                            <option value="{{ plan.nombre }}" data-download="{{ plan.velocidad_download }}" data-upload="{{ plan.velocidad_upload }}" data-precio="{{ plan.precio }}">{{ plan.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <div class="form-group"><label>Teléfono</label><input type="tel" id="edit_telefono"></div>
                 </div>
                 <div class="form-row">
@@ -391,6 +411,19 @@
         </div>
     </div>
 
+    <!-- Modal Ver Cliente -->
+    <div class="modal-overlay" id="viewClienteModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-user"></i> Detalle de Cliente</h2>
+                <button class="modal-close" onclick="closeModal('viewClienteModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="clienteDetails" style="padding:20px;min-height:200px;">
+                <div style="text-align:center;padding:40px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
@@ -462,7 +495,7 @@
                 const r = await fetch('/api/clientes/importar', { method: 'POST', body: f });
                 const d = await r.json();
                 if (d.success) {
-                    showToast(`âœ… Importados: ${d.importados} clientes${d.omitidos ? ` (${d.omitidos} omitidos)` : ''}`, 'success');
+                    showToast(`Importados: ${d.importados} clientes${d.omitidos ? ` (${d.omitidos} omitidos)` : ''}`, 'success');
                     closeModal('importModal');
                     setTimeout(() => location.reload(), 1500);
                 } else {
@@ -501,6 +534,16 @@
         }
     </script>
     <style>
+        .btn-icon.view {
+            background: rgba(139, 92, 246, .15);
+            color: #8b5cf6
+        }
+
+        .btn-icon.view:hover {
+            background: #8b5cf6;
+            color: #fff
+        }
+
         .btn-icon.cut {
             background: rgba(220, 53, 69, .2);
             color: #dc3545
