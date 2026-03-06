@@ -40,6 +40,19 @@ login_manager.login_message_category = 'warning'
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
+def admin_required(f):
+    """Decorador que requiere rol admin"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        if current_user.rol != 'admin':
+            flash('Acceso restringido: solo administradores', 'error')
+            return redirect(url_for('listar_clientes'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # ============== MODELOS ==============
 
 class Usuario(UserMixin, db.Model):
@@ -511,6 +524,120 @@ def cambiar_password():
     db.session.commit()
     return jsonify({'success': True, 'message': 'Contraseña actualizada'})
 
+# ============== GESTIÓN DE USUARIOS ==============
+
+@app.route('/usuarios')
+@login_required
+@admin_required
+def usuarios_view():
+    """Página de gestión de usuarios"""
+    usuarios = Usuario.query.order_by(Usuario.fecha_creacion.desc()).all()
+    return render_template('usuarios.html', usuarios=usuarios)
+
+@app.route('/api/usuarios', methods=['GET'])
+@login_required
+@admin_required
+def api_listar_usuarios():
+    usuarios = Usuario.query.order_by(Usuario.fecha_creacion.desc()).all()
+    return jsonify({'success': True, 'usuarios': [{
+        'id': u.id,
+        'username': u.username,
+        'nombre': u.nombre,
+        'rol': u.rol,
+        'activo': u.activo,
+        'fecha_creacion': u.fecha_creacion.strftime('%Y-%m-%d') if u.fecha_creacion else None
+    } for u in usuarios]})
+
+@app.route('/api/usuarios', methods=['POST'])
+@login_required
+@admin_required
+def api_crear_usuario():
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        nombre = data.get('nombre', '').strip()
+        password = data.get('password', '')
+        rol = data.get('rol', 'operador')
+
+        if not username or not password or not nombre:
+            return jsonify({'success': False, 'error': 'Username, nombre y contraseña son requeridos'})
+        if len(password) < 4:
+            return jsonify({'success': False, 'error': 'La contraseña debe tener al menos 4 caracteres'})
+        if Usuario.query.filter_by(username=username).first():
+            return jsonify({'success': False, 'error': f'El usuario "{username}" ya existe'})
+        if rol not in ('admin', 'operador'):
+            rol = 'operador'
+
+        nuevo = Usuario(username=username, nombre=nombre, rol=rol)
+        nuevo.set_password(password)
+        db.session.add(nuevo)
+        db.session.commit()
+        registrar_auditoria('crear', 'usuario', nuevo.id, f'Nuevo usuario: {username} ({rol})')
+        return jsonify({'success': True, 'message': f'Usuario "{username}" creado correctamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/usuario/<int:user_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_editar_usuario(user_id):
+    try:
+        u = Usuario.query.get_or_404(user_id)
+        data = request.get_json()
+        nombre = data.get('nombre', '').strip()
+        rol = data.get('rol', u.rol)
+        new_pw = data.get('password', '')
+
+        if nombre:
+            u.nombre = nombre
+        if rol in ('admin', 'operador'):
+            u.rol = rol
+        if new_pw:
+            if len(new_pw) < 4:
+                return jsonify({'success': False, 'error': 'La contraseña debe tener al menos 4 caracteres'})
+            u.set_password(new_pw)
+        db.session.commit()
+        registrar_auditoria('editar', 'usuario', u.id, f'Editado: {u.username}')
+        return jsonify({'success': True, 'message': 'Usuario actualizado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/usuario/<int:user_id>/toggle', methods=['PUT'])
+@login_required
+@admin_required
+def api_toggle_usuario(user_id):
+    try:
+        u = Usuario.query.get_or_404(user_id)
+        if u.id == current_user.id:
+            return jsonify({'success': False, 'error': 'No puedes desactivarte a ti mismo'})
+        u.activo = not u.activo
+        db.session.commit()
+        estado = 'activado' if u.activo else 'desactivado'
+        registrar_auditoria('editar', 'usuario', u.id, f'Usuario {estado}: {u.username}')
+        return jsonify({'success': True, 'activo': u.activo, 'message': f'Usuario {estado}'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/usuario/<int:user_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def api_eliminar_usuario(user_id):
+    try:
+        u = Usuario.query.get_or_404(user_id)
+        if u.id == current_user.id:
+            return jsonify({'success': False, 'error': 'No puedes eliminar tu propio usuario'})
+        username = u.username
+        db.session.delete(u)
+        db.session.commit()
+        registrar_auditoria('eliminar', 'usuario', user_id, f'Eliminado: {username}')
+        return jsonify({'success': True, 'message': f'Usuario "{username}" eliminado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 # ============== VISTAS PRINCIPALES ==============
 
 @app.route('/')
@@ -567,6 +694,7 @@ def pagos_view():
 
 @app.route('/reportes')
 @login_required
+@admin_required
 def reportes_view():
     """Página de reportes y estadísticas"""
     return render_template('reportes.html')
@@ -887,6 +1015,7 @@ def obtener_meses_con_pagos():
 
 @app.route('/configuracion')
 @login_required
+@admin_required
 def configuracion():
     """Página de configuración de MikroTik"""
     config = ConfigMikroTik.query.first()
@@ -2196,6 +2325,7 @@ def dashboard_charts():
 
 @app.route('/actividad')
 @login_required
+@admin_required
 def actividad_view():
     """Página de registro de actividad"""
     logs = AuditLog.query.order_by(AuditLog.fecha.desc()).limit(200).all()

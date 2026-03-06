@@ -326,12 +326,17 @@
         <ul class="nav-menu">
             <li class="nav-item"><a href="/" class="nav-link"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
             <li class="nav-item"><a href="/clientes" class="nav-link"><i class="fas fa-users"></i><span>Clientes</span></a></li>
+            {% if current_user.rol == 'admin' %}
             <li class="nav-item"><a href="/pagos" class="nav-link"><i class="fas fa-money-bill-wave"></i><span>Pagos</span></a></li>
             <li class="nav-item"><a href="/reportes" class="nav-link"><i class="fas fa-chart-bar"></i><span>Reportes</span></a></li>
             <li class="nav-item"><a href="/configuracion" class="nav-link"><i class="fas fa-cog"></i><span>Configuracion</span></a></li>
+            {% endif %}
             <li class="nav-item active"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
             <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            {% if current_user.rol == 'admin' %}
             <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+            <li class="nav-item"><a href="/usuarios" class="nav-link"><i class="fas fa-user-cog"></i><span>Usuarios</span></a></li>
+            {% endif %}
         </ul>
         <div class="sidebar-footer">
             <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">

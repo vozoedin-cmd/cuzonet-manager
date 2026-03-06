@@ -38,6 +38,7 @@
                     <span>Clientes</span>
                 </a>
             </li>
+            {% if current_user.rol == 'admin' %}
             <li class="nav-item active">
                 <a href="/pagos" class="nav-link">
                     <i class="fas fa-money-bill-wave"></i>
@@ -56,9 +57,13 @@
                     <span>Configuracion</span>
                 </a>
             </li>
+            {% endif %}
             <li class="nav-item"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
             <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            {% if current_user.rol == 'admin' %}
             <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+            <li class="nav-item"><a href="/usuarios" class="nav-link"><i class="fas fa-user-cog"></i><span>Usuarios</span></a></li>
+            {% endif %}
         </ul>
 
         <div class="sidebar-footer">

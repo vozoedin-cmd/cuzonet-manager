@@ -85,6 +85,13 @@ instance/
 # Zip files
 *.zip
 
+# Generated files
+plantilla_clientes.xlsx
+*.xlsx
+
+# Workspace files
+*.code-workspace
+
 # WhatsApp bot dependencies & cache
 whatsapp-bot/node_modules/
 whatsapp-bot/sesion_whatsapp/
