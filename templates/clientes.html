@@ -61,6 +61,11 @@
                 <button class="btn btn-warning" onclick="window.open('/avisos-cobro')"
                     style="background: #e67e22; color: white;"><i class="fas fa-file-invoice-dollar"></i> Avisos de
                     Cobro</button>
+                <button class="btn" onclick="imprimirMorosos()"
+                    style="background: rgba(239,68,68,.15); color: #ef4444; border:1px solid rgba(239,68,68,.3);"
+                    title="Imprimir lista de clientes con pago pendiente">
+                    <i class="fas fa-print"></i> Imprimir Morosos
+                </button>
                 <button class="btn btn-primary" onclick="openModal('clienteModal')"><i class="fas fa-plus"></i> Nuevo
                     Cliente</button>
             </div>
@@ -85,6 +90,13 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="filter-group">
+                <select id="filterPago" onchange="filterTable()">
+                    <option value="">Todos los pagos</option>
+                    <option value="pendiente">&#9888; Pendientes</option>
+                    <option value="pagado">&#10003; Al día</option>
+                </select>
+            </div>
             <div class="filter-group" style="margin-left:auto;">
                 <span id="clienteCount" style="color:var(--text-secondary);font-size:0.875rem;padding:0 8px;"></span>
             </div>
@@ -102,6 +114,7 @@
                             <th class="sortable" data-sort="velocidad" onclick="sortTable('velocidad')">Velocidad <i class="fas fa-sort"></i></th>
                             <th>Dia Corte</th>
                             <th>Estado</th>
+                            <th>Pago</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -109,7 +122,12 @@
                         {% for cliente in clientes %}
                         <tr data-id="{{ cliente.id }}" data-estado="{{ cliente.estado }}"
                             data-nombre="{{ cliente.nombre }}" data-ip="{{ cliente.ip_address }}"
-                            data-plan="{{ cliente.plan }}" data-velocidad="{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload }}">
+                            data-plan="{{ cliente.plan }}" data-velocidad="{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload }}"
+                            data-saldo="{{ cliente.saldo_pendiente or 0 }}"
+                            data-proximo="{{ cliente.fecha_proximo_pago.strftime('%Y-%m-%d') if cliente.fecha_proximo_pago else '' }}"
+                            data-ultimo="{{ cliente.fecha_ultimo_pago.strftime('%Y-%m-%d') if cliente.fecha_ultimo_pago else '' }}"
+                            data-corte="{{ cliente.dia_corte or 1 }}"
+                            data-precio="{{ cliente.precio_mensual or 0 }}">
                             <td><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
                             <td>
                                 <div class="client-info">
@@ -132,6 +150,9 @@
                                         class="fas fa-ban"></i> Cortado</span>
                                 {% else %}<span class="status-badge suspended"><i class="fas fa-pause"></i>
                                     Suspendido</span>{% endif %}
+                            </td>
+                            <td class="td-pago">
+                                <!-- JS asigna el badge de pago -->
                             </td>
                             <td>
                                 <div class="action-buttons">
@@ -165,7 +186,7 @@
                         {% endfor %}
                         {% if not clientes %}
                         <tr>
-                            <td colspan="8" class="empty-state"><i class="fas fa-users"></i>
+                            <td colspan="9" class="empty-state"><i class="fas fa-users"></i>
                                 <p>No hay clientes</p>
                             </td>
                         </tr>
@@ -851,6 +872,49 @@
         .btn-import:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        /* ===== COLORES DE PAGO ===== */
+        tr.row-unpaid {
+            background: rgba(239, 68, 68, 0.06) !important;
+            border-left: 3px solid rgba(239, 68, 68, 0.5);
+        }
+        tr.row-unpaid:hover {
+            background: rgba(239, 68, 68, 0.1) !important;
+        }
+        tr.row-paid {
+            background: rgba(16, 185, 129, 0.05) !important;
+            border-left: 3px solid rgba(16, 185, 129, 0.4);
+        }
+        tr.row-paid:hover {
+            background: rgba(16, 185, 129, 0.09) !important;
+        }
+
+        /* Badges de pago */
+        .pago-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .pago-badge.pagado {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .pago-badge.pendiente {
+            background: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            animation: pulseBadge 2.5s ease-in-out infinite;
+        }
+        @keyframes pulseBadge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.65; }
         }
     </style>
 </body>

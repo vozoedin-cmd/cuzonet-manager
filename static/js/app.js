@@ -499,10 +499,12 @@ function filterTable() {
     const searchInput = document.getElementById('searchInput');
     const filterEstado = document.getElementById('filterEstado');
     const filterPlan = document.getElementById('filterPlan');
+    const filterPago = document.getElementById('filterPago');
 
     const searchValue = searchInput ? searchInput.value.toLowerCase() : '';
     const estadoValue = filterEstado ? filterEstado.value : '';
     const planValue = filterPlan ? filterPlan.value : '';
+    const pagoValue = filterPago ? filterPago.value : '';
 
     const table = document.getElementById('clientesTable');
     if (!table) return;
@@ -523,7 +525,13 @@ function filterTable() {
         const matchEstado = !estadoValue || estado === estadoValue;
         const matchPlan = !planValue || plan === planValue;
 
-        row.style.display = (matchSearch && matchEstado && matchPlan) ? '' : 'none';
+        let matchPago = true;
+        if (pagoValue) {
+            const pendiente = esPendiente(row);
+            matchPago = pagoValue === 'pendiente' ? pendiente : !pendiente;
+        }
+
+        row.style.display = (matchSearch && matchEstado && matchPlan && matchPago) ? '' : 'none';
     });
 
     // Actualizar contador de resultados visibles
@@ -534,6 +542,202 @@ function filterTable() {
         counter.textContent = visible.length < total
             ? `${visible.length} de ${total} clientes`
             : `${total} clientes`;
+    }
+}
+
+/**
+ * Determina si un cliente tiene pago pendiente este mes
+ */
+function esPendiente(row) {
+    const saldo      = parseFloat(row.dataset.saldo || 0);
+    const ultimoPago = row.dataset.ultimo || '';
+    const proximoPago = row.dataset.proximo || '';
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+
+    // Si saldo pendiente > 0 → pendiente
+    if (saldo > 0) return true;
+
+    // Si tiene pago registrado este mes → al día
+    if (ultimoPago && ultimoPago.startsWith(mesActual)) return false;
+
+    // Si fecha_proximo_pago es hoy o futura → al día (pagó el mes anterior antes del corte)
+    if (proximoPago) {
+        const dProximo = new Date(proximoPago + 'T00:00:00');
+        if (dProximo >= hoy) return false;
+    }
+
+    // Sin evidencia de pago → pendiente
+    return true;
+}
+
+/**
+ * Aplica colores y badges de estado de pago a cada fila
+ */
+function marcarPagos() {
+    const table = document.getElementById('clientesTable');
+    if (!table) return;
+
+    const rows = table.querySelectorAll('tbody tr[data-id]');
+    rows.forEach(row => {
+        const pendiente = esPendiente(row);
+        const tdPago = row.querySelector('.td-pago');
+
+        // Limpiar clases previas
+        row.classList.remove('row-paid', 'row-unpaid');
+
+        if (pendiente) {
+            row.classList.add('row-unpaid');
+            if (tdPago) tdPago.innerHTML = '<span class="pago-badge pendiente"><i class="fas fa-exclamation-circle"></i> Pendiente</span>';
+        } else {
+            row.classList.add('row-paid');
+            if (tdPago) tdPago.innerHTML = '<span class="pago-badge pagado"><i class="fas fa-check-circle"></i> Al d&iacute;a</span>';
+        }
+    });
+}
+
+/**
+ * Imprimir lista de morosos (clientes con pago pendiente)
+ */
+function imprimirMorosos() {
+    const table = document.getElementById('clientesTable');
+    if (!table) return;
+
+    const hoy = new Date();
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const fechaHoy = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+
+    const rows = Array.from(table.querySelectorAll('tbody tr[data-id]'))
+        .filter(row => esPendiente(row));
+
+    if (rows.length === 0) {
+        alert('¡No hay clientes con pago pendiente este mes!');
+        return;
+    }
+
+    let filas = '';
+    rows.forEach((row, i) => {
+        const nombre  = row.dataset.nombre || '—';
+        const corte   = row.dataset.corte || '1';
+        const plan    = row.dataset.plan || '—';
+        const precio  = parseFloat(row.dataset.precio || 0).toFixed(2);
+        const estado  = row.dataset.estado || '—';
+        const estadoBadge = estado === 'cortado'
+            ? '<span style="color:#dc3545;font-weight:600;">Cortado</span>'
+            : estado === 'suspendido'
+                ? '<span style="color:#f59e0b;font-weight:600;">Suspendido</span>'
+                : '<span style="color:#10b981;font-weight:600;">Activo</span>';
+
+        filas += `
+        <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;">${i + 1}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;">${nombre}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${corte}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;">${plan}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${estadoBadge}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;color:#dc2626;font-weight:700;">Q${precio}</td>
+        </tr>`;
+    });
+
+    const totalQ = rows.reduce((sum, r) => sum + parseFloat(r.dataset.precio || 0), 0).toFixed(2);
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Clientes Pendientes de Pago - ${meses[hoy.getMonth()]} ${hoy.getFullYear()}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #222; }
+        .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0ea5e9; padding-bottom:16px; margin-bottom:20px; }
+        .logo { font-size:22px; font-weight:800; color:#0ea5e9; }
+        .logo span { color:#222; font-size:14px; display:block; font-weight:400; }
+        .title { text-align:right; }
+        .title h2 { margin:0; font-size:18px; color:#dc2626; }
+        .title p { margin:4px 0 0; font-size:12px; color:#666; }
+        .resumen { background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:12px 20px; margin-bottom:20px; display:flex; gap:40px; }
+        .res-item { display:flex; flex-direction:column; }
+        .res-label { font-size:11px; color:#92400e; text-transform:uppercase; }
+        .res-value { font-size:20px; font-weight:700; color:#92400e; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        thead tr { background:#0ea5e9; color:#fff; }
+        thead th { padding:10px 14px; text-align:left; font-weight:600; }
+        thead th:nth-child(3), thead th:nth-child(5), thead th:nth-child(6) { text-align:center; }
+        thead th:nth-child(6) { text-align:right; }
+        tfoot tr { background:#fee2e2; }
+        tfoot td { padding:10px 14px; font-weight:700; color:#dc2626; border-top:2px solid #dc2626; }
+        .firma { margin-top:50px; display:flex; justify-content:space-around; }
+        .firma-box { text-align:center; width:200px; }
+        .firma-box .linea { border-top:1px solid #222; margin-bottom:6px; }
+        .firma-box p { margin:0; font-size:12px; color:#555; }
+        @media print {
+            body { padding:10px; }
+            .no-print { display:none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <i>⚙</i> CuzoNet Manager
+            <span>Sistema de Gestión ISP</span>
+        </div>
+        <div class="title">
+            <h2>⚠ Clientes con Pago Pendiente</h2>
+            <p>${meses[hoy.getMonth()]} ${hoy.getFullYear()} &nbsp;|&nbsp; Generado el ${fechaHoy}</p>
+        </div>
+    </div>
+
+    <div class="resumen">
+        <div class="res-item">
+            <span class="res-label">Total pendientes</span>
+            <span class="res-value">${rows.length} clientes</span>
+        </div>
+        <div class="res-item">
+            <span class="res-label">Monto total por cobrar</span>
+            <span class="res-value">Q${totalQ}</span>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Nombre Completo</th>
+                <th style="text-align:center;">D&iacute;a Corte</th>
+                <th>Plan</th>
+                <th style="text-align:center;">Estado</th>
+                <th style="text-align:right;">Precio/Mes</th>
+            </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" style="text-align:right;">TOTAL A COBRAR:</td>
+                <td style="text-align:right;">Q${totalQ}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="firma">
+        <div class="firma-box">
+            <div class="linea"></div>
+            <p>Responsable de Cobro</p>
+        </div>
+        <div class="firma-box">
+            <div class="linea"></div>
+            <p>Administración</p>
+        </div>
+    </div>
+
+    <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (win) {
+        win.document.write(html);
+        win.document.close();
     }
 }
 
@@ -751,7 +955,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar velocidades del plan
     updatePlanSpeeds();
 
-    // Inicializar contador de clientes
+    // Marcar colores de pago y inicializar contador
+    marcarPagos();
     filterTable();
 });
 
