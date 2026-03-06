@@ -389,7 +389,7 @@ async function viewCliente(id) {
                             <div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
                                 <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
                                     <thead>
-                                        <tr style="border-bottom: 1px solid rgba(14,165,233,0.2);">
+                                        <tr style="border-bottom: 1px solid rgba(0, 212, 255,0.2);">
                                             <th style="text-align: left; padding: 6px 8px; color: var(--text-secondary);">Fecha</th>
                                             <th style="text-align: left; padding: 6px 8px; color: var(--text-secondary);">Mes</th>
                                             <th style="text-align: right; padding: 6px 8px; color: var(--text-secondary);">Monto</th>
@@ -664,8 +664,8 @@ function imprimirMorosos() {
     <title>Clientes Pendientes de Pago - ${meses[hoy.getMonth()]} ${hoy.getFullYear()}</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #222; }
-        .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0ea5e9; padding-bottom:16px; margin-bottom:20px; }
-        .logo { font-size:22px; font-weight:800; color:#0ea5e9; }
+        .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #00d4ff; padding-bottom:16px; margin-bottom:20px; }
+        .logo { font-size:22px; font-weight:800; color:#00d4ff; }
         .logo span { color:#222; font-size:14px; display:block; font-weight:400; }
         .title { text-align:right; }
         .title h2 { margin:0; font-size:18px; color:#dc2626; }
@@ -675,7 +675,7 @@ function imprimirMorosos() {
         .res-label { font-size:11px; color:#92400e; text-transform:uppercase; }
         .res-value { font-size:20px; font-weight:700; color:#92400e; }
         table { width:100%; border-collapse:collapse; font-size:13px; }
-        thead tr { background:#0ea5e9; color:#fff; }
+        thead tr { background:#00d4ff; color:#fff; }
         thead th { padding:10px 14px; text-align:left; font-weight:600; }
         thead th:nth-child(3), thead th:nth-child(5), thead th:nth-child(6) { text-align:center; }
         thead th:nth-child(6) { text-align:right; }

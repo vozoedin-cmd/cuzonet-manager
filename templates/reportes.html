@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -68,7 +68,7 @@
         </ul>
 
         <div class="sidebar-footer">
-            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeText">Modo Claro</span>
             </div>
@@ -205,7 +205,7 @@
                 if (data.success) {
                     const d = data.data;
 
-                    // Actualizar estadÃ­sticas
+                    // Actualizar estadísticas
                     document.getElementById('totalClientes').textContent = d.total_clientes;
                     document.getElementById('clientesActivos').textContent = d.clientes_activos;
                     document.getElementById('clientesSuspendidos').textContent = d.clientes_suspendidos;
@@ -218,7 +218,7 @@
                     document.getElementById('progressRecaudado').style.width = porcentaje + '%';
                     document.getElementById('porcentajeRecaudado').textContent = porcentaje.toFixed(0) + '%';
 
-                    // Renderizar grÃ¡ficos
+                    // Renderizar gráficos
                     renderChartPlanes(d.clientes_por_plan);
                     renderTablaPlanes(d.clientes_por_plan, d.total_clientes);
                 }
@@ -239,7 +239,7 @@
             const labels = datos.map(d => d.plan || 'Sin plan');
             const values = datos.map(d => d.cantidad);
             const colors = [
-                '#0ea5e9', '#06b6d4', '#f093fb', '#f5576c',
+                '#00d4ff', '#0099bb', '#f093fb', '#f5576c',
                 '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
             ];
 
@@ -297,7 +297,7 @@
                         label: 'Recaudado (Q)',
                         data: values,
                         backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                        borderColor: '#0ea5e9',
+                        borderColor: '#00d4ff',
                         borderWidth: 1,
                         borderRadius: 8,
                         borderSkipped: false
@@ -393,7 +393,7 @@
 
         .chart-header h3 i {
             margin-right: 10px;
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         .chart-body {
@@ -426,13 +426,13 @@
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            background: linear-gradient(90deg, #00d4ff, #0099bb);
             border-radius: 4px;
             transition: width 0.5s ease;
         }
 
         .progress-text {
-            color: #0ea5e9;
+            color: #00d4ff;
             font-weight: 600;
             font-size: 14px;
             min-width: 45px;
@@ -460,7 +460,7 @@
 
         .progress-bar-small .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            background: linear-gradient(90deg, #00d4ff, #0099bb);
         }
 
         .text-success {

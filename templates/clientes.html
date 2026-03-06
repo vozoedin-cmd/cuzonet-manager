@@ -1,4 +1,4 @@
-Ôªø<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -38,7 +38,7 @@
             {% endif %}
         </ul>
         <div class="sidebar-footer">
-            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeText">Modo Claro</span>
             </div>
@@ -96,7 +96,7 @@
                 <select id="filterPago" onchange="filterTable()">
                     <option value="">Todos los pagos</option>
                     <option value="pendiente">&#9888; Pendientes</option>
-                    <option value="pagado">&#10003; Al d√≠a</option>
+                    <option value="pagado">&#10003; Al dÌa</option>
                 </select>
             </div>
             <div class="filter-group" style="margin-left:auto;">
@@ -165,7 +165,7 @@
                                     <button class="btn-icon cobro" onclick="generarAvisoIndividual({{ cliente.id }})"
                                         title="Aviso de Cobro"><i class="fas fa-file-invoice-dollar"></i></button>
                                     <button class="btn-icon" onclick="window.open('/ficha-cliente/{{ cliente.id }}', '_blank')"
-                                        title="Ficha del Cliente" style="background: rgba(14,165,233,0.15); color: #0ea5e9;"><i class="fas fa-id-card"></i></button>
+                                        title="Ficha del Cliente" style="background: rgba(0, 212, 255,0.15); color: #00d4ff;"><i class="fas fa-id-card"></i></button>
                                     {% if cliente.telefono %}
                                     <button class="btn-icon whatsapp" onclick="enviarWhatsApp('{{ cliente.telefono }}', '{{ cliente.nombre }}', '{{ cliente.precio_mensual or 0 }}', '{{ cliente.plan }}')"
                                         title="WhatsApp"><i class="fab fa-whatsapp"></i></button>
@@ -215,7 +215,7 @@
             <form id="clienteForm" class="modal-form">
                 <div class="form-row">
                     <div class="form-group"><label>Nombre *</label><input type="text" id="nombre" name="nombre" required
-                            placeholder="Ej: Juan P√©rez"></div>
+                            placeholder="Ej: Juan PÈrez"></div>
                     <div class="form-group"><label>IP *</label><input type="text" id="ip_address" name="ip_address"
                             required pattern="^(\d{1,3}\.){3}\d{1,3}$" placeholder="Ej: 192.168.1.100"></div>
                 </div>
@@ -232,11 +232,11 @@
                 <div class="form-row">
                     <div class="form-group"><label>Email</label><input type="email" id="email" name="email"
                             placeholder="Ej: cliente@email.com"></div>
-                    <div class="form-group"><label>C√©dula/DPI</label><input type="text" id="cedula" name="cedula"
+                    <div class="form-group"><label>CÈdula/DPI</label><input type="text" id="cedula" name="cedula"
                             placeholder="Ej: 1234567890101"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group" style="flex: 2;"><label>Direcci√≥n</label><input type="text" id="direccion"
+                    <div class="form-group" style="flex: 2;"><label>DirecciÛn</label><input type="text" id="direccion"
                             name="direccion" placeholder="Ej: Aldea Chinaha, Chisec A.V."></div>
                 </div>
                 <div class="form-row">
@@ -279,18 +279,18 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-group"><label>Tel√©fono</label><input type="tel" id="edit_telefono"></div>
+                    <div class="form-group"><label>TelÈfono</label><input type="tel" id="edit_telefono"></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>Email</label><input type="email" id="edit_email"></div>
-                    <div class="form-group"><label>C√©dula/DPI</label><input type="text" id="edit_cedula"></div>
+                    <div class="form-group"><label>CÈdula/DPI</label><input type="text" id="edit_cedula"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group" style="flex: 2;"><label>Direcci√≥n</label><input type="text"
+                    <div class="form-group" style="flex: 2;"><label>DirecciÛn</label><input type="text"
                             id="edit_direccion"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>D√≠a Corte</label><input type="number" id="edit_dia_corte" min="1"
+                    <div class="form-group"><label>DÌa Corte</label><input type="number" id="edit_dia_corte" min="1"
                             max="28"></div>
                     <div class="form-group"><label>Precio Mensual (Q)</label><input type="number"
                             id="edit_precio_mensual" step="0.01" min="0"></div>
@@ -321,7 +321,7 @@
                 <div class="import-instructions">
                     <div class="instruction-header">
                         <i class="fas fa-info-circle"></i>
-                        <h3>Instrucciones de Importaci√≥n</h3>
+                        <h3>Instrucciones de ImportaciÛn</h3>
                     </div>
                     <div class="instruction-steps">
                         <div class="step">
@@ -342,7 +342,7 @@
                             <span class="step-number">3</span>
                             <div class="step-content">
                                 <strong>IPs duplicadas</strong>
-                                <p>Se omitir√°n autom√°ticamente las IPs ya registradas</p>
+                                <p>Se omitir·n autom·ticamente las IPs ya registradas</p>
                             </div>
                         </div>
                     </div>
@@ -354,7 +354,7 @@
                     <div class="columns-grid">
                         <div class="column-item required">
                             <span class="col-name">Nombre *</span>
-                            <span class="col-example">Juan P√©rez</span>
+                            <span class="col-example">Juan PÈrez</span>
                         </div>
                         <div class="column-item required">
                             <span class="col-name">IP *</span>
@@ -362,10 +362,10 @@
                         </div>
                         <div class="column-item">
                             <span class="col-name">Plan</span>
-                            <span class="col-example">B√°sico 5Mbps</span>
+                            <span class="col-example">B·sico 5Mbps</span>
                         </div>
                         <div class="column-item">
-                            <span class="col-name">Tel√©fono</span>
+                            <span class="col-name">TelÈfono</span>
                             <span class="col-example">32472792</span>
                         </div>
                         <div class="column-item">
@@ -373,15 +373,15 @@
                             <span class="col-example">cliente@email.com</span>
                         </div>
                         <div class="column-item">
-                            <span class="col-name">Direcci√≥n</span>
+                            <span class="col-name">DirecciÛn</span>
                             <span class="col-example">Aldea Chinaha</span>
                         </div>
                         <div class="column-item">
-                            <span class="col-name">C√©dula/DPI</span>
+                            <span class="col-name">CÈdula/DPI</span>
                             <span class="col-example">1234567890101</span>
                         </div>
                         <div class="column-item">
-                            <span class="col-name">D√≠a de Corte</span>
+                            <span class="col-name">DÌa de Corte</span>
                             <span class="col-example">15</span>
                         </div>
                         <div class="column-item">
@@ -408,7 +408,7 @@
                                 <i class="fas fa-cloud-upload-alt"></i>
                             </div>
                             <div class="upload-text">
-                                <span class="upload-title">Arrastra tu archivo aqu√≠</span>
+                                <span class="upload-title">Arrastra tu archivo aquÌ</span>
                                 <span class="upload-subtitle">o haz clic para seleccionar</span>
                                 <span class="upload-formats"><i class="fas fa-file-excel"></i> .xlsx, .xls, .csv</span>
                             </div>
@@ -472,7 +472,7 @@
                     showToast('Error al cargar cliente', 'error');
                 }
             } catch (e) {
-                showToast('Error de conexi√≥n', 'error');
+                showToast('Error de conexiÛn', 'error');
             }
         }
         document.getElementById('editClienteForm').addEventListener('submit', async function (e) {
@@ -502,7 +502,7 @@
                     showToast(d.error || 'Error al guardar', 'error');
                 }
             } catch (e) {
-                showToast('Error de conexi√≥n', 'error');
+                showToast('Error de conexiÛn', 'error');
             }
         });
         async function cortarCliente(id) { if (!confirm('Cortar cliente?')) return; try { const r = await fetch(`/api/cliente/${id}/cortar`, { method: 'POST' }); const d = await r.json(); if (d.success) { showToast('Cortado', 'success'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
@@ -527,13 +527,13 @@
                     btn.innerHTML = '<i class="fas fa-upload"></i> Importar Clientes';
                 }
             } catch (e) {
-                showToast('Error de conexi√≥n', 'error');
+                showToast('Error de conexiÛn', 'error');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-upload"></i> Importar Clientes';
             }
         });
 
-        // Manejar selecci√≥n de archivo
+        // Manejar selecciÛn de archivo
         document.getElementById('importFile').addEventListener('change', function (e) {
             const file = e.target.files[0];
             const uploadLabel = document.querySelector('.upload-label');
@@ -603,8 +603,8 @@
         }
 
         .day-badge {
-            background: rgba(14, 165, 233, .2);
-            color: #0ea5e9;
+            background: rgba(0, 212, 255, .2);
+            color: #00d4ff;
             padding: 4px 12px;
             border-radius: 20px
         }
@@ -622,11 +622,11 @@
 
         /* Instrucciones */
         .import-instructions {
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
-            border: 1px solid rgba(14, 165, 233, 0.2);
+            border: 1px solid rgba(0, 212, 255, 0.2);
         }
 
         .instruction-header {
@@ -638,7 +638,7 @@
 
         .instruction-header i {
             font-size: 24px;
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         .instruction-header h3 {
@@ -662,7 +662,7 @@
         }
 
         .step-number {
-            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            background: linear-gradient(135deg, #00d4ff 0%, #0099bb 100%);
             color: white;
             width: 28px;
             height: 28px;
@@ -689,11 +689,11 @@
         }
 
         .step-content code {
-            background: rgba(14, 165, 233, 0.3);
+            background: rgba(0, 212, 255, 0.3);
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 11px;
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         /* Tabla de columnas */
@@ -711,7 +711,7 @@
         }
 
         .columns-table-container h4 i {
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         .columns-grid {
@@ -731,8 +731,8 @@
         }
 
         .column-item.required {
-            border-color: rgba(14, 165, 233, 0.5);
-            background: rgba(14, 165, 233, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 212, 255, 0.1);
         }
 
         .col-name {
@@ -742,7 +742,7 @@
         }
 
         .column-item.required .col-name {
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         .col-example {
@@ -772,21 +772,21 @@
             align-items: center;
             justify-content: center;
             padding: 40px;
-            border: 2px dashed rgba(14, 165, 233, 0.5);
+            border: 2px dashed rgba(0, 212, 255, 0.5);
             border-radius: 12px;
-            background: rgba(14, 165, 233, 0.05);
+            background: rgba(0, 212, 255, 0.05);
             transition: all 0.3s ease;
             cursor: pointer;
         }
 
         .upload-label:hover {
-            border-color: #0ea5e9;
-            background: rgba(14, 165, 233, 0.1);
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
         }
 
         .upload-icon {
             font-size: 48px;
-            color: #0ea5e9;
+            color: #00d4ff;
             margin-bottom: 15px;
         }
 
@@ -812,10 +812,10 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            color: #0ea5e9;
+            color: #00d4ff;
             font-size: 12px;
             margin-top: 8px;
-            background: rgba(14, 165, 233, 0.2);
+            background: rgba(0, 212, 255, 0.2);
             padding: 6px 12px;
             border-radius: 20px;
         }
@@ -858,7 +858,7 @@
             color: white;
         }
 
-        /* Acciones de importaci√≥n */
+        /* Acciones de importaciÛn */
         .import-actions {
             display: flex;
             justify-content: space-between;

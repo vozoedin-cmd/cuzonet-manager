@@ -96,7 +96,7 @@
         </ul>
 
         <div class="sidebar-footer">
-            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeText">Modo Claro</span>
             </div>
@@ -443,11 +443,11 @@
                     datasets: [{
                         label: 'Ingresos (Q)',
                         data: data.ingresos_mensuales.map(d => d.total),
-                        borderColor: '#0ea5e9',
-                        backgroundColor: 'rgba(14,165,233,0.1)',
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255,0.1)',
                         fill: true,
                         tension: 0.4,
-                        pointBackgroundColor: '#0ea5e9',
+                        pointBackgroundColor: '#00d4ff',
                         pointRadius: 5
                     }]
                 },
@@ -462,7 +462,7 @@
             });
 
             // Distribución por Plan (Doughnut)
-            const planColors = ['#0ea5e9','#06b6d4','#14b8a6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+            const planColors = ['#00d4ff','#0099bb','#14b8a6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
             new Chart(document.getElementById('planesChart'), {
                 type: 'doughnut',
                 data: {

@@ -92,7 +92,7 @@
             font-family: monospace;
             font-size: 0.8rem;
             color: var(--primary);
-            background: rgba(14,165,233,0.1);
+            background: rgba(0, 212, 255,0.1);
             padding: 2px 8px;
             border-radius: 4px;
             white-space: nowrap;
@@ -114,7 +114,7 @@
             font-size: 0.8rem;
         }
         .bw-icon.download { color: #10b981; }
-        .bw-icon.upload { color: #0ea5e9; }
+        .bw-icon.upload { color: #00d4ff; }
         .bw-bar-container {
             flex: 1;
             height: 20px;
@@ -130,7 +130,7 @@
             min-width: 2px;
         }
         .bw-bar.download { background: linear-gradient(90deg, #10b981, #34d399); }
-        .bw-bar.upload { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+        .bw-bar.upload { background: linear-gradient(90deg, #00d4ff, #80eaff); }
         .bw-value {
             min-width: 80px;
             text-align: right;
@@ -297,7 +297,7 @@
         .top5-speed-up {
             font-family: monospace;
             font-size: 0.75rem;
-            color: #0ea5e9;
+            color: #00d4ff;
         }
 
         /* ========== Toolbar (Ordenar + Vista) ========== */
@@ -400,7 +400,7 @@
             transition: background 0.2s;
         }
         .monitor-table tbody tr:hover {
-            background: rgba(14,165,233,0.05);
+            background: rgba(0, 212, 255,0.05);
         }
         .monitor-table tbody tr.alert-warning {
             background: rgba(245,158,11,0.08);
@@ -430,7 +430,7 @@
             transition: width 0.5s;
         }
         .table-bar-mini .fill.download { background: #10b981; }
-        .table-bar-mini .fill.upload { background: #0ea5e9; }
+        .table-bar-mini .fill.upload { background: #00d4ff; }
         .table-circular-mini {
             display: inline-flex;
             align-items: center;
@@ -505,7 +505,7 @@
         </ul>
 
         <div class="sidebar-footer">
-            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeText">Modo Claro</span>
             </div>
@@ -545,7 +545,7 @@
                 </div>
             </div>
             <div class="monitor-stat">
-                <div class="monitor-stat-icon" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">
+                <div class="monitor-stat-icon" style="background:rgba(0, 212, 255,0.15);color:#00d4ff;">
                     <i class="fas fa-arrow-up"></i>
                 </div>
                 <div>
@@ -554,7 +554,7 @@
                 </div>
             </div>
             <div class="monitor-stat">
-                <div class="monitor-stat-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4;">
+                <div class="monitor-stat-icon" style="background:rgba(6,182,212,0.15);color:#0099bb;">
                     <i class="fas fa-server"></i>
                 </div>
                 <div>
@@ -713,7 +713,7 @@
             let color = '#10b981';
             if (percent >= 95) color = '#ef4444';
             else if (percent >= 80) color = '#f59e0b';
-            else if (percent >= 50) color = '#06b6d4';
+            else if (percent >= 50) color = '#0099bb';
             return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
                 <circle class="circular-bg" cx="${size/2}" cy="${size/2}" r="${r}" stroke-width="${stroke}"/>
                 <circle class="circular-fg" cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}"
@@ -747,8 +747,8 @@
                         {
                             label: 'Upload',
                             data: [],
-                            borderColor: '#0ea5e9',
-                            backgroundColor: 'rgba(14,165,233,0.1)',
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255,0.1)',
                             fill: true,
                             tension: 0.4,
                             pointRadius: 2,
@@ -770,7 +770,7 @@
                             backgroundColor: 'rgba(15,23,42,0.9)',
                             titleColor: '#fff',
                             bodyColor: '#e2e8f0',
-                            borderColor: 'rgba(14,165,233,0.3)',
+                            borderColor: 'rgba(0, 212, 255,0.3)',
                             borderWidth: 1,
                             callbacks: {
                                 label: ctx => ctx.dataset.label + ': ' + formatBits(ctx.raw)
@@ -934,7 +934,7 @@
                     <div class="queue-footer">
                         <div class="total-bytes">
                             <span><i class="fas fa-arrow-down" style="color:#10b981;"></i> ${formatBytes(q.download_bytes)}</span>
-                            <span><i class="fas fa-arrow-up" style="color:#0ea5e9;"></i> ${formatBytes(q.upload_bytes)}</span>
+                            <span><i class="fas fa-arrow-up" style="color:#00d4ff;"></i> ${formatBytes(q.upload_bytes)}</span>
                         </div>
                         <span>${q.disabled ? '<i class="fas fa-pause" style="color:#f59e0b;"></i> Deshabilitado' : '<i class="fas fa-check" style="color:#10b981;"></i> Activo'}</span>
                     </div>
@@ -974,7 +974,7 @@
                     <td style="color:var(--text-muted);font-size:0.8rem;">${q.max_download || '∞'}</td>
                     <td>
                         <div class="table-bar-mini"><div class="fill upload" style="width:${upPercent}%"></div></div>
-                        <span style="font-family:monospace;font-weight:600;color:#0ea5e9;">${formatBits(uploadRate)}</span>
+                        <span style="font-family:monospace;font-weight:600;color:#00d4ff;">${formatBits(uploadRate)}</span>
                     </td>
                     <td style="color:var(--text-muted);font-size:0.8rem;">${q.max_upload || '∞'}</td>
                     <td>${formatBytes(q.download_bytes)}</td>

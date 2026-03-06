@@ -1,4 +1,4 @@
-Ôªø<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -102,7 +102,7 @@
             align-items: center;
             gap: 10px;
         }
-        .panel-client:hover { background: rgba(14,165,233,0.08); }
+        .panel-client:hover { background: rgba(0, 212, 255,0.08); }
         .panel-client-dot {
             width: 10px;
             height: 10px;
@@ -200,7 +200,7 @@
         }
         .client-popup h4 {
             margin: 0;
-            color: #0ea5e9;
+            color: #00d4ff;
             font-size: 14px;
             line-height: 1.2;
         }
@@ -257,7 +257,7 @@
             transition: all 0.2s;
             text-decoration: none;
         }
-        .popup-action-btn:hover { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+        .popup-action-btn:hover { background: #00d4ff; color: #fff; border-color: #00d4ff; }
         .popup-action-btn.whatsapp:hover { background: #25d366; border-color: #25d366; }
         .popup-action-btn.copy:hover { background: #8b5cf6; border-color: #8b5cf6; }
         .cobertura-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
@@ -288,8 +288,8 @@
         }
         .marker-cluster-small { background-color: rgba(16,185,129,0.3) !important; }
         .marker-cluster-small div { background-color: rgba(16,185,129,0.8) !important; color: #fff !important; }
-        .marker-cluster-medium { background-color: rgba(14,165,233,0.3) !important; }
-        .marker-cluster-medium div { background-color: rgba(14,165,233,0.8) !important; color: #fff !important; }
+        .marker-cluster-medium { background-color: rgba(0, 212, 255,0.3) !important; }
+        .marker-cluster-medium div { background-color: rgba(0, 212, 255,0.8) !important; color: #fff !important; }
         .marker-cluster-large { background-color: rgba(239,68,68,0.3) !important; }
         .marker-cluster-large div { background-color: rgba(239,68,68,0.8) !important; color: #fff !important; }
         .ubicacion-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
@@ -339,7 +339,7 @@
             {% endif %}
         </ul>
         <div class="sidebar-footer">
-            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(14,165,233,0.1)'" onmouseout="this.style.background='transparent'">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeText">Modo Claro</span>
             </div>
@@ -466,7 +466,7 @@
                     </div>
                     <label>Color del c&iacute;rculo:</label>
                     <select id="coberturaColor">
-                        <option value="#0ea5e9">Azul</option>
+                        <option value="#00d4ff">Azul</option>
                         <option value="#10b981">Verde</option>
                         <option value="#f59e0b">Amarillo</option>
                         <option value="#ef4444">Rojo</option>
@@ -502,7 +502,7 @@
 
         const map = L.map('map').setView([14.6349, -90.5069], 13);
 
-        // Capa principal: CartoDB Voyager (m√°s confiable que OSM directo)
+        // Capa principal: CartoDB Voyager (m·s confiable que OSM directo)
         const layerOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
             subdomains: 'abcd',
@@ -529,7 +529,7 @@
         });
         layerOSM.addTo(map);
 
-        // Si los tiles fallan, cambiar autom√°ticamente al fallback
+        // Si los tiles fallan, cambiar autom·ticamente al fallback
         var tileErrorCount = 0;
         layerOSM.on('tileerror', function() {
             tileErrorCount++;
@@ -743,7 +743,7 @@
                 .map(function(c) { return [c.latitud, c.longitud, 0.8]; });
             heatLayer = L.heatLayer(points, {
                 radius: 30, blur: 20, maxZoom: 17,
-                gradient: { 0.2: '#0ea5e9', 0.4: '#06b6d4', 0.6: '#10b981', 0.8: '#f59e0b', 1.0: '#ef4444' }
+                gradient: { 0.2: '#00d4ff', 0.4: '#0099bb', 0.6: '#10b981', 0.8: '#f59e0b', 1.0: '#ef4444' }
             }).addTo(map);
         }
 
@@ -804,7 +804,7 @@
             tempMarker = L.marker(e.latlng, {
                 icon: L.divIcon({
                     className: 'custom-marker',
-                    html: '<div style="background:#0ea5e9;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(14,165,233,0.5);"></div>',
+                    html: '<div style="background:#00d4ff;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0, 212, 255,0.5);"></div>',
                     iconSize: [24, 24], iconAnchor: [12, 12]
                 })
             }).addTo(map);
@@ -869,7 +869,7 @@
         (function() { if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); document.getElementById('themeIcon').className='fas fa-sun'; document.getElementById('themeText').textContent='Modo Oscuro'; } })();
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Forzar recalculo del tama√±o del mapa despu√©s de que el DOM est√© listo
+            // Forzar recalculo del tamaÒo del mapa despuÈs de que el DOM estÈ listo
             setTimeout(function() { map.invalidateSize(); }, 100);
             setTimeout(function() { map.invalidateSize(); }, 500);
             cargarClientes();
