@@ -2189,79 +2189,96 @@ def migrate_db():
     from sqlalchemy import text, inspect
     
     with app.app_context():
-        inspector = inspect(db.engine)
-        
-        # Verificar si la tabla clientes existe
-        if 'clientes' in inspector.get_table_names():
-            existing_columns = [col['name'] for col in inspector.get_columns('clientes')]
+        try:
+            inspector = inspect(db.engine)
             
-            # Columnas a agregar si no existen
-            columns_to_add = {
-                'email': 'VARCHAR(100)',
-                'cedula': 'VARCHAR(20)',
-                'dia_corte': 'INTEGER DEFAULT 1',
-                'fecha_ultimo_pago': 'DATETIME',
-                'fecha_proximo_pago': 'DATETIME',
-                'precio_mensual': 'FLOAT DEFAULT 0',
-                'saldo_pendiente': 'FLOAT DEFAULT 0',
-                'latitud': 'FLOAT',
-                'longitud': 'FLOAT',
-            }
+            # Detectar si es PostgreSQL o SQLite
+            is_postgres = 'postgresql' in str(db.engine.url)
+            datetime_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
             
-            for col_name, col_type in columns_to_add.items():
-                if col_name not in existing_columns:
+            # Verificar si la tabla clientes existe
+            if 'clientes' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('clientes')]
+                
+                # Columnas a agregar si no existen
+                columns_to_add = {
+                    'email': 'VARCHAR(100)',
+                    'cedula': 'VARCHAR(20)',
+                    'dia_corte': f'INTEGER DEFAULT 1',
+                    'fecha_ultimo_pago': datetime_type,
+                    'fecha_proximo_pago': datetime_type,
+                    'precio_mensual': 'FLOAT DEFAULT 0',
+                    'saldo_pendiente': 'FLOAT DEFAULT 0',
+                    'latitud': 'FLOAT',
+                    'longitud': 'FLOAT',
+                }
+                
+                for col_name, col_type in columns_to_add.items():
+                    if col_name not in existing_columns:
+                        try:
+                            with db.engine.connect() as conn:
+                                conn.execute(text(f'ALTER TABLE clientes ADD COLUMN {col_name} {col_type}'))
+                                conn.commit()
+                            print(f"[MIGRATION] Columna '{col_name}' agregada a clientes")
+                        except Exception as e:
+                            print(f"[MIGRATION] Error agregando '{col_name}': {e}")
+            
+            # Verificar si la tabla config_mikrotik existe
+            if 'config_mikrotik' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
+                
+                if 'address_list_cortados' not in existing_columns:
                     try:
-                        db.session.execute(text(f'ALTER TABLE clientes ADD COLUMN {col_name} {col_type}'))
-                        db.session.commit()
-                        print(f"[MIGRATION] Columna '{col_name}' agregada a clientes")
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'address_list_cortados' agregada")
                     except Exception as e:
-                        db.session.rollback()
-                        print(f"[MIGRATION] Error agregando '{col_name}': {e}")
-        
-        # Verificar si la tabla config_mikrotik existe
-        if 'config_mikrotik' in inspector.get_table_names():
-            existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
-            
-            if 'address_list_cortados' not in existing_columns:
-                try:
-                    db.session.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
-                    db.session.commit()
-                    print("[MIGRATION] Columna 'address_list_cortados' agregada")
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"[MIGRATION] Error: {e}")
+                        print(f"[MIGRATION] Error: {e}")
+        except Exception as e:
+            print(f"[MIGRATION] Error general: {e}")
 
 
 def init_db():
     """Inicializar base de datos y crear tablas"""
     with app.app_context():
-        # Primero crear tablas nuevas
+        # Crear tablas (siempre, independiente de migrate)
         db.create_all()
+        print("[OK] Tablas creadas/verificadas")
         
-        # Luego migrar columnas faltantes
-        migrate_db()
+        # Migrar columnas faltantes (error no debe detener arranque)
+        try:
+            migrate_db()
+        except Exception as e:
+            print(f"[WARNING] migrate_db falló: {e}")
         
         # Crear usuario admin por defecto si no existe
-        if Usuario.query.count() == 0:
-            admin = Usuario(username='admin', nombre='Administrador', rol='admin')
-            admin.set_password('admin')
-            db.session.add(admin)
-            db.session.commit()
-            print("[OK] Usuario admin creado (user: admin, pass: admin)")
+        try:
+            if Usuario.query.count() == 0:
+                admin = Usuario(username='admin', nombre='Administrador', rol='admin')
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                print("[OK] Usuario admin creado (user: admin, pass: admin)")
+        except Exception as e:
+            print(f"[WARNING] Error creando admin: {e}")
         
         # Crear planes por defecto si no existen
-        if Plan.query.count() == 0:
-            planes_default = [
-                Plan(nombre='Basico 5Mbps', velocidad_download='5M', velocidad_upload='2M', precio=15.00),
-                Plan(nombre='Estandar 10Mbps', velocidad_download='10M', velocidad_upload='5M', precio=25.00),
-                Plan(nombre='Premium 20Mbps', velocidad_download='20M', velocidad_upload='10M', precio=35.00),
-                Plan(nombre='Ultra 50Mbps', velocidad_download='50M', velocidad_upload='25M', precio=50.00),
-                Plan(nombre='Empresarial 100Mbps', velocidad_download='100M', velocidad_upload='50M', precio=100.00),
-            ]
-            for plan in planes_default:
-                db.session.add(plan)
-            db.session.commit()
-            print("[OK] Planes por defecto creados")
+        try:
+            if Plan.query.count() == 0:
+                planes_default = [
+                    Plan(nombre='Basico 5Mbps', velocidad_download='5M', velocidad_upload='2M', precio=15.00),
+                    Plan(nombre='Estandar 10Mbps', velocidad_download='10M', velocidad_upload='5M', precio=25.00),
+                    Plan(nombre='Premium 20Mbps', velocidad_download='20M', velocidad_upload='10M', precio=35.00),
+                    Plan(nombre='Ultra 50Mbps', velocidad_download='50M', velocidad_upload='25M', precio=50.00),
+                    Plan(nombre='Empresarial 100Mbps', velocidad_download='100M', velocidad_upload='50M', precio=100.00),
+                ]
+                for plan in planes_default:
+                    db.session.add(plan)
+                db.session.commit()
+                print("[OK] Planes por defecto creados")
+        except Exception as e:
+            print(f"[WARNING] Error creando planes: {e}")
         
         print("[OK] Base de datos inicializada")
 
