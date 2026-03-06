@@ -334,6 +334,12 @@
 
         // Modal pago
         function openPagoModal() {
+            pagoEnProceso = false;
+            const submitBtn = document.querySelector('#pagoForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+            }
             openModal('pagoModal');
             document.getElementById('mes_correspondiente').value = new Date().toISOString().slice(0, 7);
         }
@@ -402,8 +408,18 @@
         });
 
         // Registrar pago
+        let pagoEnProceso = false;
         document.getElementById('pagoForm').addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            if (pagoEnProceso) return;
+            pagoEnProceso = true;
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+            }
 
             const formData = {
                 cliente_id: document.getElementById('cliente_id').value,
@@ -430,9 +446,19 @@
                     setTimeout(() => location.reload(), 1000);
                 } else {
                     showToast(data.error || 'Error al registrar pago', 'error');
+                    pagoEnProceso = false;
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+                    }
                 }
             } catch (error) {
                 showToast('Error de conexion', 'error');
+                pagoEnProceso = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+                }
             }
         });
 
