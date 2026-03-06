@@ -2826,7 +2826,10 @@ def ficha_cliente(cliente_id):
 
 
 # Ejecutar migración al importar (para gunicorn)
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"[WARNING] init_db falló: {e}")
 
 
 if __name__ == '__main__':
