@@ -609,7 +609,8 @@ function imprimirMorosos() {
     const fechaHoy = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
 
     const rows = Array.from(table.querySelectorAll('tbody tr[data-id]'))
-        .filter(row => esPendiente(row));
+        .filter(row => esPendiente(row))
+        .sort((a, b) => parseInt(a.dataset.corte || 1) - parseInt(b.dataset.corte || 1));
 
     if (rows.length === 0) {
         alert('¡No hay clientes con pago pendiente este mes!');
@@ -617,7 +618,9 @@ function imprimirMorosos() {
     }
 
     let filas = '';
-    rows.forEach((row, i) => {
+    let ultimoCorte = null;
+    let contador = 0;
+    rows.forEach((row) => {
         const nombre  = row.dataset.nombre || '—';
         const corte   = row.dataset.corte || '1';
         const plan    = row.dataset.plan || '—';
@@ -629,14 +632,26 @@ function imprimirMorosos() {
                 ? '<span style="color:#f59e0b;font-weight:600;">Suspendido</span>'
                 : '<span style="color:#10b981;font-weight:600;">Activo</span>';
 
+        // Separador de grupo cuando cambia el día de corte
+        if (corte !== ultimoCorte) {
+            ultimoCorte = corte;
+            filas += `
+        <tr>
+            <td colspan="6" style="padding:8px 14px;background:#1e40af;color:#fff;font-weight:700;font-size:12px;letter-spacing:.5px;">
+                📅 DÍA DE CORTE: ${corte}
+            </td>
+        </tr>`;
+        }
+
+        contador++;
         filas += `
-        <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;">${i + 1}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;">${nombre}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${corte}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;">${plan}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${estadoBadge}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;color:#dc2626;font-weight:700;">Q${precio}</td>
+        <tr style="background:${contador % 2 === 0 ? '#fff' : '#f8fafc'}">
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;">${contador}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;">${nombre}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;color:#1e40af;">${corte}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;">${plan}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${estadoBadge}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:right;color:#dc2626;font-weight:700;">Q${precio}</td>
         </tr>`;
     });
 
