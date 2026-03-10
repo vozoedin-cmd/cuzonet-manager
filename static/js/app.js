@@ -549,26 +549,23 @@ function filterTable() {
  * Determina si un cliente tiene pago pendiente este mes
  */
 function esPendiente(row) {
-    const saldo      = parseFloat(row.dataset.saldo || 0);
-    const ultimoPago = row.dataset.ultimo || '';
-    const proximoPago = row.dataset.proximo || '';
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    // Fuente principal: ¿tiene pago registrado en la BD para este mes?
+    if (row.dataset.pagadoMes === '1') return false;
 
-    // Si saldo pendiente > 0 → pendiente
+    // Saldo pendiente explícito
+    const saldo = parseFloat(row.dataset.saldo || 0);
     if (saldo > 0) return true;
 
-    // Si tiene pago registrado este mes → al día
-    if (ultimoPago && ultimoPago.startsWith(mesActual)) return false;
-
-    // Si fecha_proximo_pago es hoy o futura → al día (pagó el mes anterior antes del corte)
+    // Si fecha_proximo_pago es futura (cliente recién registrado, aún no vence)
+    const proximoPago = row.dataset.proximo || '';
     if (proximoPago) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
         const dProximo = new Date(proximoPago + 'T00:00:00');
-        if (dProximo >= hoy) return false;
+        if (dProximo > hoy) return false;
     }
 
-    // Sin evidencia de pago → pendiente
+    // Sin pago registrado este mes → pendiente
     return true;
 }
 

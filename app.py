@@ -697,7 +697,9 @@ def listar_clientes():
     """Lista todos los clientes"""
     clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
     planes = Plan.query.all()
-    return render_template('clientes.html', clientes=clientes, planes=planes)
+    mes_actual = datetime.now().strftime('%Y-%m')
+    pagados_mes = {p.cliente_id for p in Pago.query.filter_by(mes_correspondiente=mes_actual).all()}
+    return render_template('clientes.html', clientes=clientes, planes=planes, pagados_mes=pagados_mes)
 
 
 @app.route('/pagos')

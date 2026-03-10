@@ -129,7 +129,8 @@
                             data-proximo="{{ cliente.fecha_proximo_pago.strftime('%Y-%m-%d') if cliente.fecha_proximo_pago else '' }}"
                             data-ultimo="{{ cliente.fecha_ultimo_pago.strftime('%Y-%m-%d') if cliente.fecha_ultimo_pago else '' }}"
                             data-corte="{{ cliente.dia_corte or 1 }}"
-                            data-precio="{{ cliente.precio_mensual or 0 }}">
+                            data-precio="{{ cliente.precio_mensual or 0 }}"
+                            data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}">
                             <td><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
                             <td>
                                 <div class="client-info">
