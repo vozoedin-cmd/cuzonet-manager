@@ -367,7 +367,24 @@ class MikroTikAPI:
             return response.status_code in [200, 204], response.text
         except Exception as e:
             return False, str(e)
-    
+
+    def find_queue_by_target(self, ip_address):
+        """Busca un Simple Queue por IP destino, retorna (found, queue_id)"""
+        try:
+            target = ip_address if '/32' in ip_address else f"{ip_address}/32"
+            response = self.session.get(
+                f"{self.base_url}/queue/simple",
+                timeout=15
+            )
+            if response.status_code == 200:
+                queues = response.json()
+                for q in queues:
+                    if q.get('target', '') == target:
+                        return True, q.get('.id', '')
+            return False, None
+        except Exception as e:
+            return False, None
+
     def get_simple_queues(self):
         """Obtiene todos los Simple Queues"""
         try:
@@ -1152,10 +1169,22 @@ def crear_cliente():
             if success:
                 mikrotik_id = result
             else:
-                return jsonify({
-                    'success': False, 
-                    'error': f'Error al crear queue en MikroTik: {result}'
-                }), 500
+                # El queue puede ya existir en MikroTik — buscarlo y actualizarlo
+                found, existing_queue_id = api.find_queue_by_target(data['ip_address'])
+                if found and existing_queue_id:
+                    api.update_simple_queue(
+                        existing_queue_id,
+                        name=queue_name,
+                        max_limit_download=vel_download,
+                        max_limit_upload=vel_upload,
+                        comment=f"Cliente: {data['nombre']}"
+                    )
+                    mikrotik_id = existing_queue_id
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Error al crear queue en MikroTik: {result}'
+                    }), 500
         
         # Calcular fecha próximo pago
         hoy = datetime.now()
