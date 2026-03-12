@@ -300,6 +300,75 @@
             </div>
         </section>
 
+        <!-- WhatsApp Bot -->
+        <section class="config-section" style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2><i class="fab fa-whatsapp" style="color:#25d366;"></i> Bot de WhatsApp</h2>
+                <span id="waBotBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600;background:var(--bg-tertiary);color:var(--text-secondary);">
+                    <i class="fas fa-circle" style="font-size:0.6rem;"></i> Verificando...
+                </span>
+            </div>
+
+            <div style="padding:1.5rem;">
+
+                <!-- Estado + acciones -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;" class="wa-grid">
+
+                    <!-- Columna izquierda: estado y botones -->
+                    <div>
+                        <div id="waEstadoBox" style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:1.2rem;border:1px solid var(--border-color);margin-bottom:1rem;">
+                            <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.4rem;">Estado del servicio</div>
+                            <div id="waEstadoTexto" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">Cargando...</div>
+                        </div>
+
+                        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                            <button class="btn btn-secondary" onclick="waReiniciar()" id="btnWaReiniciar">
+                                <i class="fas fa-sync-alt"></i> Reiniciar Bot
+                            </button>
+                            <button class="btn" onclick="waCambiarNumero()" id="btnWaCambiar"
+                                style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:10px 16px;border-radius:var(--radius-md);cursor:pointer;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                <i class="fas fa-mobile-alt"></i> Vincular otro número
+                            </button>
+                        </div>
+
+                        <div class="info-box" style="margin-top:1rem;">
+                            <h3><i class="fas fa-info-circle"></i> ¿Cómo vincular un número?</h3>
+                            <ol style="padding-left:1.2rem;color:var(--text-secondary);font-size:0.85rem;margin-top:0.5rem;">
+                                <li>Espera a que aparezca el código QR a la derecha</li>
+                                <li>Abre WhatsApp en tu celular</li>
+                                <li>Ve a <strong>Dispositivos vinculados → Vincular dispositivo</strong></li>
+                                <li>Escanea el QR</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: QR -->
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;">
+                        <div id="waQrContainer" style="background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;min-height:260px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+                            <div id="waQrLoading" style="text-align:center;color:var(--text-secondary);">
+                                <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:0.5rem;display:block;"></i>
+                                Cargando QR...
+                            </div>
+                            <canvas id="waQrCanvas" style="display:none;border-radius:8px;"></canvas>
+                            <div id="waQrConectado" style="display:none;text-align:center;color:#25d366;">
+                                <i class="fas fa-check-circle" style="font-size:3rem;margin-bottom:0.5rem;display:block;"></i>
+                                <strong>¡Conectado!</strong><br>
+                                <span style="font-size:0.85rem;color:var(--text-secondary);">El bot está activo y vinculado</span>
+                            </div>
+                            <div id="waQrDetenido" style="display:none;text-align:center;color:var(--text-secondary);">
+                                <i class="fas fa-stop-circle" style="font-size:3rem;margin-bottom:0.5rem;display:block;"></i>
+                                Bot detenido<br>
+                                <span style="font-size:0.85rem;">Presiona "Reiniciar Bot" para activarlo</span>
+                            </div>
+                        </div>
+                        <div id="waQrTimer" style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;display:none;">
+                            <i class="fas fa-clock"></i> El QR se actualiza automáticamente
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- System Info -->
         <section class="system-info">
             <h2><i class="fas fa-info-circle"></i> Información del Sistema</h2>
@@ -847,6 +916,179 @@
             document.getElementById('btnImportar').innerHTML = '<i class="fas fa-upload"></i> Restaurar Datos';
             document.getElementById('importProgressBar').style.width = '0%';
         }
+
+        // ============ WHATSAPP BOT PANEL ============
+        let waQrInterval = null;
+        let waStatusInterval = null;
+
+        // Cargar qrcode.js desde CDN
+        (function () {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            script.onload = () => { waIniciar(); };
+            document.head.appendChild(script);
+        })();
+
+        function waIniciar() {
+            waActualizarStatus();
+            waStatusInterval = setInterval(waActualizarStatus, 5000);
+        }
+
+        async function waActualizarStatus() {
+            try {
+                const r = await fetch('/api/whatsapp/status');
+                const data = await r.json();
+                if (!data.success) return;
+                const badge = document.getElementById('waBotBadge');
+                const texto = document.getElementById('waEstadoTexto');
+
+                if (data.estado === 'conectado') {
+                    badge.style.background = 'rgba(37,211,102,0.15)';
+                    badge.style.color = '#25d366';
+                    badge.innerHTML = '<i class="fas fa-circle" style="font-size:0.6rem;color:#25d366;"></i> Conectado';
+                    texto.textContent = '✅ Bot activo y vinculado';
+                    texto.style.color = '#25d366';
+                    mostrarQrConectado();
+                    clearInterval(waQrInterval);
+                    waQrInterval = null;
+                } else if (data.estado === 'esperando_qr') {
+                    badge.style.background = 'rgba(245,158,11,0.15)';
+                    badge.style.color = '#f59e0b';
+                    badge.innerHTML = '<i class="fas fa-circle" style="font-size:0.6rem;color:#f59e0b;"></i> Esperando QR';
+                    texto.textContent = '📱 Escanea el QR para vincular';
+                    texto.style.color = '#f59e0b';
+                    waCargarQR();
+                    if (!waQrInterval) {
+                        waQrInterval = setInterval(waCargarQR, 20000);
+                    }
+                } else if (data.estado === 'detenido') {
+                    badge.style.background = 'rgba(239,68,68,0.15)';
+                    badge.style.color = '#ef4444';
+                    badge.innerHTML = '<i class="fas fa-circle" style="font-size:0.6rem;color:#ef4444;"></i> Detenido';
+                    texto.textContent = '🔴 Bot detenido';
+                    texto.style.color = '#ef4444';
+                    mostrarQrDetenido();
+                } else {
+                    badge.style.background = 'rgba(99,102,241,0.15)';
+                    badge.style.color = '#6366f1';
+                    badge.innerHTML = '<i class="fas fa-circle" style="font-size:0.6rem;color:#6366f1;"></i> Iniciando...';
+                    texto.textContent = '⏳ Bot iniciando...';
+                    texto.style.color = '#6366f1';
+                }
+            } catch (e) { /* silenciar */ }
+        }
+
+        async function waCargarQR() {
+            try {
+                const r = await fetch('/api/whatsapp/qr');
+                const data = await r.json();
+                if (data.success && data.qr) {
+                    const canvas = document.getElementById('waQrCanvas');
+                    document.getElementById('waQrLoading').style.display = 'none';
+                    document.getElementById('waQrConectado').style.display = 'none';
+                    document.getElementById('waQrDetenido').style.display = 'none';
+                    canvas.style.display = 'block';
+                    document.getElementById('waQrTimer').style.display = 'block';
+                    // Renderizar QR en el canvas
+                    canvas.width = 230;
+                    canvas.height = 230;
+                    if (window.QRCode) {
+                        // Limpiar canvas anterior
+                        const existing = document.getElementById('waQrDivCanvas');
+                        if (existing) existing.remove();
+                        const div = document.createElement('div');
+                        div.id = 'waQrDivCanvas';
+                        canvas.parentNode.insertBefore(div, canvas);
+                        canvas.style.display = 'none';
+                        new QRCode(div, {
+                            text: data.qr,
+                            width: 230,
+                            height: 230,
+                            colorDark: '#000000',
+                            colorLight: '#ffffff',
+                            correctLevel: QRCode.CorrectLevel.M
+                        });
+                    }
+                }
+            } catch (e) { /* silenciar */ }
+        }
+
+        function mostrarQrConectado() {
+            document.getElementById('waQrLoading').style.display = 'none';
+            document.getElementById('waQrCanvas').style.display = 'none';
+            document.getElementById('waQrTimer').style.display = 'none';
+            document.getElementById('waQrDetenido').style.display = 'none';
+            document.getElementById('waQrConectado').style.display = 'flex';
+            document.getElementById('waQrConectado').style.flexDirection = 'column';
+            document.getElementById('waQrConectado').style.alignItems = 'center';
+            const div = document.getElementById('waQrDivCanvas');
+            if (div) div.remove();
+        }
+
+        function mostrarQrDetenido() {
+            document.getElementById('waQrLoading').style.display = 'none';
+            document.getElementById('waQrCanvas').style.display = 'none';
+            document.getElementById('waQrTimer').style.display = 'none';
+            document.getElementById('waQrConectado').style.display = 'none';
+            document.getElementById('waQrDetenido').style.display = 'flex';
+            document.getElementById('waQrDetenido').style.flexDirection = 'column';
+            document.getElementById('waQrDetenido').style.alignItems = 'center';
+        }
+
+        async function waReiniciar() {
+            const btn = document.getElementById('btnWaReiniciar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reiniciando...';
+            try {
+                const r = await fetch('/api/whatsapp/reiniciar', { method: 'POST' });
+                const data = await r.json();
+                if (data.success) {
+                    showToast('Bot reiniciado. Espera unos segundos...', 'success');
+                    document.getElementById('waQrLoading').style.display = 'block';
+                    document.getElementById('waQrConectado').style.display = 'none';
+                    document.getElementById('waQrDetenido').style.display = 'none';
+                    const div = document.getElementById('waQrDivCanvas');
+                    if (div) div.remove();
+                    setTimeout(waActualizarStatus, 8000);
+                } else {
+                    showToast(data.message || data.error || 'Error al reiniciar', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Reiniciar Bot';
+            }
+        }
+
+        async function waCambiarNumero() {
+            if (!confirm('⚠️ Se eliminará la sesión actual y el bot pedirá un nuevo QR.\n\nDeberás escanear con el número que quieras vincular.\n\n¿Continuar?')) return;
+            const btn = document.getElementById('btnWaCambiar');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            try {
+                const r = await fetch('/api/whatsapp/cambiar-numero', { method: 'POST' });
+                const data = await r.json();
+                if (data.success) {
+                    showToast('Sesión eliminada. Escanea el nuevo QR...', 'success');
+                    document.getElementById('waQrLoading').style.display = 'block';
+                    const div = document.getElementById('waQrDivCanvas');
+                    if (div) div.remove();
+                    setTimeout(waActualizarStatus, 8000);
+                } else {
+                    showToast(data.message || data.error || 'Error', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-mobile-alt"></i> Vincular otro número';
+            }
+        }
+        // Estilo responsive para la grilla de WhatsApp
+        const waStyle = document.createElement('style');
+        waStyle.textContent = '@media (max-width:768px){.wa-grid{grid-template-columns:1fr!important;}}';
+        document.head.appendChild(waStyle);
     </script>
 </body>
 

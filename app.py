@@ -2873,6 +2873,141 @@ def ficha_cliente(cliente_id):
     return render_template('ficha_cliente.html', cliente=cliente, pagos=pagos, config=config, now=datetime.now().strftime('%d/%m/%Y %H:%M'))
 
 
+# ============== WHATSAPP BOT MANAGEMENT ==============
+import subprocess
+import shutil
+import platform
+
+_BOT_SESSION_DIR = '/root/cuzonet-manager/whatsapp-bot/sesion_whatsapp/session'
+_BOT_QR_FILE = '/root/cuzonet-manager/static/qr_data.txt'
+_IS_LINUX = platform.system() == 'Linux'
+_VPS_HOST = os.getenv('VPS_HOST', '167.99.58.189')
+_VPS_USER = os.getenv('VPS_USER', 'root')
+
+
+def _ssh_cmd(cmd, timeout=15):
+    """Ejecutar comando en el VPS por SSH desde Windows"""
+    try:
+        r = subprocess.run(
+            ['ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=8',
+             f'{_VPS_USER}@{_VPS_HOST}', cmd],
+            capture_output=True, text=True, timeout=timeout
+        )
+        return r.stdout.strip(), r.returncode
+    except Exception:
+        return '', -1
+
+
+@app.route('/api/whatsapp/status')
+@login_required
+@admin_required
+def whatsapp_status():
+    """Estado actual del bot de WhatsApp"""
+    try:
+        if _IS_LINUX:
+            r = subprocess.run(['systemctl', 'is-active', 'whatsapp-bot'],
+                               capture_output=True, text=True, timeout=5)
+            running = r.stdout.strip() == 'active'
+            qr_pending = os.path.exists(_BOT_QR_FILE) and os.path.getsize(_BOT_QR_FILE) > 0
+            session_exists = os.path.exists(_BOT_SESSION_DIR)
+        else:
+            out, _ = _ssh_cmd(
+                "systemctl is-active whatsapp-bot ; "
+                f"test -s {_BOT_QR_FILE} && echo 'QR_EXISTE' || echo 'QR_VACIO' ; "
+                f"test -d {_BOT_SESSION_DIR} && echo 'SESSION_EXISTE' || echo 'SESSION_NO'"
+            )
+            running = 'active' in out
+            qr_pending = 'QR_EXISTE' in out
+            session_exists = 'SESSION_EXISTE' in out
+
+        if not running:
+            estado = 'detenido'
+        elif qr_pending:
+            estado = 'esperando_qr'
+        elif session_exists:
+            estado = 'conectado'
+        else:
+            estado = 'iniciando'
+
+        return jsonify({'success': True, 'running': running, 'estado': estado, 'qr_pending': qr_pending})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/whatsapp/qr')
+@login_required
+@admin_required
+def whatsapp_qr():
+    """Obtener el QR actual del bot"""
+    try:
+        if _IS_LINUX:
+            if os.path.exists(_BOT_QR_FILE):
+                with open(_BOT_QR_FILE, 'r') as f:
+                    qr_data = f.read().strip()
+                if qr_data:
+                    return jsonify({'success': True, 'qr': qr_data})
+        else:
+            # Intentar leer el QR desde el VPS por HTTP primero
+            try:
+                resp = requests.get(f'http://{_VPS_HOST}/static/qr_data.txt', timeout=8)
+                if resp.status_code == 200 and resp.text.strip():
+                    return jsonify({'success': True, 'qr': resp.text.strip()})
+            except Exception:
+                pass
+            # Fallback: leer por SSH
+            qr_data, _ = _ssh_cmd(f'cat {_BOT_QR_FILE} 2>/dev/null')
+            if qr_data:
+                return jsonify({'success': True, 'qr': qr_data})
+        return jsonify({'success': False, 'message': 'No hay QR disponible aún'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/whatsapp/reiniciar', methods=['POST'])
+@login_required
+@admin_required
+def whatsapp_reiniciar():
+    """Reiniciar el bot de WhatsApp"""
+    try:
+        if _IS_LINUX:
+            if os.path.exists(_BOT_QR_FILE):
+                os.remove(_BOT_QR_FILE)
+            subprocess.run(['systemctl', 'restart', 'whatsapp-bot'], capture_output=True, timeout=15)
+        else:
+            _ssh_cmd(f'rm -f {_BOT_QR_FILE} ; systemctl restart whatsapp-bot', timeout=20)
+        registrar_actividad('whatsapp_reiniciar', 'Bot de WhatsApp reiniciado', current_user.username)
+        return jsonify({'success': True, 'message': 'Bot reiniciado correctamente'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/whatsapp/cambiar-numero', methods=['POST'])
+@login_required
+@admin_required
+def whatsapp_cambiar_numero():
+    """Borrar sesión actual y reiniciar para vincular un número diferente"""
+    try:
+        if _IS_LINUX:
+            subprocess.run(['systemctl', 'stop', 'whatsapp-bot'], capture_output=True, timeout=10)
+            if os.path.exists(_BOT_SESSION_DIR):
+                shutil.rmtree(_BOT_SESSION_DIR)
+            if os.path.exists(_BOT_QR_FILE):
+                os.remove(_BOT_QR_FILE)
+            subprocess.run(['systemctl', 'start', 'whatsapp-bot'], capture_output=True, timeout=10)
+        else:
+            _ssh_cmd(
+                f'systemctl stop whatsapp-bot ; '
+                f'rm -rf {_BOT_SESSION_DIR} ; '
+                f'rm -f {_BOT_QR_FILE} ; '
+                f'systemctl start whatsapp-bot',
+                timeout=25
+            )
+        registrar_actividad('whatsapp_cambiar_numero', 'Sesión de WhatsApp eliminada para vincular nuevo número', current_user.username)
+        return jsonify({'success': True, 'message': 'Sesión eliminada. Escanea el nuevo QR para vincular otro número.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 # Ejecutar migración al importar (para gunicorn)
 try:
     init_db()
