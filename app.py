@@ -2975,7 +2975,7 @@ def whatsapp_reiniciar():
             subprocess.run(['systemctl', 'restart', 'whatsapp-bot'], capture_output=True, timeout=15)
         else:
             _ssh_cmd(f'rm -f {_BOT_QR_FILE} ; systemctl restart whatsapp-bot', timeout=20)
-        registrar_actividad('whatsapp_reiniciar', 'Bot de WhatsApp reiniciado', current_user.username)
+        registrar_auditoria('whatsapp_reiniciar', 'whatsapp', None, 'Bot de WhatsApp reiniciado')
         return jsonify({'success': True, 'message': 'Bot reiniciado correctamente'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -3002,7 +3002,7 @@ def whatsapp_cambiar_numero():
                 f'systemctl start whatsapp-bot',
                 timeout=25
             )
-        registrar_actividad('whatsapp_cambiar_numero', 'Sesión de WhatsApp eliminada para vincular nuevo número', current_user.username)
+        registrar_auditoria('whatsapp_cambiar_numero', 'whatsapp', None, 'Sesión eliminada para vincular nuevo número')
         return jsonify({'success': True, 'message': 'Sesión eliminada. Escanea el nuevo QR para vincular otro número.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
