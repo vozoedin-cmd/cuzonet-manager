@@ -167,6 +167,8 @@
                                         title="Aviso de Cobro"><i class="fas fa-file-invoice-dollar"></i></button>
                                     <button class="btn-icon" onclick="window.open('/ficha-cliente/{{ cliente.id }}', '_blank')"
                                         title="Ficha del Cliente" style="background: rgba(0, 212, 255,0.15); color: #00d4ff;"><i class="fas fa-id-card"></i></button>
+                                    <button class="btn-icon pay" onclick="abrirPagoRapido({{ cliente.id }}, '{{ cliente.nombre }}', {{ cliente.precio_mensual or 0 }})"
+                                        title="Registrar Pago"><i class="fas fa-dollar-sign"></i></button>
                                     {% if cliente.telefono %}
                                     <button class="btn-icon whatsapp" onclick="enviarWhatsApp('{{ cliente.telefono }}', '{{ cliente.nombre }}', '{{ cliente.precio_mensual or 0 }}', '{{ cliente.plan }}')"
                                         title="WhatsApp"><i class="fab fa-whatsapp"></i></button>
@@ -435,6 +437,61 @@
         </div>
     </div>
 
+    <!-- Modal Pago Rápido -->
+    <div class="modal-overlay" id="pagoRapidoModal">
+        <div class="modal" style="max-width:480px">
+            <div class="modal-header">
+                <h2><i class="fas fa-dollar-sign"></i> Registrar Pago</h2>
+                <button class="modal-close" onclick="closeModal('pagoRapidoModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="pagoRapidoForm" class="modal-form">
+                <input type="hidden" id="pr_cliente_id">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Cliente</label>
+                    <input type="text" id="pr_cliente_nombre" readonly style="background:rgba(255,255,255,.05);cursor:default;">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-dollar-sign"></i> Monto (Q) *</label>
+                        <input type="number" id="pr_monto" step="0.01" min="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> Mes correspondiente</label>
+                        <input type="month" id="pr_mes">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-credit-card"></i> Método de pago</label>
+                        <select id="pr_metodo">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="deposito">Depósito</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-hashtag"></i> Referencia</label>
+                        <input type="text" id="pr_referencia" placeholder="# comprobante">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="pr_activar" checked>
+                        <span>Activar cliente si está suspendido/cortado</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('pagoRapidoModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="pr_submitBtn">
+                        <i class="fas fa-save"></i> Registrar Pago
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Ver Cliente -->
     <div class="modal-overlay" id="viewClienteModal">
         <div class="modal modal-large">
@@ -451,6 +508,57 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
+        // ===== PAGO RÁPIDO =====
+        function abrirPagoRapido(clienteId, nombre, precio) {
+            document.getElementById('pr_cliente_id').value = clienteId;
+            document.getElementById('pr_cliente_nombre').value = nombre;
+            document.getElementById('pr_monto').value = precio > 0 ? precio.toFixed(2) : '';
+            document.getElementById('pr_mes').value = new Date().toISOString().slice(0, 7);
+            document.getElementById('pr_metodo').value = 'efectivo';
+            document.getElementById('pr_referencia').value = '';
+            document.getElementById('pr_activar').checked = true;
+            const btn = document.getElementById('pr_submitBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+            openModal('pagoRapidoModal');
+        }
+
+        document.getElementById('pagoRapidoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('pr_submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+            const payload = {
+                cliente_id: parseInt(document.getElementById('pr_cliente_id').value),
+                monto: parseFloat(document.getElementById('pr_monto').value),
+                mes_correspondiente: document.getElementById('pr_mes').value,
+                metodo_pago: document.getElementById('pr_metodo').value,
+                referencia: document.getElementById('pr_referencia').value,
+                activar_automatico: document.getElementById('pr_activar').checked
+            };
+            try {
+                const r = await fetch('/api/pago', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Pago registrado exitosamente', 'success');
+                    closeModal('pagoRapidoModal');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(d.error || 'Error al registrar pago', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
+            }
+        });
+
         async function editarCliente(id) {
             try {
                 const r = await fetch(`/api/cliente/${id}`);
@@ -595,6 +703,16 @@
 
         .btn-icon.whatsapp:hover {
             background: #25d366;
+            color: #fff
+        }
+
+        .btn-icon.pay {
+            background: rgba(16, 185, 129, .2);
+            color: #10b981
+        }
+
+        .btn-icon.pay:hover {
+            background: #10b981;
             color: #fff
         }
 
