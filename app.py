@@ -27,6 +27,11 @@ if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,        # Verifica conexión antes de usarla (evita errores de conexión caída)
+    'pool_recycle': 300,          # Recicla conexiones cada 5 min (evita timeouts del servidor)
+    'connect_args': {'timeout': 30} if DATABASE_URL.startswith('sqlite') else {},
+}
 
 db = SQLAlchemy(app)
 
@@ -831,7 +836,9 @@ def recibos_mes(mes=None):
 def avisos_cobro(mes=None):
     """Generar avisos de cobro (recibos antes de pagar) para todos los clientes activos"""
     from datetime import datetime
-    
+
+    filtro = request.args.get('filtro', 'todos')  # 'todos' o 'morosos'
+
     # Función para convertir número a letras en español
     def numero_a_letras(numero):
         unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE']
@@ -894,13 +901,20 @@ def avisos_cobro(mes=None):
     # Si no se especifica mes, usar el mes actual
     if not mes:
         mes = datetime.now().strftime('%Y-%m')
-    
+
     # Obtener clientes activos
-    clientes = Cliente.query.filter_by(estado='activo').order_by(Cliente.nombre).all()
-    
+    clientes_activos = Cliente.query.filter_by(estado='activo').order_by(Cliente.nombre).all()
+
+    # Filtrar morosos: clientes sin pago registrado en el mes
+    if filtro == 'morosos':
+        ids_pagados = {p.cliente_id for p in Pago.query.filter_by(mes_correspondiente=mes).all()}
+        clientes = [c for c in clientes_activos if c.id not in ids_pagados]
+    else:
+        clientes = clientes_activos
+
     # Calcular total
     total = sum(c.precio_mensual for c in clientes if c.precio_mensual)
-    
+
     # Nombres de meses en español
     meses_nombres = {
         '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
@@ -915,12 +929,14 @@ def avisos_cobro(mes=None):
         anio = mes[:4]
         mes_nombre = mes
     
-    return render_template('avisos_cobro.html', 
-                         clientes=clientes, 
-                         total=total, 
+    return render_template('avisos_cobro.html',
+                         clientes=clientes,
+                         total=total,
                          mes=mes,
                          mes_nombre=mes_nombre,
                          anio=anio,
+                         filtro=filtro,
+                         total_activos=len(clientes_activos),
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
                          numero_a_letras=numero_a_letras)
 
@@ -1013,6 +1029,8 @@ def aviso_cobro_individual(cliente_id, mes=None):
                          mes=mes,
                          mes_nombre=mes_nombre,
                          anio=anio,
+                         filtro='individual',
+                         total_activos=1,
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
                          numero_a_letras=numero_a_letras)
 
@@ -2273,6 +2291,17 @@ def migrate_db():
 def init_db():
     """Inicializar base de datos y crear tablas"""
     with app.app_context():
+        # Activar WAL mode en SQLite para evitar bloqueos concurrentes
+        if DATABASE_URL.startswith('sqlite'):
+            try:
+                from sqlalchemy import text as _text
+                with db.engine.connect() as _conn:
+                    _conn.execute(_text('PRAGMA journal_mode=WAL'))
+                    _conn.execute(_text('PRAGMA busy_timeout=30000'))
+                    _conn.commit()
+            except Exception as _e:
+                print(f"[WARNING] PRAGMA WAL falló: {_e}")
+
         # Crear tablas (siempre, independiente de migrate)
         db.create_all()
         print("[OK] Tablas creadas/verificadas")
@@ -3008,9 +3037,25 @@ def whatsapp_cambiar_numero():
         return jsonify({'success': False, 'error': str(e)})
 
 
-# Ejecutar migración al importar (para gunicorn)
+# Ejecutar migración al importar (para gunicorn) — protegido con lock de archivo
+import fcntl as _fcntl
+import tempfile as _tempfile
+
+_lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
 try:
-    init_db()
+    _lock_fd = open(_lock_path, 'w')
+    _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
+    try:
+        init_db()
+    finally:
+        _fcntl.flock(_lock_fd, _fcntl.LOCK_UN)
+        _lock_fd.close()
+except (ImportError, OSError):
+    # fcntl no disponible en Windows (desarrollo local) — ejecutar sin lock
+    try:
+        init_db()
+    except Exception as e:
+        print(f"[WARNING] init_db falló: {e}")
 except Exception as e:
     print(f"[WARNING] init_db falló: {e}")
 

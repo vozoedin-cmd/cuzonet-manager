@@ -59,6 +59,53 @@
             color: white;
         }
 
+        /* Selector de filtro */
+        .filter-selector {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 28px;
+            border: 2px solid #49ade3;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            background: white;
+            color: #49ade3;
+            transition: all .2s;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #49ade3 0%, #2d8bc9 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(73,173,227,.4);
+        }
+
+        .filter-btn:hover:not(.active) {
+            background: rgba(73,173,227,.1);
+        }
+
+        .filter-btn.morosos {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .filter-btn.morosos.active {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            color: white;
+            border-color: #ef4444;
+            box-shadow: 0 4px 12px rgba(239,68,68,.4);
+        }
+
+        .filter-btn.morosos:hover:not(.active) {
+            background: rgba(239,68,68,.08);
+        }
+
         .summary {
             text-align: center;
             padding: 12px;
@@ -286,6 +333,7 @@
 
             .page-header,
             .controls,
+            .filter-selector,
             .summary {
                 display: none !important;
             }
@@ -335,8 +383,32 @@
 <body>
     <div class="page-header">
         <h1><i class="fas fa-file-invoice-dollar"></i> CuzoNet - Avisos de Cobro</h1>
-        <p>{{ mes_nombre }} {{ anio }} - {{ clientes|length }} clientes</p>
+        <p>{{ mes_nombre }} {{ anio }} &mdash;
+            {% if filtro == 'morosos' %}
+                <strong style="color:#fca5a5;">{{ clientes|length }} morosos</strong> de {{ total_activos }} activos
+            {% else %}
+                {{ clientes|length }} clientes
+            {% endif %}
+        </p>
     </div>
+
+    <!-- Selector de filtro -->
+    {% if filtro != 'individual' %}
+    <div class="filter-selector">
+        <button class="filter-btn {% if filtro != 'morosos' %}active{% endif %}"
+            onclick="cambiarFiltro('todos')">
+            <i class="fas fa-users"></i> Todos los clientes
+            <span style="font-size:11px;opacity:.8;">({{ total_activos }})</span>
+        </button>
+        <button class="filter-btn morosos {% if filtro == 'morosos' %}active{% endif %}"
+            onclick="cambiarFiltro('morosos')">
+            <i class="fas fa-exclamation-circle"></i> Solo Morosos
+            {% if filtro == 'morosos' %}
+            <span style="font-size:11px;opacity:.9;">({{ clientes|length }})</span>
+            {% endif %}
+        </button>
+    </div>
+    {% endif %}
 
     <div class="controls">
         <button class="btn-back" onclick="window.history.back()">
@@ -348,7 +420,14 @@
     </div>
 
     <div class="summary">
-        <h2>Total a cobrar: {{ clientes|length }} clientes - Q{{ "%.2f"|format(total) }}</h2>
+        <h2>
+            {% if filtro == 'morosos' %}
+            <span style="color:#dc2626;"><i class="fas fa-exclamation-circle"></i> Morosos:</span>
+            {% else %}
+            Total a cobrar:
+            {% endif %}
+            {{ clientes|length }} clientes &mdash; Q{{ "%.2f"|format(total) }}
+        </h2>
     </div>
 
     <div class="avisos-container">
@@ -475,5 +554,21 @@
         {% endif %}
     </div>
 </body>
+
+<script>
+    function cambiarFiltro(filtro) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('filtro', filtro);
+        window.location.href = url.toString();
+    }
+
+    // Leer el mes de la URL y aplicarlo al selector si existiera
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        if (!params.has('filtro')) {
+            // por defecto viene 'todos' del servidor
+        }
+    });
+</script>
 
 </html>
