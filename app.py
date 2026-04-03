@@ -703,7 +703,17 @@ def listar_clientes():
     clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
     planes = Plan.query.all()
     mes_actual = datetime.now().strftime('%Y-%m')
-    pagados_mes = {p.cliente_id for p in Pago.query.filter_by(mes_correspondiente=mes_actual).all()}
+    # Solo marca como pagado si el total acumulado del mes >= precio_mensual
+    from sqlalchemy import func
+    pagos_mes = db.session.query(
+        Pago.cliente_id,
+        func.sum(Pago.monto).label('total')
+    ).filter_by(mes_correspondiente=mes_actual).group_by(Pago.cliente_id).all()
+    clientes_dict = {c.id: c.precio_mensual for c in clientes}
+    pagados_mes = {
+        p.cliente_id for p in pagos_mes
+        if p.total >= (clientes_dict.get(p.cliente_id) or 0) and (clientes_dict.get(p.cliente_id) or 0) > 0
+    }
     return render_template('clientes.html', clientes=clientes, planes=planes, pagados_mes=pagados_mes)
 
 
@@ -1488,17 +1498,32 @@ def registrar_pago():
         )
         
         db.session.add(pago)
-        
+
+        # Calcular total pagado este mes para este cliente (incluyendo el pago actual)
+        mes_pago = data.get('mes_correspondiente', datetime.now().strftime('%Y-%m'))
+        from sqlalchemy import func
+        total_pagado_mes = db.session.query(
+            func.sum(Pago.monto)
+        ).filter_by(cliente_id=cliente_id, mes_correspondiente=mes_pago).scalar() or 0
+        total_pagado_mes += monto  # sumar el pago actual (aún no commiteado)
+
+        precio = cliente.precio_mensual or 0
+
         # Actualizar cliente
         cliente.fecha_ultimo_pago = datetime.now()
-        cliente.saldo_pendiente = max(0, cliente.saldo_pendiente - monto)
-        
-        # Calcular nueva fecha de próximo pago
-        hoy = datetime.now()
-        next_month = hoy.month + 1 if hoy.month < 12 else 1
-        next_year = hoy.year if hoy.month < 12 else hoy.year + 1
-        dia = min(cliente.dia_corte, 28)
-        cliente.fecha_proximo_pago = datetime(next_year, next_month, dia)
+
+        if precio > 0 and total_pagado_mes < precio:
+            # Pago parcial: queda saldo pendiente
+            cliente.saldo_pendiente = round(precio - total_pagado_mes, 2)
+            # No avanzar fecha_proximo_pago hasta pagar completo
+        else:
+            # Pago completo
+            cliente.saldo_pendiente = 0
+            hoy = datetime.now()
+            next_month = hoy.month + 1 if hoy.month < 12 else 1
+            next_year = hoy.year if hoy.month < 12 else hoy.year + 1
+            dia = min(cliente.dia_corte, 28)
+            cliente.fecha_proximo_pago = datetime(next_year, next_month, dia)
         
         # Si estaba cortado o suspendido y pagó, activar automáticamente
         if cliente.estado in ['suspendido', 'cortado'] and data.get('activar_automatico', True):
