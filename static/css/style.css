@@ -299,6 +299,65 @@ body {
     animation: blink 1s infinite;
 }
 
+.status-indicator.warning {
+    background: var(--warning);
+    box-shadow: 0 0 10px var(--warning);
+}
+
+.status-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.status-main {
+    font-weight: 600;
+}
+
+.status-details {
+    display: none;
+    background: var(--bg-primary);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.mikrotik-status:hover .status-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: absolute;
+    bottom: 100%;
+    left: 16px;
+    right: 16px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+}
+
+.router-mini-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.router-mini-status .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.router-mini-status .dot.online {
+    background: var(--success);
+}
+
+.router-mini-status .dot.offline {
+    background: var(--danger);
+}
+
 @keyframes blink {
 
     0%,

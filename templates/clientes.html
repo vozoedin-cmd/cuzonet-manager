@@ -243,16 +243,23 @@
                             name="direccion" placeholder="Ej: Aldea Chinaha, Chisec A.V."></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Dia Corte</label><input type="number" id="dia_corte" name="dia_corte"
-                            min="1" max="28" value="1" placeholder="1-28"></div>
-                    <div class="form-group"><label>Precio Mensual (Q)</label><input type="number" id="precio_mensual"
-                            name="precio_mensual" step="0.01" min="0" value="0" placeholder="Ej: 150.00"></div>
-                </div>
-                <div class="form-row">
                     <div class="form-group"><label>Download</label><input type="text" id="velocidad_download"
                             name="velocidad_download" placeholder="Ej: 10M"></div>
                     <div class="form-group"><label>Upload</label><input type="text" id="velocidad_upload"
                             name="velocidad_upload" placeholder="Ej: 5M"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Router MikroTik *</label>
+                        <select id="router_id" name="router_id" required>
+                            {% for router in routers %}
+                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
+                            {% endfor %}
+                            {% if not routers %}
+                            <option value="">No hay routers configurados</option>
+                            {% endif %}
+                        </select>
+                    </div>
                 </div>
                 <div class="form-actions"><button type="button" class="btn btn-secondary"
                         onclick="closeModal('clienteModal')">Cancelar</button><button type="submit"
@@ -303,6 +310,16 @@
                             placeholder="10M"></div>
                     <div class="form-group"><label>Vel. Upload</label><input type="text" id="edit_velocidad_upload"
                             placeholder="5M"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Router MikroTik *</label>
+                        <select id="edit_router_id">
+                            {% for router in routers %}
+                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 <div class="form-actions"><button type="button" class="btn btn-secondary"
                         onclick="closeModal('editClienteModal')">Cancelar</button><button type="submit"
@@ -404,6 +421,17 @@
 
                 <!-- Zona de carga -->
                 <form id="importForm" enctype="multipart/form-data">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="color: #fff; font-size: 0.9rem; display: block; margin-bottom: 8px;">Asignar a Router MikroTik:</label>
+                        <select name="router_id" style="width: 100%; background: var(--bg-tertiary); color: #fff; border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;">
+                            {% for router in routers %}
+                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
+                            {% endfor %}
+                            {% if not routers %}
+                            <option value="">No hay routers configurados</option>
+                            {% endif %}
+                        </select>
+                    </div>
                     <div class="file-upload-pro">
                         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" required>
                         <label for="importFile" class="upload-label">
@@ -576,6 +604,7 @@
                     document.getElementById('edit_precio_mensual').value = d.cliente.precio_mensual || 0;
                     document.getElementById('edit_velocidad_download').value = d.cliente.velocidad_download || '10M';
                     document.getElementById('edit_velocidad_upload').value = d.cliente.velocidad_upload || '5M';
+                    document.getElementById('edit_router_id').value = d.cliente.router_id || '';
                     openModal('editClienteModal');
                 } else {
                     showToast('Error al cargar cliente', 'error');
@@ -598,7 +627,8 @@
                 dia_corte: document.getElementById('edit_dia_corte').value,
                 precio_mensual: document.getElementById('edit_precio_mensual').value,
                 velocidad_download: document.getElementById('edit_velocidad_download').value,
-                velocidad_upload: document.getElementById('edit_velocidad_upload').value
+                velocidad_upload: document.getElementById('edit_velocidad_upload').value,
+                router_id: document.getElementById('edit_router_id').value
             };
             try {
                 const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
@@ -611,7 +641,7 @@
                     showToast(d.error || 'Error al guardar', 'error');
                 }
             } catch (e) {
-                showToast('Error de conexi�n', 'error');
+                showToast('Error de conexin', 'error');
             }
         });
         async function cortarCliente(id) { if (!confirm('Cortar cliente?')) return; try { const r = await fetch(`/api/cliente/${id}/cortar`, { method: 'POST' }); const d = await r.json(); if (d.success) { showToast('Cortado', 'success'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
@@ -621,8 +651,7 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
 
-            const f = new FormData();
-            f.append('file', document.getElementById('importFile').files[0]);
+            const f = new FormData(this);
             try {
                 const r = await fetch('/api/clientes/importar', { method: 'POST', body: f });
                 const d = await r.json();

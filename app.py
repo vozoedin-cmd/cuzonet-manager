@@ -97,7 +97,8 @@ class Cliente(db.Model):
     # Estado y MikroTik
     estado = db.Column(db.String(20), default='activo')  # activo, suspendido, cortado
     queue_name = db.Column(db.String(100))
-    mikrotik_id = db.Column(db.String(50))
+    mikrotik_id = db.Column(db.String(50))  # ID interno en MikroTik (*1, *2, etc.)
+    router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id')) # Router al que pertenece
     
     # Fechas de pago
     dia_corte = db.Column(db.Integer, default=1)  # Día del mes para corte (1-31)
@@ -132,6 +133,7 @@ class Cliente(db.Model):
             'estado': self.estado,
             'queue_name': self.queue_name,
             'mikrotik_id': self.mikrotik_id,
+            'router_id': self.router_id,
             'dia_corte': self.dia_corte,
             'fecha_ultimo_pago': self.fecha_ultimo_pago.strftime('%Y-%m-%d') if self.fecha_ultimo_pago else None,
             'fecha_proximo_pago': self.fecha_proximo_pago.strftime('%Y-%m-%d') if self.fecha_proximo_pago else None,
@@ -185,6 +187,9 @@ class ConfigMikroTik(db.Model):
     activo = db.Column(db.Boolean, default=True)
     # Nombre del address list para clientes cortados
     address_list_cortados = db.Column(db.String(50), default='MOROSOS')
+    
+    # Relación con clientes
+    clientes = db.relationship('Cliente', backref='router', lazy=True)
 
 
 class Plan(db.Model):
@@ -479,11 +484,16 @@ class MikroTikAPI:
             return False, str(e)
 
 
-def get_mikrotik_api():
-    """Obtiene instancia de la API de MikroTik con la configuración activa"""
-    config = ConfigMikroTik.query.filter_by(activo=True).first()
+def get_mikrotik_api(router_id=None):
+    """Obtiene instancia de la API de MikroTik con la configuración específica o activa"""
+    if router_id:
+        config = ConfigMikroTik.query.get(router_id)
+    else:
+        config = ConfigMikroTik.query.filter_by(activo=True).first()
+        
     if not config:
         return None
+        
     return MikroTikAPI(
         host=config.host,
         username=config.username,
@@ -493,9 +503,12 @@ def get_mikrotik_api():
     )
 
 
-def get_address_list_name():
+def get_address_list_name(router_id=None):
     """Obtiene el nombre del address list configurado"""
-    config = ConfigMikroTik.query.filter_by(activo=True).first()
+    if router_id:
+        config = ConfigMikroTik.query.get(router_id)
+    else:
+        config = ConfigMikroTik.query.filter_by(activo=True).first()
     return config.address_list_cortados if config else "MOROSOS"
 
 
@@ -1064,87 +1077,57 @@ def obtener_meses_con_pagos():
 @login_required
 @admin_required
 def configuracion():
-    """Página de configuración de MikroTik"""
-    config = ConfigMikroTik.query.first()
+    """Página de gestión de MikroTiks y Planes"""
+    configs = ConfigMikroTik.query.all()
     planes = Plan.query.all()
-    return render_template('configuracion.html', config=config, planes=planes)
+    return render_template('configuracion.html', configs=configs, planes=planes)
 
 # ============== API MIKROTIK STATUS ==============
 
 @app.route('/api/mikrotik/status')
 def mikrotik_status():
-    """Verificar estado de conexión a MikroTik (con caché)"""
-    global _mikrotik_status_cache
-    from datetime import datetime, timedelta
-    
-    # Si hay caché válido, devolver sin consultar al router
-    last_check = _mikrotik_status_cache.get('last_check')
-    if last_check and (datetime.now() - last_check).total_seconds() < MIKROTIK_CACHE_TTL:
-        return jsonify({
-            'success': True,
-            'connected': _mikrotik_status_cache['connected'],
-            'message': _mikrotik_status_cache['message'],
-            'queue_count': _mikrotik_status_cache['queue_count']
-        })
-    
+    """Verificar estado de conexión a todos los MikroTiks configurados"""
     try:
-        api = get_mikrotik_api()
-        if not api:
-            _mikrotik_status_cache = {
-                'connected': False,
-                'message': 'Sin configurar',
-                'queue_count': 0,
-                'last_check': datetime.now()
-            }
+        configs = ConfigMikroTik.query.filter_by(activo=True).all()
+        if not configs:
             return jsonify({
                 'success': True,
-                'connected': False,
+                'routers': [],
                 'message': 'Sin configurar'
             })
-        
-        # test_connection devuelve (success, message)
-        success, message = api.test_connection()
-        if success:
-            # Contar queues
-            queue_success, queues = api.get_simple_queues()
-            queue_count = len(queues) if queue_success and isinstance(queues, list) else 0
             
-            _mikrotik_status_cache = {
-                'connected': True,
-                'message': f'Conectado: {message}',
-                'queue_count': queue_count,
-                'last_check': datetime.now()
-            }
+        routers_status = []
+        for config in configs:
+            api = MikroTikAPI(
+                host=config.host,
+                username=config.username,
+                password=config.password,
+                port=config.port,
+                use_ssl=config.use_ssl
+            )
             
-            return jsonify({
-                'success': True,
-                'connected': True,
-                'message': f'Conectado: {message}',
+            success, message = api.test_connection()
+            queue_count = 0
+            if success:
+                queue_success, queues = api.get_simple_queues()
+                queue_count = len(queues) if queue_success and isinstance(queues, list) else 0
+            
+            routers_status.append({
+                'id': config.id,
+                'nombre': config.nombre,
+                'connected': success,
+                'message': message if success else f"Error: {message}",
                 'queue_count': queue_count
             })
-        else:
-            _mikrotik_status_cache = {
-                'connected': False,
-                'message': message,
-                'queue_count': 0,
-                'last_check': datetime.now()
-            }
-            return jsonify({
-                'success': True,
-                'connected': False,
-                'message': message
-            })
-    except Exception as e:
-        _mikrotik_status_cache = {
-            'connected': False,
-            'message': str(e)[:50],
-            'queue_count': 0,
-            'last_check': datetime.now()
-        }
+            
         return jsonify({
             'success': True,
-            'connected': False,
-            'message': str(e)[:50]
+            'routers': routers_status
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         })
 
 
@@ -1185,7 +1168,8 @@ def crear_cliente():
         
         # Crear Simple Queue en MikroTik
         mikrotik_id = None
-        api = get_mikrotik_api()
+        router_id = data.get('router_id')
+        api = get_mikrotik_api(router_id)
         
         if api:
             success, result = api.create_simple_queue(
@@ -1242,6 +1226,7 @@ def crear_cliente():
             cedula=data.get('cedula', ''),
             queue_name=queue_name,
             mikrotik_id=mikrotik_id,
+            router_id=router_id or (ConfigMikroTik.query.filter_by(activo=True).first().id if ConfigMikroTik.query.filter_by(activo=True).first() else None),
             estado='activo',
             dia_corte=dia_corte,
             precio_mensual=precio,
@@ -1307,7 +1292,7 @@ def actualizar_cliente(id):
                 
                 # Actualizar en MikroTik
                 if cliente.mikrotik_id:
-                    api = get_mikrotik_api()
+                    api = get_mikrotik_api(cliente.router_id)
                     if api:
                         api.update_simple_queue(
                             cliente.mikrotik_id,
@@ -1320,7 +1305,7 @@ def actualizar_cliente(id):
             cliente.velocidad_upload = data.get('velocidad_upload', cliente.velocidad_upload)
             
             if cliente.mikrotik_id:
-                api = get_mikrotik_api()
+                api = get_mikrotik_api(cliente.router_id)
                 if api:
                     api.update_simple_queue(
                         cliente.mikrotik_id,
@@ -1337,7 +1322,7 @@ def actualizar_cliente(id):
             
             cliente.ip_address = data['ip_address']
             if cliente.mikrotik_id:
-                api = get_mikrotik_api()
+                api = get_mikrotik_api(cliente.router_id)
                 if api:
                     api.update_simple_queue(cliente.mikrotik_id, target=data['ip_address'])
         
@@ -1355,7 +1340,7 @@ def eliminar_cliente(id):
     try:
         cliente = Cliente.query.get_or_404(id)
         
-        api = get_mikrotik_api()
+        api = get_mikrotik_api(cliente.router_id)
         if api:
             # Eliminar queue de MikroTik
             if cliente.mikrotik_id:
@@ -1363,7 +1348,7 @@ def eliminar_cliente(id):
             
             # Remover del address list si estaba cortado
             if cliente.estado == 'cortado':
-                api.remove_from_address_list(cliente.ip_address, get_address_list_name())
+                api.remove_from_address_list(cliente.ip_address, get_address_list_name(cliente.router_id))
         
         nombre_cliente = cliente.nombre
         db.session.delete(cliente)
@@ -1384,7 +1369,7 @@ def suspender_cliente(id):
         cliente = Cliente.query.get_or_404(id)
         
         if cliente.mikrotik_id:
-            api = get_mikrotik_api()
+            api = get_mikrotik_api(cliente.router_id)
             if api:
                 success, msg = api.suspend_queue(cliente.mikrotik_id)
                 if not success:
@@ -1406,7 +1391,7 @@ def activar_cliente(id):
     try:
         cliente = Cliente.query.get_or_404(id)
         
-        api = get_mikrotik_api()
+        api = get_mikrotik_api(cliente.router_id)
         if api:
             # Activar queue
             if cliente.mikrotik_id:
@@ -1416,7 +1401,7 @@ def activar_cliente(id):
             
             # Remover del address list si estaba cortado
             if cliente.estado == 'cortado':
-                api.remove_from_address_list(cliente.ip_address, get_address_list_name())
+                api.remove_from_address_list(cliente.ip_address, get_address_list_name(cliente.router_id))
         
         cliente.estado = 'activo'
         db.session.commit()
@@ -1434,12 +1419,12 @@ def cortar_cliente(id):
     try:
         cliente = Cliente.query.get_or_404(id)
         
-        api = get_mikrotik_api()
+        api = get_mikrotik_api(cliente.router_id)
         if api:
             # Agregar al address list de morosos
             success, result = api.add_to_address_list(
                 cliente.ip_address, 
-                get_address_list_name(),
+                get_address_list_name(cliente.router_id),
                 f"Corte: {cliente.nombre} - {datetime.now().strftime('%Y-%m-%d')}"
             )
             
@@ -1527,12 +1512,12 @@ def registrar_pago():
         
         # Si estaba cortado o suspendido y pagó, activar automáticamente
         if cliente.estado in ['suspendido', 'cortado'] and data.get('activar_automatico', True):
-            api = get_mikrotik_api()
+            api = get_mikrotik_api(cliente.router_id)
             if api:
                 if cliente.mikrotik_id:
                     api.activate_queue(cliente.mikrotik_id)
                 if cliente.estado == 'cortado':
-                    api.remove_from_address_list(cliente.ip_address, get_address_list_name())
+                    api.remove_from_address_list(cliente.ip_address, get_address_list_name(cliente.router_id))
             cliente.estado = 'activo'
         
         db.session.commit()
@@ -1722,12 +1707,13 @@ def importar_clientes():
     """Importar clientes desde archivo Excel o CSV"""
     try:
         if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+            return jsonify({'success': False, 'error': 'No se envió el archivo'}), 400
         
         file = request.files['file']
+        router_id_default = request.form.get('router_id')
         
         if file.filename == '':
-            return jsonify({'success': False, 'error': 'Nombre de archivo vacío'}), 400
+            return jsonify({'success': False, 'error': 'No se seleccionó ningún archivo'}), 400
         
         filename = file.filename.lower()
         
@@ -1822,7 +1808,8 @@ def importar_clientes():
                         
                         # Crear Simple Queue en MikroTik
                         mikrotik_id = None
-                        api = get_mikrotik_api()
+                        router_id = data.get('router_id') or router_id_default
+                        api = get_mikrotik_api(router_id)
                         
                         if api:
                             success, result = api.create_simple_queue(
@@ -1852,7 +1839,8 @@ def importar_clientes():
                             dia_corte=dia_corte,
                             precio_mensual=precio,
                             queue_name=queue_name,
-                            mikrotik_id=mikrotik_id
+                            mikrotik_id=mikrotik_id,
+                            router_id=router_id
                         )
                         
                         db.session.add(cliente)
@@ -1890,6 +1878,26 @@ def importar_clientes():
                         clientes_omitidos += 1
                         continue
                     
+                    # Generar nombre del queue
+                    nombre_limpio = str(nombre).replace(' ', '-').lower()[:30]
+                    queue_name = f"cliente-{nombre_limpio}-{str(ip).replace('.', '-')}"
+                    
+                    # Crear Simple Queue en MikroTik
+                    mikrotik_id = None
+                    router_id = data.get('router_id') or router_id_default
+                    api = get_mikrotik_api(router_id)
+                    
+                    if api:
+                        success, result = api.create_simple_queue(
+                            name=queue_name,
+                            target=str(ip),
+                            max_limit_download=data.get('velocidad bajada', data.get('velocidad_download', '10M')),
+                            max_limit_upload=data.get('velocidad subida', data.get('velocidad_upload', '5M')),
+                            comment=f"Cliente: {nombre}"
+                        )
+                        if success:
+                            mikrotik_id = result
+                    
                     cliente = Cliente(
                         nombre=nombre,
                         ip_address=ip,
@@ -1902,7 +1910,10 @@ def importar_clientes():
                         cedula=data.get('cedula', ''),
                         estado='activo',
                         dia_corte=int(data.get('dia corte', data.get('dia_corte', 1)) or 1),
-                        precio_mensual=float(data.get('precio mensual', data.get('precio_mensual', 0)) or 0)
+                        precio_mensual=float(data.get('precio mensual', data.get('precio_mensual', 0)) or 0),
+                        queue_name=queue_name,
+                        mikrotik_id=mikrotik_id,
+                        router_id=router_id
                     )
                     
                     db.session.add(cliente)
@@ -2025,28 +2036,52 @@ def generar_recibo(pago_id):
 # ============== CONFIGURACIÓN ==============
 
 @app.route('/api/config/mikrotik', methods=['POST'])
-def guardar_config_mikrotik():
+@app.route('/api/config/mikrotik/<int:router_id>', methods=['POST', 'PUT'])
+def guardar_config_mikrotik(router_id=None):
     """Guardar configuración de MikroTik"""
     try:
         data = request.get_json()
         
-        config = ConfigMikroTik.query.first()
-        if not config:
-            config = ConfigMikroTik()
+        if router_id:
+            config = ConfigMikroTik.query.get(router_id)
+        else:
+            # Si no hay ID, intentar buscar por host o crear nuevo
+            config = ConfigMikroTik.query.filter_by(host=data.get('host', '')).first()
+            if not config:
+                config = ConfigMikroTik()
         
+        config.nombre = data.get('nombre', config.nombre or f"MikroTik {data.get('host')}")
         config.host = data.get('host', '')
         config.port = int(data.get('port', 80))
         config.username = data.get('username', '')
         config.password = data.get('password', '')
         config.use_ssl = data.get('use_ssl', False)
         config.address_list_cortados = data.get('address_list_cortados', 'MOROSOS')
-        config.activo = True
+        config.activo = data.get('activo', True)
         
         db.session.add(config)
         db.session.commit()
         
-        return jsonify({'success': True, 'message': 'Configuracion guardada'})
+        return jsonify({'success': True, 'message': 'Configuracion guardada', 'router': config.to_dict() if hasattr(config, 'to_dict') else {'id': config.id, 'nombre': config.nombre}})
         
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/config/mikrotik/<int:router_id>', methods=['DELETE'])
+def eliminar_config_mikrotik(router_id):
+    """Eliminar configuración de MikroTik"""
+    try:
+        config = ConfigMikroTik.query.get_or_404(router_id)
+        
+        # Verificar si tiene clientes asociados
+        if Cliente.query.filter_by(router_id=router_id).first():
+            return jsonify({'success': False, 'error': 'No se puede eliminar un router que tiene clientes asociados'}), 400
+            
+        db.session.delete(config)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Router eliminado'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2162,9 +2197,10 @@ def eliminar_plan(id):
 def sincronizar_queues():
     """Obtener queues de MikroTik para sincronización"""
     try:
-        api = get_mikrotik_api()
+        router_id = request.args.get('router_id')
+        api = get_mikrotik_api(router_id)
         if not api:
-            return jsonify({'success': False, 'error': 'MikroTik no configurado'}), 400
+            return jsonify({'success': False, 'error': 'MikroTik no configurado o no encontrado'}), 400
         
         success, queues = api.get_simple_queues()
         
@@ -2181,9 +2217,12 @@ def sincronizar_queues():
 def importar_queues_mikrotik():
     """Importa los queues de MikroTik como clientes en la base de datos"""
     try:
-        api = get_mikrotik_api()
+        data = request.get_json() or {}
+        router_id = data.get('router_id')
+        
+        api = get_mikrotik_api(router_id)
         if not api:
-            return jsonify({'success': False, 'error': 'MikroTik no configurado'}), 400
+            return jsonify({'success': False, 'error': 'MikroTik no configurado o no encontrado'}), 400
         
         success, queues = api.get_simple_queues()
         
@@ -2231,7 +2270,8 @@ def importar_queues_mikrotik():
                     velocidad_upload=vel_upload,
                     estado='activo' if not disabled else 'suspendido',
                     queue_id=queue_id,
-                    queue_name=nombre
+                    queue_name=nombre,
+                    router_id=router_id or (ConfigMikroTik.query.filter_by(activo=True).first().id if ConfigMikroTik.query.filter_by(activo=True).first() else None)
                 )
                 
                 db.session.add(nuevo_cliente)
@@ -2285,6 +2325,7 @@ def migrate_db():
                     'saldo_pendiente': 'FLOAT DEFAULT 0',
                     'latitud': 'FLOAT',
                     'longitud': 'FLOAT',
+                    'router_id': 'INTEGER'
                 }
                 
                 for col_name, col_type in columns_to_add.items():
@@ -2307,6 +2348,15 @@ def migrate_db():
                             conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
                             conn.commit()
                         print("[MIGRATION] Columna 'address_list_cortados' agregada")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error: {e}")
+                
+                if 'nombre' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN nombre VARCHAR(100)"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'nombre' agregada")
                     except Exception as e:
                         print(f"[MIGRATION] Error: {e}")
         except Exception as e:
