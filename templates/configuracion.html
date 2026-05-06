@@ -131,7 +131,7 @@
                                 </td>
                                 <td>
                                     <div class="plan-actions">
-                                        <button class="btn-icon" onclick='abrirEditarRouter({{ r.to_dict() | tojson | safe if hasattr(r, "to_dict") else {"id": r.id, "nombre": r.nombre, "host": r.host, "port": r.port, "username": r.username, "use_ssl": r.use_ssl, "address_list_cortados": r.address_list_cortados} | tojson | safe }})' title="Editar router">
+                                        <button class="btn-icon" onclick='abrirEditarRouter({{ r.to_dict() | tojson | safe }})' title="Editar router">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn-icon danger" onclick="eliminarRouter({{ r.id }})" title="Eliminar router">

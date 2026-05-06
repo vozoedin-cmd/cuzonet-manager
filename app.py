@@ -191,6 +191,18 @@ class ConfigMikroTik(db.Model):
     # Relación con clientes
     clientes = db.relationship('Cliente', backref='router', lazy=True)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'host': self.host,
+            'port': self.port,
+            'username': self.username,
+            'use_ssl': self.use_ssl,
+            'address_list_cortados': self.address_list_cortados,
+            'activo': self.activo
+        }
+
 
 class Plan(db.Model):
     """Planes de internet predefinidos"""
@@ -202,6 +214,16 @@ class Plan(db.Model):
     velocidad_upload = db.Column(db.String(20), nullable=False)
     precio = db.Column(db.Float, default=0)
     descripcion = db.Column(db.String(200))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'velocidad_download': self.velocidad_download,
+            'velocidad_upload': self.velocidad_upload,
+            'precio': self.precio,
+            'descripcion': self.descripcion
+        }
 
 
 class AuditLog(db.Model):
@@ -1823,11 +1845,10 @@ def importar_clientes():
                                 max_limit_upload=str(vel_up) if vel_up else '5M',
                                 comment=f"Cliente: {nombre}"
                             )
-                            
                             if success:
                                 mikrotik_id = result
                             else:
-                                errores.append(f"Fila {row_num}: Queue no creado - {result}")
+                                errores.append(f"Fila {row_num}: Queue en MikroTik no creado - {result}")
                         
                         cliente = Cliente(
                             nombre=str(nombre),
@@ -1901,6 +1922,8 @@ def importar_clientes():
                         )
                         if success:
                             mikrotik_id = result
+                        else:
+                            errores.append(f"Fila {row_num}: Queue en MikroTik no creado - {result}")
                     
                     cliente = Cliente(
                         nombre=nombre,
@@ -2856,6 +2879,7 @@ def restaurar_backup():
                                 estado=c.get('estado', 'activo'),
                                 queue_name=c.get('queue_name', ''),
                                 mikrotik_id=c.get('mikrotik_id', ''),
+                                router_id=c.get('router_id'),
                                 dia_corte=c.get('dia_corte', 1),
                                 precio_mensual=c.get('precio_mensual', 0),
                                 saldo_pendiente=c.get('saldo_pendiente', 0),
