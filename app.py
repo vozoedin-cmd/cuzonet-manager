@@ -699,12 +699,15 @@ def index():
         Cliente.fecha_proximo_pago >= hoy
     ).count()
     
+    routers = ConfigMikroTik.query.all()
+    
     return render_template('index.html', 
                          clientes=clientes,
                          total_clientes=total_clientes,
                          clientes_activos=clientes_activos,
                          clientes_suspendidos=clientes_suspendidos,
                          planes=planes,
+                         routers=routers,
                          total_recaudado_mes=total_recaudado_mes,
                          clientes_por_cortar=clientes_por_cortar)
 
@@ -727,7 +730,8 @@ def listar_clientes():
         p.cliente_id for p in pagos_mes
         if p.total >= (clientes_dict.get(p.cliente_id) or 0) and (clientes_dict.get(p.cliente_id) or 0) > 0
     }
-    return render_template('clientes.html', clientes=clientes, planes=planes, pagados_mes=pagados_mes)
+    routers = ConfigMikroTik.query.all()
+    return render_template('clientes.html', clientes=clientes, planes=planes, routers=routers, pagados_mes=pagados_mes)
 
 
 @app.route('/pagos')
@@ -1080,7 +1084,7 @@ def configuracion():
     """Página de gestión de MikroTiks y Planes"""
     configs = ConfigMikroTik.query.all()
     planes = Plan.query.all()
-    return render_template('configuracion.html', configs=configs, planes=planes)
+    return render_template('configuracion.html', routers=configs, planes=planes)
 
 # ============== API MIKROTIK STATUS ==============
 
