@@ -879,7 +879,8 @@ async function checkMikroTikStatus(force = false) {
     const refreshBtn = statusDiv.querySelector('.btn-refresh-status');
     if (refreshBtn) refreshBtn.classList.add('rotating');
 
-    // 1. Intentar cargar desde caché (sessionStorage) salvo que sea forzado
+    // 1. Deshabilitar caché temporalmente para depuración
+    /*
     const cachedStatus = sessionStorage.getItem('mikrotik_status');
     const cachedTime = sessionStorage.getItem('mikrotik_status_time');
     const now = new Date().getTime();
@@ -889,6 +890,7 @@ async function checkMikroTikStatus(force = false) {
         if (refreshBtn) refreshBtn.classList.remove('rotating');
         return;
     }
+    */
 
     // 2. Si no hay caché o expiró, consultar API
     try {

@@ -2696,6 +2696,9 @@ def api_mikrotik_status():
             online, identity = api.test_connection()
             queue_count = api.get_queue_count() if online else 0
             
+            if not online:
+                print(f"[DEBUG] Router {r.nombre} ({r.host}) OFFLINE: {identity}")
+            
             results.append({
                 'id': r.id,
                 'nombre': r.nombre,
@@ -2705,6 +2708,7 @@ def api_mikrotik_status():
                 'error': None if online else identity
             })
         except Exception as e:
+            print(f"[DEBUG] Router {r.nombre} ({r.host}) ERROR DE CONEXION: {e}")
             results.append({
                 'id': r.id,
                 'nombre': r.nombre,
@@ -3311,6 +3315,7 @@ def whatsapp_reiniciar():
         registrar_auditoria('whatsapp_reiniciar', 'whatsapp', None, 'Bot de WhatsApp reiniciado')
         return jsonify({'success': True, 'message': 'Bot reiniciado correctamente'})
     except Exception as e:
+        print(f"[DEBUG] Error en reiniciar: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 
