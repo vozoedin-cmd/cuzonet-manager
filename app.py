@@ -3061,25 +3061,21 @@ def restaurar_backup():
             if 'configuracion_mikrotik.json' in archivos_en_zip:
                 try:
                     configs_data = json.loads(zf.read('configuracion_mikrotik.json').decode('utf-8'))
+                    
+                    # Eliminar configuraciones existentes para reemplazarlas
+                    ConfigMikroTik.query.delete()
+                    
                     for c in configs_data:
-                        existente = ConfigMikroTik.query.first()
-                        if existente:
-                            existente.host = c.get('host', '')
-                            existente.port = c.get('port', 80)
-                            existente.username = c.get('username', '')
-                            existente.use_ssl = c.get('use_ssl', False)
-                            existente.address_list_cortados = c.get('address_list_cortados', 'MOROSOS')
-                        else:
-                            nueva = ConfigMikroTik(
-                                nombre=c.get('nombre', 'Principal'),
-                                host=c.get('host', ''),
-                                port=c.get('port', 80),
-                                username=c.get('username', ''),
-                                password='',
-                                use_ssl=c.get('use_ssl', False),
-                                address_list_cortados=c.get('address_list_cortados', 'MOROSOS')
-                            )
-                            db.session.add(nueva)
+                        nueva = ConfigMikroTik(
+                            nombre=c.get('nombre', 'Principal'),
+                            host=c.get('host', ''),
+                            port=c.get('port', 80),
+                            username=c.get('username', ''),
+                            password=c.get('password', ''),
+                            use_ssl=c.get('use_ssl', False),
+                            address_list_cortados=c.get('address_list_cortados', 'MOROSOS')
+                        )
+                        db.session.add(nueva)
                         resultados['config_importada'] = True
                     db.session.commit()
                 except Exception as e:
