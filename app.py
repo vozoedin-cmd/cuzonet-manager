@@ -2646,9 +2646,16 @@ def dashboard_charts():
 @login_required
 @admin_required
 def actividad_view():
-    """Página de registro de actividad"""
-    logs = AuditLog.query.order_by(AuditLog.fecha.desc()).limit(200).all()
-    return render_template('actividad.html', logs=logs)
+    """Página de registro de actividad con paginación"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    pagination = AuditLog.query.order_by(AuditLog.fecha.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    logs = pagination.items
+    
+    return render_template('actividad.html', logs=logs, pagination=pagination)
 
 
 @app.route('/api/actividad')
@@ -2658,6 +2665,30 @@ def api_actividad():
     limit = request.args.get('limit', 100, type=int)
     logs = AuditLog.query.order_by(AuditLog.fecha.desc()).limit(limit).all()
     return jsonify({'success': True, 'logs': [l.to_dict() for l in logs]})
+
+
+@app.route('/api/mikrotik/status')
+@login_required
+def api_mikrotik_status():
+    """Chequeo rápido del estado de los routers"""
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
+    results = []
+    
+    for r in routers:
+        api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
+        online, identity = api.test_connection()
+        results.append({
+            'id': r.id,
+            'nombre': r.nombre,
+            'online': online,
+            'identity': identity if online else None
+        })
+        
+    return jsonify({
+        'success': True,
+        'routers': results,
+        'overall_online': any(r['online'] for r in results) if results else False
+    })
 
 
 # ============== MAPA DE CLIENTES ==============

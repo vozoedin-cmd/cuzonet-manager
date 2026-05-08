@@ -1714,3 +1714,115 @@ body.light-mode ::-webkit-scrollbar-track {
 body.light-mode ::-webkit-scrollbar-thumb {
     background: #C2CDD5;
 }
+
+/* ============================================
+   RESPONSIVE & NEW COMPONENTS
+   ============================================ */
+
+/* Filters Form */
+.filters-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .filters-form {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    
+    .search-box.large input {
+        width: 100%;
+    }
+    
+    .filter-group {
+        width: 100%;
+        margin-left: 0 !important;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+    
+    .bulk-actions {
+        width: 90% !important;
+        flex-wrap: wrap;
+        border-radius: 20px !important;
+        justify-content: center;
+    }
+}
+
+/* Pagination */
+.pagination-container {
+    background: rgba(0,0,0,0.2);
+}
+
+.pagination-pages {
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 5px;
+}
+
+/* Responsive Table */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 70px;
+    }
+    .sidebar-header .logo span, 
+    .sidebar-header .logo-subtitle,
+    .nav-link span,
+    .sidebar-footer span {
+        display: none;
+    }
+    .main-content {
+        margin-left: 70px;
+    }
+    .nav-link {
+        justify-content: center;
+        padding: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .main-content {
+        margin-left: 0;
+        padding: 16px;
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .header-right {
+        width: 100%;
+    }
+    .header-right .btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* Custom Micro-interactions */
+.btn:active {
+    transform: scale(0.95);
+}
+
+.status-indicator.pulse {
+    animation: pulse 2s infinite;
+}
+
+.router-mini-status {
+    padding: 4px 0;
+}
+
+.router-mini-status .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}

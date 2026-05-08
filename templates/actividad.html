@@ -145,6 +145,31 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination-container" style="display: flex; justify-content: center; padding: 20px; gap: 10px; border-top: 1px solid var(--border-color);">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('actividad_view', page=pagination.prev_num) }}" class="btn btn-secondary btn-sm"><i class="fas fa-chevron-left"></i> Anterior</a>
+                {% endif %}
+
+                <div class="pagination-pages" style="display: flex; gap: 5px; align-items: center;">
+                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <a href="{{ url_for('actividad_view', page=page_num) }}" 
+                               class="btn btn-sm {{ 'btn-primary' if page_num == pagination.page else 'btn-secondary' }}" 
+                               style="min-width: 36px; justify-content: center;">{{ page_num }}</a>
+                        {% else %}
+                            <span style="color: var(--text-muted);">...</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% if pagination.has_next %}
+                <a href="{{ url_for('actividad_view', page=pagination.next_num) }}" class="btn btn-secondary btn-sm">Siguiente <i class="fas fa-chevron-right"></i></a>
+                {% endif %}
+            </div>
+            {% endif %}
         </section>
     </main>
 

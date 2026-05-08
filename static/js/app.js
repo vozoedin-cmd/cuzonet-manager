@@ -876,56 +876,64 @@ async function checkMikroTikStatus() {
     const statusDiv = document.getElementById('mikrotikStatus');
     if (!statusDiv) return;
 
-    // Mostrar estado de carga
-    statusDiv.innerHTML = `
-        <div class="status-indicator loading"></div>
-        <span>MikroTik: Conectando...</span>
-    `;
+    // 1. Intentar cargar desde caché (sessionStorage)
+    const cachedStatus = sessionStorage.getItem('mikrotik_status');
+    const cachedTime = sessionStorage.getItem('mikrotik_status_time');
+    const now = new Date().getTime();
 
+    if (cachedStatus && cachedTime && (now - cachedTime < 30000)) {
+        renderMikroTikStatus(JSON.parse(cachedStatus));
+        return;
+    }
+
+    // 2. Si no hay caché o expiró, consultar API
     try {
         const response = await fetch('/api/mikrotik/status');
         const result = await response.json();
 
-        if (result.success && result.routers) {
-            if (result.routers.length === 0) {
-                statusDiv.innerHTML = `
-                    <div class="status-indicator offline"></div>
-                    <span>Sin Routers</span>
-                `;
-                return;
-            }
-
-            const connectedCount = result.routers.filter(r => r.connected).length;
-            const totalCount = result.routers.length;
-
-            statusDiv.innerHTML = `
-                <div class="status-indicator ${connectedCount === totalCount ? 'online' : (connectedCount > 0 ? 'warning' : 'offline')}"></div>
-                <div class="status-info">
-                    <span class="status-main">MikroTik: ${connectedCount}/${totalCount}</span>
-                    <div class="status-details">
-                        ${result.routers.map(r => `
-                            <div class="router-mini-status">
-                                <span class="dot ${r.connected ? 'online' : 'offline'}"></span>
-                                <span class="name">${r.nombre}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-
-            // Actualizar contador de queues global si existe
-            const queueCount = document.getElementById('queueCount');
-            if (queueCount) {
-                const totalQueues = result.routers.reduce((acc, r) => acc + (r.queue_count || 0), 0);
-                queueCount.textContent = totalQueues;
-            }
+        if (result.success) {
+            sessionStorage.setItem('mikrotik_status', JSON.stringify(result));
+            sessionStorage.setItem('mikrotik_status_time', now.toString());
+            renderMikroTikStatus(result);
         }
     } catch (error) {
         statusDiv.innerHTML = `
             <div class="status-indicator offline"></div>
-            <span>MikroTik: Error</span>
+            <span>MikroTik: Error de conexión</span>
         `;
     }
+}
+
+function renderMikroTikStatus(data) {
+    const statusDiv = document.getElementById('mikrotikStatus');
+    if (!statusDiv || !data.routers) return;
+
+    if (data.routers.length === 0) {
+        statusDiv.innerHTML = `
+            <div class="status-indicator offline"></div>
+            <span>Sin Routers</span>
+        `;
+        return;
+    }
+
+    const connectedCount = data.routers.filter(r => r.online).length;
+    const totalCount = data.routers.length;
+    const isOnline = connectedCount > 0;
+
+    statusDiv.innerHTML = `
+        <div class="status-indicator ${connectedCount === totalCount ? 'online' : (isOnline ? 'warning' : 'offline')}"></div>
+        <div class="status-info">
+            <span class="status-main">MikroTik: ${connectedCount}/${totalCount}</span>
+            <div class="status-details">
+                ${data.routers.map(r => `
+                    <div class="router-mini-status">
+                        <span class="dot ${r.online ? 'online' : 'offline'}"></span>
+                        <span class="name">${r.nombre}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
 }
 
 /**
