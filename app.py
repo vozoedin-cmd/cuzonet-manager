@@ -318,20 +318,9 @@ class MikroTikAPI:
         self.password = password
         self.port = port
         self.protocol = 'https' if use_ssl else 'http'
-        # Omitir puerto si es el estándar para evitar problemas con algunos proxies/routers
-        if (self.protocol == 'http' and port == 80) or (self.protocol == 'https' and port == 443):
-            self.base_url = f"{self.protocol}://{self.host}/rest"
-        else:
-            self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
-            
+        self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
         self.session = requests.Session()
-        # Forzar Basic Auth en los headers para evitar el ciclo 401 -> Auth
-        auth_str = f"{username}:{password}"
-        encoded_auth = base64.b64encode(auth_str.encode()).decode()
-        self.session.headers.update({
-            'Authorization': f'Basic {encoded_auth}',
-            'Accept': 'application/json'
-        })
+        self.session.auth = (username, password)
         self.session.verify = False
     
     def test_connection(self):
