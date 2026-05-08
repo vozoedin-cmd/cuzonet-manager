@@ -2397,7 +2397,7 @@ def sincronizar_queues():
 def importar_queues_mikrotik():
     """Importa los queues de MikroTik como clientes en la base de datos"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         router_id = data.get('router_id')
         
         api = get_mikrotik_api(router_id)
