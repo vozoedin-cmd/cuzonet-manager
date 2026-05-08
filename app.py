@@ -14,6 +14,7 @@ import json
 import zipfile
 import requests
 import urllib3
+import base64
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from dotenv import load_dotenv
 
@@ -324,9 +325,14 @@ class MikroTikAPI:
             self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
             
         self.session = requests.Session()
-        self.session.auth = (username, password)
+        # Forzar Basic Auth en los headers para evitar el ciclo 401 -> Auth
+        auth_str = f"{username}:{password}"
+        encoded_auth = base64.b64encode(auth_str.encode()).decode()
+        self.session.headers.update({
+            'Authorization': f'Basic {encoded_auth}',
+            'Accept': 'application/json'
+        })
         self.session.verify = False
-        self.session.headers.update({'Accept': 'application/json'})
     
     def test_connection(self):
         """Prueba la conexión al router"""
