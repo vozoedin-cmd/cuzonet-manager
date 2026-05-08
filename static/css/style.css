@@ -304,6 +304,34 @@ body {
     gap: 8px;
     font-size: 0.875rem;
     color: var(--text-secondary);
+    position: relative;
+    padding: 8px 0;
+}
+
+.btn-refresh-status {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.btn-refresh-status:hover {
+    color: var(--primary);
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.btn-refresh-status.rotating i {
+    animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .status-indicator {

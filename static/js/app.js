@@ -872,17 +872,21 @@ async function exportClientes() {
 /**
  * Verificar estado de MikroTik
  */
-async function checkMikroTikStatus() {
+async function checkMikroTikStatus(force = false) {
     const statusDiv = document.getElementById('mikrotikStatus');
     if (!statusDiv) return;
 
-    // 1. Intentar cargar desde caché (sessionStorage)
+    const refreshBtn = statusDiv.querySelector('.btn-refresh-status');
+    if (refreshBtn) refreshBtn.classList.add('rotating');
+
+    // 1. Intentar cargar desde caché (sessionStorage) salvo que sea forzado
     const cachedStatus = sessionStorage.getItem('mikrotik_status');
     const cachedTime = sessionStorage.getItem('mikrotik_status_time');
     const now = new Date().getTime();
 
-    if (cachedStatus && cachedTime && (now - cachedTime < 30000)) {
+    if (!force && cachedStatus && cachedTime && (now - cachedTime < 30000)) {
         renderMikroTikStatus(JSON.parse(cachedStatus));
+        if (refreshBtn) refreshBtn.classList.remove('rotating');
         return;
     }
 
@@ -900,7 +904,12 @@ async function checkMikroTikStatus() {
         statusDiv.innerHTML = `
             <div class="status-indicator offline"></div>
             <span>MikroTik: Error de conexión</span>
+            <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Reintentar">
+                <i class="fas fa-sync-alt"></i>
+            </button>
         `;
+    } finally {
+        if (refreshBtn) refreshBtn.classList.remove('rotating');
     }
 }
 
@@ -912,6 +921,9 @@ function renderMikroTikStatus(data) {
         statusDiv.innerHTML = `
             <div class="status-indicator offline"></div>
             <span>Sin Routers</span>
+            <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Refrescar">
+                <i class="fas fa-sync-alt"></i>
+            </button>
         `;
         return;
     }
@@ -928,11 +940,14 @@ function renderMikroTikStatus(data) {
                 ${data.routers.map(r => `
                     <div class="router-mini-status">
                         <span class="dot ${r.online ? 'online' : 'offline'}"></span>
-                        <span class="name">${r.nombre}</span>
+                        <span class="name" title="${r.error || ''}">${r.nombre}</span>
                     </div>
                 `).join('')}
             </div>
         </div>
+        <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Refrescar">
+            <i class="fas fa-sync-alt"></i>
+        </button>
     `;
 }
 

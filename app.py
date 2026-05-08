@@ -13,6 +13,8 @@ import os
 import json
 import zipfile
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -323,7 +325,7 @@ class MikroTikAPI:
     def test_connection(self):
         """Prueba la conexión al router"""
         try:
-            response = self.session.get(f"{self.base_url}/system/identity", timeout=5)
+            response = self.session.get(f"{self.base_url}/system/identity", timeout=7)
             if response.status_code == 200:
                 return True, response.json().get('name', 'MikroTik')
             return False, f"Error: {response.status_code}"
@@ -349,7 +351,7 @@ class MikroTikAPI:
             response = self.session.put(
                 f"{self.base_url}/queue/simple",
                 json=data,
-                timeout=10
+                timeout=15
             )
             
             if response.status_code in [200, 201]:
@@ -2675,14 +2677,24 @@ def api_mikrotik_status():
     results = []
     
     for r in routers:
-        api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
-        online, identity = api.test_connection()
-        results.append({
-            'id': r.id,
-            'nombre': r.nombre,
-            'online': online,
-            'identity': identity if online else None
-        })
+        try:
+            api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
+            online, identity = api.test_connection()
+            results.append({
+                'id': r.id,
+                'nombre': r.nombre,
+                'online': online,
+                'identity': identity if online else None,
+                'error': None if online else identity
+            })
+        except Exception as e:
+            results.append({
+                'id': r.id,
+                'nombre': r.nombre,
+                'online': False,
+                'identity': None,
+                'error': str(e)
+            })
         
     return jsonify({
         'success': True,
@@ -3312,11 +3324,10 @@ def whatsapp_cambiar_numero():
 
 
 # Ejecutar migración al importar (para gunicorn) — protegido con lock de archivo
-import fcntl as _fcntl
-import tempfile as _tempfile
-
-_lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
 try:
+    import fcntl as _fcntl
+    import tempfile as _tempfile
+    _lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
     _lock_fd = open(_lock_path, 'w')
     _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
     try:
@@ -3324,7 +3335,7 @@ try:
     finally:
         _fcntl.flock(_lock_fd, _fcntl.LOCK_UN)
         _lock_fd.close()
-except (ImportError, OSError):
+except (ImportError, OSError, AttributeError):
     # fcntl no disponible en Windows (desarrollo local) — ejecutar sin lock
     try:
         init_db()
