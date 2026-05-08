@@ -326,7 +326,7 @@ class MikroTikAPI:
     def test_connection(self):
         """Prueba la conexión al router"""
         try:
-            response = self.session.get(f"{self.base_url}/system/identity", timeout=10)
+            response = self.session.get(f"{self.base_url}/system/identity", timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -339,7 +339,7 @@ class MikroTikAPI:
     def get_queue_count(self):
         """Obtiene el número de queues configurados"""
         try:
-            response = self.session.get(f"{self.base_url}/queue/simple", params={".proplist": ".id"}, timeout=10)
+            response = self.session.get(f"{self.base_url}/queue/simple", params={".proplist": ".id"}, timeout=5)
             if response.status_code == 200:
                 return len(response.json())
             return 0
@@ -2700,42 +2700,51 @@ def api_actividad():
 @login_required
 def api_mikrotik_status():
     """Chequeo rápido del estado de los routers"""
-    routers = ConfigMikroTik.query.filter_by(activo=True).all()
-    results = []
-    
-    for r in routers:
-        try:
-            api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
-            online, identity = api.test_connection()
-            queue_count = api.get_queue_count() if online else 0
-            
-            if not online:
-                print(f"[DEBUG] Router {r.nombre} ({r.host}) OFFLINE: {identity}")
-            
-            results.append({
-                'id': r.id,
-                'nombre': r.nombre,
-                'online': online,
-                'identity': identity if online else None,
-                'queue_count': queue_count,
-                'error': None if online else identity
-            })
-        except Exception as e:
-            print(f"[DEBUG] Router {r.nombre} ({r.host}) ERROR DE CONEXION: {e}")
-            results.append({
-                'id': r.id,
-                'nombre': r.nombre,
-                'online': False,
-                'identity': None,
-                'queue_count': 0,
-                'error': str(e)
-            })
+    try:
+        routers = ConfigMikroTik.query.filter_by(activo=True).all()
+        results = []
         
-    return jsonify({
-        'success': True,
-        'routers': results,
-        'overall_online': any(r['online'] for r in results) if results else False
-    })
+        for r in routers:
+            try:
+                api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
+                online, identity = api.test_connection()
+                queue_count = api.get_queue_count() if online else 0
+                
+                if not online:
+                    print(f"[DEBUG] Router {r.nombre} ({r.host}) OFFLINE: {identity}")
+                
+                results.append({
+                    'id': r.id,
+                    'nombre': r.nombre,
+                    'online': online,
+                    'identity': identity if online else None,
+                    'queue_count': queue_count,
+                    'error': None if online else identity
+                })
+            except Exception as e:
+                print(f"[DEBUG] Router {r.nombre} ({r.host}) ERROR DE CONEXION: {e}")
+                results.append({
+                    'id': r.id,
+                    'nombre': r.nombre,
+                    'online': False,
+                    'identity': None,
+                    'queue_count': 0,
+                    'error': str(e)
+                })
+            
+        return jsonify({
+            'success': True,
+            'routers': results,
+            'overall_online': any(r['online'] for r in results) if results else False
+        })
+    except Exception as e:
+        print(f"[DEBUG] Error general en status: {e}")
+        return jsonify({
+            'success': False,
+            'routers': [],
+            'overall_online': False,
+            'error': str(e)
+        })
 
 
 # ============== MAPA DE CLIENTES ==============
