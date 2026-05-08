@@ -124,8 +124,7 @@ if (clienteForm) {
             dia_corte: document.getElementById('dia_corte').value || 1,
             precio_mensual: document.getElementById('precio_mensual').value || selectedOption.dataset.precio || 0,
             velocidad_download: document.getElementById('velocidad_download').value || selectedOption.dataset.download,
-            velocidad_upload: document.getElementById('velocidad_upload').value || selectedOption.dataset.upload,
-            router_id: document.getElementById('router_id') ? document.getElementById('router_id').value : null
+            velocidad_upload: document.getElementById('velocidad_upload').value || selectedOption.dataset.upload
         };
 
         try {
@@ -872,85 +871,58 @@ async function exportClientes() {
 /**
  * Verificar estado de MikroTik
  */
-async function checkMikroTikStatus(force = false) {
+async function checkMikroTikStatus() {
     const statusDiv = document.getElementById('mikrotikStatus');
     if (!statusDiv) return;
 
-    const refreshBtn = statusDiv.querySelector('.btn-refresh-status');
-    if (refreshBtn) refreshBtn.classList.add('rotating');
+    // Mostrar estado de carga
+    statusDiv.innerHTML = `
+        <div class="status-indicator loading"></div>
+        <span>MikroTik: Conectando...</span>
+    `;
 
-    // 1. Deshabilitar caché temporalmente para depuración
-    /*
-    const cachedStatus = sessionStorage.getItem('mikrotik_status');
-    const cachedTime = sessionStorage.getItem('mikrotik_status_time');
-    const now = new Date().getTime();
-
-    if (!force && cachedStatus && cachedTime && (now - cachedTime < 30000)) {
-        renderMikroTikStatus(JSON.parse(cachedStatus));
-        if (refreshBtn) refreshBtn.classList.remove('rotating');
-        return;
-    }
-    */
-
-    // 2. Si no hay caché o expiró, consultar API
     try {
-        const response = await fetch('/api/mikrotik/status');
+        // Usar timeout para evitar espera larga
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch('/api/mikrotik/status', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         const result = await response.json();
 
-        if (result.success) {
-            sessionStorage.setItem('mikrotik_status', JSON.stringify(result));
-            sessionStorage.setItem('mikrotik_status_time', now.toString());
-            renderMikroTikStatus(result);
+        if (result.success && result.connected) {
+            statusDiv.innerHTML = `
+                <div class="status-indicator online"></div>
+                <span>MikroTik: Conectado</span>
+            `;
+
+            // Actualizar contador de queues si existe
+            const queueCount = document.getElementById('queueCount');
+            if (queueCount && result.queue_count !== undefined) {
+                queueCount.textContent = result.queue_count;
+            }
+        } else {
+            statusDiv.innerHTML = `
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: ${result.message || 'Desconectado'}</span>
+            `;
         }
     } catch (error) {
-        statusDiv.innerHTML = `
-            <div class="status-indicator offline"></div>
-            <span>MikroTik: Error de conexión</span>
-            <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Reintentar">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-        `;
-    } finally {
-        if (refreshBtn) refreshBtn.classList.remove('rotating');
+        if (error.name === 'AbortError') {
+            statusDiv.innerHTML = `
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Timeout</span>
+            `;
+        } else {
+            statusDiv.innerHTML = `
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Sin configurar</span>
+            `;
+        }
     }
-}
-
-function renderMikroTikStatus(data) {
-    const statusDiv = document.getElementById('mikrotikStatus');
-    if (!statusDiv || !data.routers) return;
-
-    if (data.routers.length === 0) {
-        statusDiv.innerHTML = `
-            <div class="status-indicator offline"></div>
-            <span>Sin Routers</span>
-            <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Refrescar">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-        `;
-        return;
-    }
-
-    const connectedCount = data.routers.filter(r => r.online).length;
-    const totalCount = data.routers.length;
-    const isOnline = connectedCount > 0;
-
-    statusDiv.innerHTML = `
-        <div class="status-indicator ${connectedCount === totalCount ? 'online' : (isOnline ? 'warning' : 'offline')}"></div>
-        <div class="status-info">
-            <span class="status-main">MikroTik: ${connectedCount}/${totalCount}</span>
-            <div class="status-details">
-                ${data.routers.map(r => `
-                    <div class="router-mini-status">
-                        <span class="dot ${r.online ? 'online' : 'offline'}"></span>
-                        <span class="name" title="${r.error || ''}">${r.nombre}</span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        <button class="btn-refresh-status" onclick="checkMikroTikStatus(true)" title="Refrescar">
-            <i class="fas fa-sync-alt"></i>
-        </button>
-    `;
 }
 
 /**

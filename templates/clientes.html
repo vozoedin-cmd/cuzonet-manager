@@ -74,37 +74,35 @@
         </header>
 
         <section class="filters-section">
-            <form action="/clientes" method="GET" class="filters-form" id="filtersForm" style="display: flex; width: 100%; gap: 1rem; align-items: center;">
-                <div class="search-box large">
-                    <i class="fas fa-search"></i>
-                    <input type="text" name="search" id="searchInput" placeholder="Buscar por nombre, IP o plan..." value="{{ search }}">
-                </div>
-                <div class="filter-group">
-                    <select name="estado" id="filterEstado" onchange="this.form.submit()">
-                        <option value="">Todos los estados</option>
-                        <option value="activo" {{ 'selected' if estado == 'activo' }}>Activos</option>
-                        <option value="suspendido" {{ 'selected' if estado == 'suspendido' }}>Suspendidos</option>
-                        <option value="cortado" {{ 'selected' if estado == 'cortado' }}>Cortados</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <select name="plan" id="filterPlan" onchange="this.form.submit()">
-                        <option value="">Todos los planes</option>
-                        {% for plan in planes %}
-                        <option value="{{ plan.nombre }}" {{ 'selected' if plan_nombre == plan.nombre }}>{{ plan.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-secondary"><i class="fas fa-filter"></i> Filtrar</button>
-                <a href="/clientes" class="btn btn-icon" title="Limpiar filtros"><i class="fas fa-sync-alt"></i></a>
-                
-                <div class="filter-group" style="margin-left:auto;">
-                    <span id="clienteCount" style="color:var(--text-secondary);font-size:0.875rem;padding:0 8px;">
-                        {{ pagination.total }} clientes encontrados
-                    </span>
-                </div>
-            </form>
-        </section>n>
+            <div class="search-box large"><i class="fas fa-search"></i><input type="text" id="searchInput"
+                    placeholder="Buscar por nombre, IP o plan..." onkeyup="filterTable()"></div>
+            <div class="filter-group">
+                <select id="filterEstado" onchange="filterTable()">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">Activos</option>
+                    <option value="suspendido">Suspendidos</option>
+                    <option value="cortado">Cortados</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <select id="filterPlan" onchange="filterTable()">
+                    <option value="">Todos los planes</option>
+                    {% for plan in planes %}
+                    <option value="{{ plan.nombre }}">{{ plan.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <select id="filterPago" onchange="filterTable()">
+                    <option value="">Todos los pagos</option>
+                    <option value="pendiente">&#9888; Pendientes</option>
+                    <option value="pagado">&#10003; Al d�a</option>
+                </select>
+            </div>
+            <div class="filter-group" style="margin-left:auto;">
+                <span id="clienteCount" style="color:var(--text-secondary);font-size:0.875rem;padding:0 8px;"></span>
+            </div>
+        </section>
 
         <section class="table-section">
             <div class="table-container">
@@ -201,39 +199,11 @@
                     </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
-            {% if pagination.pages > 1 %}
-            <div class="pagination-container" style="display: flex; justify-content: center; padding: 20px; gap: 10px; border-top: 1px solid var(--border-color);">
-                {% if pagination.has_prev %}
-                <a href="{{ url_for('listar_clientes', page=pagination.prev_num, search=search, estado=estado, plan=plan_nombre) }}" class="btn btn-secondary btn-sm"><i class="fas fa-chevron-left"></i> Anterior</a>
-                {% endif %}
-
-                <div class="pagination-pages" style="display: flex; gap: 5px; align-items: center;">
-                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                        {% if page_num %}
-                            <a href="{{ url_for('listar_clientes', page=page_num, search=search, estado=estado, plan=plan_nombre) }}" 
-                               class="btn btn-sm {{ 'btn-primary' if page_num == pagination.page else 'btn-secondary' }}" 
-                               style="min-width: 36px; justify-content: center;">{{ page_num }}</a>
-                        {% else %}
-                            <span style="color: var(--text-muted);">...</span>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-
-                {% if pagination.has_next %}
-                <a href="{{ url_for('listar_clientes', page=pagination.next_num, search=search, estado=estado, plan=plan_nombre) }}" class="btn btn-secondary btn-sm">Siguiente <i class="fas fa-chevron-right"></i></a>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <div class="bulk-actions" id="bulkActions" style="display:none; position: sticky; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg-card); padding: 12px 24px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--primary); z-index: 100; align-items: center; gap: 15px;">
-                <span id="selectedCount" style="font-weight: 600; color: var(--primary);">0 seleccionados</span>
-                <div style="height: 20px; width: 1px; background: var(--border-color); margin: 0 10px;"></div>
-                <button class="btn btn-sm" onclick="bulkActivate()" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);"><i class="fas fa-play"></i> Activar</button>
-                <button class="btn btn-sm" onclick="bulkSuspend()" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);"><i class="fas fa-pause"></i> Suspender</button>
-                <button class="btn btn-sm" onclick="bulkDelete()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"><i class="fas fa-trash"></i> Eliminar</button>
-                <button class="btn btn-icon" onclick="clearSelection()" title="Cerrar"><i class="fas fa-times"></i></button>
+            <div class="bulk-actions" id="bulkActions" style="display:none;">
+                <span id="selectedCount" style="font-size:0.875rem;color:var(--text-secondary);">0 seleccionados</span>
+                <button class="btn btn-warning" onclick="bulkSuspend()"><i class="fas fa-pause"></i> Suspender</button>
+                <button class="btn btn-success" onclick="bulkActivate()"><i class="fas fa-play"></i> Activar</button>
+                <button class="btn btn-danger" onclick="bulkDelete()" style="background:rgba(220,53,69,.15);color:#dc3545;border:1px solid rgba(220,53,69,.3);"><i class="fas fa-trash"></i> Eliminar</button>
             </div>
         </section>
     </main>
@@ -273,23 +243,16 @@
                             name="direccion" placeholder="Ej: Aldea Chinaha, Chisec A.V."></div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group"><label>Dia Corte</label><input type="number" id="dia_corte" name="dia_corte"
+                            min="1" max="28" value="1" placeholder="1-28"></div>
+                    <div class="form-group"><label>Precio Mensual (Q)</label><input type="number" id="precio_mensual"
+                            name="precio_mensual" step="0.01" min="0" value="0" placeholder="Ej: 150.00"></div>
+                </div>
+                <div class="form-row">
                     <div class="form-group"><label>Download</label><input type="text" id="velocidad_download"
                             name="velocidad_download" placeholder="Ej: 10M"></div>
                     <div class="form-group"><label>Upload</label><input type="text" id="velocidad_upload"
                             name="velocidad_upload" placeholder="Ej: 5M"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Router MikroTik *</label>
-                        <select id="router_id" name="router_id" required>
-                            {% for router in routers %}
-                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
-                            {% endfor %}
-                            {% if not routers %}
-                            <option value="">No hay routers configurados</option>
-                            {% endif %}
-                        </select>
-                    </div>
                 </div>
                 <div class="form-actions"><button type="button" class="btn btn-secondary"
                         onclick="closeModal('clienteModal')">Cancelar</button><button type="submit"
@@ -340,16 +303,6 @@
                             placeholder="10M"></div>
                     <div class="form-group"><label>Vel. Upload</label><input type="text" id="edit_velocidad_upload"
                             placeholder="5M"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Router MikroTik *</label>
-                        <select id="edit_router_id">
-                            {% for router in routers %}
-                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
                 </div>
                 <div class="form-actions"><button type="button" class="btn btn-secondary"
                         onclick="closeModal('editClienteModal')">Cancelar</button><button type="submit"
@@ -451,17 +404,6 @@
 
                 <!-- Zona de carga -->
                 <form id="importForm" enctype="multipart/form-data">
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label style="color: #fff; font-size: 0.9rem; display: block; margin-bottom: 8px;">Asignar a Router MikroTik:</label>
-                        <select name="router_id" style="width: 100%; background: var(--bg-tertiary); color: #fff; border: 1px solid var(--border-color); padding: 10px; border-radius: 8px;">
-                            {% for router in routers %}
-                            <option value="{{ router.id }}">{{ router.nombre }} ({{ router.host }})</option>
-                            {% endfor %}
-                            {% if not routers %}
-                            <option value="">No hay routers configurados</option>
-                            {% endif %}
-                        </select>
-                    </div>
                     <div class="file-upload-pro">
                         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" required>
                         <label for="importFile" class="upload-label">
@@ -634,7 +576,6 @@
                     document.getElementById('edit_precio_mensual').value = d.cliente.precio_mensual || 0;
                     document.getElementById('edit_velocidad_download').value = d.cliente.velocidad_download || '10M';
                     document.getElementById('edit_velocidad_upload').value = d.cliente.velocidad_upload || '5M';
-                    document.getElementById('edit_router_id').value = d.cliente.router_id || '';
                     openModal('editClienteModal');
                 } else {
                     showToast('Error al cargar cliente', 'error');
@@ -657,8 +598,7 @@
                 dia_corte: document.getElementById('edit_dia_corte').value,
                 precio_mensual: document.getElementById('edit_precio_mensual').value,
                 velocidad_download: document.getElementById('edit_velocidad_download').value,
-                velocidad_upload: document.getElementById('edit_velocidad_upload').value,
-                router_id: document.getElementById('edit_router_id').value
+                velocidad_upload: document.getElementById('edit_velocidad_upload').value
             };
             try {
                 const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
@@ -671,7 +611,7 @@
                     showToast(d.error || 'Error al guardar', 'error');
                 }
             } catch (e) {
-                showToast('Error de conexin', 'error');
+                showToast('Error de conexi�n', 'error');
             }
         });
         async function cortarCliente(id) { if (!confirm('Cortar cliente?')) return; try { const r = await fetch(`/api/cliente/${id}/cortar`, { method: 'POST' }); const d = await r.json(); if (d.success) { showToast('Cortado', 'success'); setTimeout(() => location.reload(), 1000); } else { showToast(d.error || 'Error', 'error'); } } catch (e) { showToast('Error', 'error'); } }
@@ -681,7 +621,8 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
 
-            const f = new FormData(this);
+            const f = new FormData();
+            f.append('file', document.getElementById('importFile').files[0]);
             try {
                 const r = await fetch('/api/clientes/importar', { method: 'POST', body: f });
                 const d = await r.json();
