@@ -2221,7 +2221,12 @@ def guardar_config_mikrotik(router_id=None):
         config.host = data.get('host', '')
         config.port = int(data.get('port', 80))
         config.username = data.get('username', '')
-        config.password = data.get('password', '')
+        
+        # Solo actualizar la contraseña si se proporcionó una nueva
+        new_password = data.get('password', '').strip()
+        if new_password:
+            config.password = new_password
+            
         config.use_ssl = data.get('use_ssl', False)
         config.address_list_cortados = data.get('address_list_cortados', 'MOROSOS')
         config.activo = data.get('activo', True)
@@ -2260,10 +2265,18 @@ def probar_conexion_mikrotik():
     try:
         data = request.get_json()
         
+        password = data.get('password', '').strip()
+        router_id = data.get('id')
+        
+        if not password and router_id:
+            config = ConfigMikroTik.query.get(router_id)
+            if config:
+                password = config.password
+                
         api = MikroTikAPI(
             host=data.get('host', ''),
             username=data.get('username', ''),
-            password=data.get('password', ''),
+            password=password,
             port=int(data.get('port', 80)),
             use_ssl=data.get('use_ssl', False)
         )

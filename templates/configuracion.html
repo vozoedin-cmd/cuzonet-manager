@@ -640,6 +640,7 @@
 
         async function testConnection() {
             const formData = {
+                id: document.getElementById('router_id').value,
                 host: document.getElementById('mk_host').value,
                 port: parseInt(document.getElementById('mk_port').value) || 80,
                 username: document.getElementById('mk_username').value,
