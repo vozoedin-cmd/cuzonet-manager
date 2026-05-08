@@ -323,7 +323,7 @@ class MikroTikAPI:
     def test_connection(self):
         """Prueba la conexión al router"""
         try:
-            response = self.session.get(f"{self.base_url}/system/identity", timeout=10)
+            response = self.session.get(f"{self.base_url}/system/identity", timeout=5)
             if response.status_code == 200:
                 return True, response.json().get('name', 'MikroTik')
             return False, f"Error: {response.status_code}"
@@ -349,7 +349,7 @@ class MikroTikAPI:
             response = self.session.put(
                 f"{self.base_url}/queue/simple",
                 json=data,
-                timeout=15
+                timeout=10
             )
             
             if response.status_code in [200, 201]:
@@ -532,6 +532,73 @@ def get_address_list_name(router_id=None):
     else:
         config = ConfigMikroTik.query.filter_by(activo=True).first()
     return config.address_list_cortados if config else "MOROSOS"
+
+
+# ============== API CLIENTES (JSON) ==============
+
+@app.route('/api/clientes')
+@login_required
+def api_listar_clientes():
+    """Retorna todos los clientes en formato JSON"""
+    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    return jsonify({
+        'success': True,
+        'clientes': [c.to_dict() for c in clientes]
+    })
+
+
+@app.route('/api/clientes/bulk-accion', methods=['POST'])
+@login_required
+def api_bulk_accion():
+    """Ejecuta acciones (activar, suspender, eliminar) en bloque"""
+    try:
+        data = request.get_json()
+        ids = data.get('ids', [])
+        accion = data.get('accion') # 'activar', 'suspender', 'eliminar'
+        
+        if not ids or not accion:
+            return jsonify({'success': False, 'error': 'Parámetros insuficientes'}), 400
+            
+        clientes = Cliente.query.filter(Cliente.id.in_(ids)).all()
+        count = 0
+        
+        for cliente in clientes:
+            if accion == 'eliminar':
+                # Eliminar de MikroTik
+                api = get_mikrotik_api(cliente.router_id)
+                if api and cliente.mikrotik_id:
+                    api.delete_simple_queue(cliente.mikrotik_id)
+                db.session.delete(cliente)
+                count += 1
+            
+            elif accion == 'activar':
+                api = get_mikrotik_api(cliente.router_id)
+                if api:
+                    if cliente.mikrotik_id:
+                        api.activate_queue(cliente.mikrotik_id)
+                    if cliente.estado == 'cortado':
+                        api.remove_from_address_list(cliente.ip_address, get_address_list_name(cliente.router_id))
+                cliente.estado = 'activo'
+                count += 1
+                
+            elif accion == 'suspender':
+                api = get_mikrotik_api(cliente.router_id)
+                if api and cliente.mikrotik_id:
+                    api.suspend_queue(cliente.mikrotik_id)
+                cliente.estado = 'suspendido'
+                count += 1
+                
+        db.session.commit()
+        registrar_auditoria('bulk', 'cliente', None, f'Acción {accion} en {count} clientes')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Acción "{accion}" completada en {count} clientes'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============== RUTAS WEB ==============
@@ -737,23 +804,67 @@ def index():
 @app.route('/clientes')
 @login_required
 def listar_clientes():
-    """Lista todos los clientes"""
-    clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
+    """Lista todos los clientes con paginación y filtros"""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '').strip()
+    estado = request.args.get('estado', '')
+    plan_nombre = request.args.get('plan', '')
+    per_page = 20
+    
+    query = Cliente.query
+    
+    # Aplicar filtros
+    if search:
+        search_filter = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                Cliente.nombre.ilike(search_filter),
+                Cliente.ip_address.ilike(search_filter),
+                Cliente.telefono.ilike(search_filter),
+                Cliente.email.ilike(search_filter),
+                Cliente.cedula.ilike(search_filter)
+            )
+        )
+    
+    if estado:
+        query = query.filter_by(estado=estado)
+        
+    if plan_nombre:
+        query = query.filter_by(plan=plan_nombre)
+        
+    # Ordenar y paginar
+    pagination = query.order_by(Cliente.fecha_registro.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    clientes = pagination.items
+    
     planes = Plan.query.all()
     mes_actual = datetime.now().strftime('%Y-%m')
+    
     # Solo marca como pagado si el total acumulado del mes >= precio_mensual
     from sqlalchemy import func
     pagos_mes = db.session.query(
         Pago.cliente_id,
         func.sum(Pago.monto).label('total')
     ).filter_by(mes_correspondiente=mes_actual).group_by(Pago.cliente_id).all()
-    clientes_dict = {c.id: c.precio_mensual for c in clientes}
+    
+    clientes_dict = {c.id: c.precio_mensual for c in Cliente.query.all()}
     pagados_mes = {
         p.cliente_id for p in pagos_mes
         if p.total >= (clientes_dict.get(p.cliente_id) or 0) and (clientes_dict.get(p.cliente_id) or 0) > 0
     }
+    
     routers = ConfigMikroTik.query.all()
-    return render_template('clientes.html', clientes=clientes, planes=planes, routers=routers, pagados_mes=pagados_mes)
+    
+    return render_template('clientes.html', 
+                         clientes=clientes, 
+                         pagination=pagination,
+                         planes=planes, 
+                         routers=routers, 
+                         pagados_mes=pagados_mes,
+                         search=search,
+                         estado=estado,
+                         plan_nombre=plan_nombre)
 
 
 @app.route('/pagos')
@@ -1979,13 +2090,16 @@ def reporte_resumen():
         clientes_suspendidos = Cliente.query.filter_by(estado='suspendido').count()
         clientes_cortados = Cliente.query.filter_by(estado='cortado').count()
         
-        # Pagos del mes
+        # Pagos del mes (ajustado para mayor compatibilidad)
         hoy = datetime.now()
         primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        pagos_mes = Pago.query.filter(Pago.fecha_pago >= primer_dia_mes).all()
-        total_recaudado = sum(p.monto for p in pagos_mes)
         
-        # Proyección mensual
+        # Consulta de pagos del mes
+        total_recaudado = db.session.query(db.func.sum(Pago.monto)).filter(
+            Pago.fecha_pago >= primer_dia_mes
+        ).scalar() or 0
+        
+        # Proyección mensual: suma de precio_mensual de todos los clientes activos
         total_mensual_esperado = db.session.query(db.func.sum(Cliente.precio_mensual)).filter(
             Cliente.estado == 'activo'
         ).scalar() or 0
@@ -1994,7 +2108,8 @@ def reporte_resumen():
         from sqlalchemy import func
         clientes_por_plan = db.session.query(
             Cliente.plan, 
-            func.count(Cliente.id)
+            func.count(Cliente.id),
+            func.avg(Cliente.precio_mensual)
         ).group_by(Cliente.plan).all()
         
         return jsonify({
@@ -2004,10 +2119,10 @@ def reporte_resumen():
                 'clientes_activos': clientes_activos,
                 'clientes_suspendidos': clientes_suspendidos,
                 'clientes_cortados': clientes_cortados,
-                'total_recaudado_mes': total_recaudado,
-                'total_mensual_esperado': total_mensual_esperado,
-                'porcentaje_recaudado': (total_recaudado / total_mensual_esperado * 100) if total_mensual_esperado > 0 else 0,
-                'clientes_por_plan': [{'plan': p[0], 'cantidad': p[1]} for p in clientes_por_plan]
+                'total_recaudado_mes': float(total_recaudado),
+                'total_mensual_esperado': float(total_mensual_esperado),
+                'porcentaje_recaudado': (float(total_recaudado) / float(total_mensual_esperado) * 100) if total_mensual_esperado > 0 else 0,
+                'clientes_por_plan': [{'plan': p[0], 'cantidad': p[1], 'precio': p[2]} for p in clientes_por_plan]
             }
         })
         
@@ -2021,16 +2136,25 @@ def reporte_pagos_mensuales():
     try:
         from sqlalchemy import func, extract
         
-        # Últimos 12 meses
-        pagos_por_mes = db.session.query(
-            func.strftime('%Y-%m', Pago.fecha_pago).label('mes'),
-            func.sum(Pago.monto).label('total'),
-            func.count(Pago.id).label('cantidad')
-        ).group_by(
-            func.strftime('%Y-%m', Pago.fecha_pago)
-        ).order_by(
-            func.strftime('%Y-%m', Pago.fecha_pago).desc()
-        ).limit(12).all()
+        # Consulta de pagos agrupados por mes (usando método más compatible)
+        # Obtenemos los pagos y agrupamos en Python si es necesario, 
+        # o usamos una consulta SQL optimizada para SQLite/Postgres
+        is_sqlite = db.engine.url.drivername == 'sqlite'
+        
+        if is_sqlite:
+            # Para SQLite
+            pagos_raw = db.session.query(
+                func.strftime('%Y-%m', Pago.fecha_pago).label('mes'),
+                func.sum(Pago.monto).label('total'),
+                func.count(Pago.id).label('cantidad')
+            ).group_by('mes').order_by(func.strftime('%Y-%m', Pago.fecha_pago).desc()).limit(12).all()
+        else:
+            # Para Postgres
+            pagos_raw = db.session.query(
+                func.to_char(Pago.fecha_pago, 'YYYY-MM').label('mes'),
+                func.sum(Pago.monto).label('total'),
+                func.count(Pago.id).label('cantidad')
+            ).group_by('mes').order_by(func.to_char(Pago.fecha_pago, 'YYYY-MM').desc()).limit(12).all()
         
         return jsonify({
             'success': True,
@@ -2455,18 +2579,28 @@ def dashboard_charts():
     
     hoy = datetime.now()
     
-    # Ingresos últimos 6 meses
+    # Ingresos últimos 6 meses (ajustado para estabilidad)
     ingresos_mensuales = []
+    is_sqlite = db.engine.url.drivername == 'sqlite'
+    
     for i in range(5, -1, -1):
-        fecha = hoy - timedelta(days=30*i)
-        mes = fecha.month
-        anio = fecha.year
+        # Calcular primer y último día del mes i meses atrás
+        target_date = hoy - timedelta(days=30*i)
+        start_of_month = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Siguiente mes
+        if start_of_month.month == 12:
+            end_of_month = start_of_month.replace(year=start_of_month.year + 1, month=1, day=1)
+        else:
+            end_of_month = start_of_month.replace(month=start_of_month.month + 1, day=1)
+            
         total = db.session.query(func.coalesce(func.sum(Pago.monto), 0)).filter(
-            extract('month', Pago.fecha_pago) == mes,
-            extract('year', Pago.fecha_pago) == anio
+            Pago.fecha_pago >= start_of_month,
+            Pago.fecha_pago < end_of_month
         ).scalar()
-        nombre_mes = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mes-1]
-        ingresos_mensuales.append({'mes': f'{nombre_mes} {anio}', 'total': float(total)})
+        
+        nombre_mes = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][start_of_month.month-1]
+        ingresos_mensuales.append({'mes': f'{nombre_mes} {start_of_month.year}', 'total': float(total)})
     
     # Distribución por plan
     planes_dist = db.session.query(
@@ -2481,15 +2615,21 @@ def dashboard_charts():
     # Clientes nuevos por mes (últimos 6 meses)
     clientes_nuevos = []
     for i in range(5, -1, -1):
-        fecha = hoy - timedelta(days=30*i)
-        mes = fecha.month
-        anio = fecha.year
+        target_date = hoy - timedelta(days=30*i)
+        start_of_month = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        if start_of_month.month == 12:
+            end_of_month = start_of_month.replace(year=start_of_month.year + 1, month=1, day=1)
+        else:
+            end_of_month = start_of_month.replace(month=start_of_month.month + 1, day=1)
+            
         total = db.session.query(func.count(Cliente.id)).filter(
-            extract('month', Cliente.fecha_registro) == mes,
-            extract('year', Cliente.fecha_registro) == anio
+            Cliente.fecha_registro >= start_of_month,
+            Cliente.fecha_registro < end_of_month
         ).scalar()
-        nombre_mes = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mes-1]
-        clientes_nuevos.append({'mes': f'{nombre_mes} {anio}', 'total': int(total)})
+        
+        nombre_mes = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][start_of_month.month-1]
+        clientes_nuevos.append({'mes': f'{nombre_mes} {start_of_month.year}', 'total': int(total)})
     
     return jsonify({
         'success': True,
