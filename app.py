@@ -317,20 +317,39 @@ class MikroTikAPI:
         self.password = password
         self.port = port
         self.protocol = 'https' if use_ssl else 'http'
-        self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
+        # Omitir puerto si es el estándar para evitar problemas con algunos proxies/routers
+        if (self.protocol == 'http' and port == 80) or (self.protocol == 'https' and port == 443):
+            self.base_url = f"{self.protocol}://{self.host}/rest"
+        else:
+            self.base_url = f"{self.protocol}://{self.host}:{self.port}/rest"
+            
         self.session = requests.Session()
         self.session.auth = (username, password)
         self.session.verify = False
+        self.session.headers.update({'Accept': 'application/json'})
     
     def test_connection(self):
         """Prueba la conexión al router"""
         try:
-            response = self.session.get(f"{self.base_url}/system/identity", timeout=7)
+            response = self.session.get(f"{self.base_url}/system/identity", timeout=10)
             if response.status_code == 200:
-                return True, response.json().get('name', 'MikroTik')
-            return False, f"Error: {response.status_code}"
+                data = response.json()
+                if isinstance(data, list) and len(data) > 0:
+                    data = data[0]
+                return True, data.get('name', data.get('identity', 'MikroTik'))
+            return False, f"HTTP {response.status_code}"
         except Exception as e:
             return False, str(e)
+            
+    def get_queue_count(self):
+        """Obtiene el número de queues configurados"""
+        try:
+            response = self.session.get(f"{self.base_url}/queue/simple", params={".proplist": ".id"}, timeout=10)
+            if response.status_code == 200:
+                return len(response.json())
+            return 0
+        except:
+            return 0
     
     def create_simple_queue(self, name, target, max_limit_download, max_limit_upload, comment=""):
         """Crea un Simple Queue en MikroTik"""
@@ -2680,11 +2699,14 @@ def api_mikrotik_status():
         try:
             api = MikroTikAPI(r.host, r.username, r.password, r.port, r.use_ssl)
             online, identity = api.test_connection()
+            queue_count = api.get_queue_count() if online else 0
+            
             results.append({
                 'id': r.id,
                 'nombre': r.nombre,
                 'online': online,
                 'identity': identity if online else None,
+                'queue_count': queue_count,
                 'error': None if online else identity
             })
         except Exception as e:
@@ -2693,6 +2715,7 @@ def api_mikrotik_status():
                 'nombre': r.nombre,
                 'online': False,
                 'identity': None,
+                'queue_count': 0,
                 'error': str(e)
             })
         
