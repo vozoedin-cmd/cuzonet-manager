@@ -1066,8 +1066,9 @@ def obtener_meses_con_pagos():
 def configuracion():
     """Página de configuración de MikroTik"""
     config = ConfigMikroTik.query.first()
+    routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
-    return render_template('configuracion.html', config=config, planes=planes)
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes)
 
 # ============== API MIKROTIK STATUS ==============
 
@@ -2024,61 +2025,128 @@ def generar_recibo(pago_id):
 
 # ============== CONFIGURACIÓN ==============
 
+@app.route('/api/config/mikrotik', methods=['GET'])
+@login_required
+def listar_routers_mikrotik():
+    """Listar todos los routers MikroTik"""
+    routers = ConfigMikroTik.query.all()
+    return jsonify({
+        'success': True,
+        'routers': [{
+            'id': r.id,
+            'nombre': r.nombre,
+            'host': r.host,
+            'port': r.port,
+            'username': r.username,
+            'use_ssl': r.use_ssl,
+            'activo': r.activo,
+            'address_list_cortados': r.address_list_cortados
+        } for r in routers]
+    })
+
+
 @app.route('/api/config/mikrotik', methods=['POST'])
+@login_required
 def guardar_config_mikrotik():
-    """Guardar configuración de MikroTik"""
+    """Crear o actualizar router MikroTik"""
     try:
         data = request.get_json()
-        
-        config = ConfigMikroTik.query.first()
-        if not config:
+        router_id = data.get('id')
+
+        if router_id:
+            # Actualizar existente
+            config = ConfigMikroTik.query.get(router_id)
+            if not config:
+                return jsonify({'success': False, 'error': 'Router no encontrado'}), 404
+        else:
+            # Crear nuevo
             config = ConfigMikroTik()
-        
-        config.host = data.get('host', '')
+
+        config.nombre = data.get('nombre', 'Principal').strip() or 'Principal'
+        config.host = data.get('host', '').strip()
         config.port = int(data.get('port', 80))
-        config.username = data.get('username', '')
-        config.password = data.get('password', '')
+        config.username = data.get('username', '').strip()
         config.use_ssl = data.get('use_ssl', False)
-        config.address_list_cortados = data.get('address_list_cortados', 'MOROSOS')
-        config.activo = True
-        
+        config.address_list_cortados = data.get('address_list_cortados', 'MOROSOS').strip() or 'MOROSOS'
+        config.activo = data.get('activo', True)
+
+        # Solo actualizar password si se envió una nueva
+        new_password = data.get('password', '').strip()
+        if new_password:
+            config.password = new_password
+        elif not router_id:
+            # Es un router nuevo y no tiene password
+            return jsonify({'success': False, 'error': 'La contraseña es requerida para un nuevo router'}), 400
+
         db.session.add(config)
         db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Configuracion guardada'})
-        
+
+        # Limpiar caché de estado
+        global _mikrotik_status_cache
+        _mikrotik_status_cache = {'connected': False, 'message': '', 'queue_count': 0, 'last_check': None}
+
+        return jsonify({'success': True, 'message': 'Router guardado correctamente', 'id': config.id})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/config/mikrotik/<int:router_id>', methods=['DELETE'])
+@login_required
+def eliminar_router_mikrotik(router_id):
+    """Eliminar un router MikroTik"""
+    try:
+        config = ConfigMikroTik.query.get(router_id)
+        if not config:
+            return jsonify({'success': False, 'error': 'Router no encontrado'}), 404
+        db.session.delete(config)
+        db.session.commit()
+
+        # Limpiar caché de estado
+        global _mikrotik_status_cache
+        _mikrotik_status_cache = {'connected': False, 'message': '', 'queue_count': 0, 'last_check': None}
+
+        return jsonify({'success': True, 'message': 'Router eliminado'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/config/mikrotik/test', methods=['POST'])
+@login_required
 def probar_conexion_mikrotik():
     """Probar conexión a MikroTik"""
     try:
         data = request.get_json()
-        
+
+        password = data.get('password', '').strip()
+        router_id = data.get('id')
+
+        # Si no se envió password, buscar en la base de datos
+        if not password and router_id:
+            existing = ConfigMikroTik.query.get(router_id)
+            if existing:
+                password = existing.password
+
+        if not password:
+            return jsonify({'success': False, 'error': 'Contraseña requerida'}), 400
+
         api = MikroTikAPI(
             host=data.get('host', ''),
             username=data.get('username', ''),
-            password=data.get('password', ''),
+            password=password,
             port=int(data.get('port', 80)),
             use_ssl=data.get('use_ssl', False)
         )
-        
+
         success, result = api.test_connection()
-        
+
         if success:
-            return jsonify({
-                'success': True,
-                'message': f'Conexion exitosa a: {result}'
-            })
+            return jsonify({'success': True, 'message': f'Conexión exitosa a: {result}'})
         else:
-            return jsonify({
-                'success': False,
-                'error': f'Error de conexion: {result}'
-            }), 400
-            
+            return jsonify({'success': False, 'error': f'Error de conexión: {result}'}), 400
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

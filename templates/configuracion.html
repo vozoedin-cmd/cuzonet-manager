@@ -97,84 +97,69 @@
         </header>
 
         <div class="config-grid">
-            <!-- MikroTik Configuration -->
+            <!-- Routers MikroTik -->
             <section class="config-section">
                 <div class="section-header">
-                    <h2><i class="fas fa-router"></i> Conexión MikroTik</h2>
-                    <span class="connection-badge" id="connectionBadge">
-                        <i class="fas fa-circle"></i> Sin verificar
-                    </span>
+                    <h2><i class="fas fa-router"></i> Routers MikroTik</h2>
+                    <button class="btn btn-primary btn-sm" onclick="abrirModalRouter()">
+                        <i class="fas fa-plus"></i> Agregar Router
+                    </button>
                 </div>
 
-                <form id="mikrotikForm" class="config-form">
-                    <div class="form-group">
-                        <label for="mk_host">
-                            <i class="fas fa-server"></i> Host / IP del Router
-                        </label>
-                        <input type="text" id="mk_host" name="host" value="{{ config.host if config else '' }}"
-                            placeholder="Ej: 192.168.88.1 o mi-router.ddns.net">
-                    </div>
+                <div style="overflow-x:auto; padding: 0 1.5rem 1.5rem;">
+                    <table class="data-table" id="routersTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Host / IP</th>
+                                <th>Puerto</th>
+                                <th>Usuario</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routersTbody">
+                            {% for r in routers %}
+                            <tr id="router-row-{{ r.id }}">
+                                <td><strong>{{ r.nombre }}</strong></td>
+                                <td><code>{{ r.host }}</code></td>
+                                <td>{{ r.port }}</td>
+                                <td>{{ r.username }}</td>
+                                <td>
+                                    <span class="badge {{ 'badge-success' if r.activo else 'badge-danger' }}">
+                                        {{ 'Activo' if r.activo else 'Inactivo' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:6px;">
+                                        <button class="btn btn-secondary btn-sm" onclick="probarRouter({{ r.id }}, '{{ r.host }}', {{ r.port }}, '{{ r.username }}', {{ r.use_ssl|tojson }})" title="Probar conexión">
+                                            <i class="fas fa-plug"></i>
+                                        </button>
+                                        <button class="btn btn-secondary btn-sm" onclick="abrirModalRouter({{ r.id }}, '{{ r.nombre }}', '{{ r.host }}', {{ r.port }}, '{{ r.username }}', {{ r.use_ssl|tojson }}, '{{ r.address_list_cortados }}', {{ r.activo|tojson }})" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" onclick="eliminarRouter({{ r.id }}, '{{ r.nombre }}')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not routers %}
+                            <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:2rem;"><i class="fas fa-router" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i> No hay routers configurados</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="mk_port">
-                                <i class="fas fa-plug"></i> Puerto REST API
-                            </label>
-                            <input type="number" id="mk_port" name="port" value="{{ config.port if config else 80 }}"
-                                placeholder="80">
-                            <span class="form-hint">Puerto del servicio www en MikroTik</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="mk_ssl">
-                                <i class="fas fa-lock"></i> Usar HTTPS
-                            </label>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="mk_ssl" name="use_ssl" {{ 'checked' if config and
-                                    config.use_ssl else '' }}>
-                                <span class="toggle-slider"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="mk_username">
-                                <i class="fas fa-user"></i> Usuario
-                            </label>
-                            <input type="text" id="mk_username" name="username"
-                                value="{{ config.username if config else '' }}" placeholder="admin">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="mk_password">
-                                <i class="fas fa-key"></i> Contraseña
-                            </label>
-                            <input type="password" id="mk_password" name="password"
-                                value="{{ config.password if config else '' }}" placeholder="••••••••">
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="testConnection()">
-                            <i class="fas fa-plug"></i> Probar Conexión
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Guardar Configuración
-                        </button>
-                    </div>
-                </form>
-
-                <!-- API Instructions -->
-                <div class="info-box">
+                <!-- Info -->
+                <div class="info-box" style="margin: 0 1.5rem 1.5rem;">
                     <h3><i class="fas fa-info-circle"></i> Configuración en MikroTik</h3>
                     <p>Para habilitar la REST API en tu router MikroTik:</p>
                     <ol>
                         <li>Ir a <strong>IP → Services</strong></li>
-                        <li>Habilitar el servicio <strong>www</strong> (puerto 80) o <strong>www-ssl</strong> (puerto
-                            443)</li>
-                        <li>En <strong>System → Users</strong>, crear un usuario con permisos de <strong>read, write,
-                                api</strong></li>
+                        <li>Habilitar el servicio <strong>www</strong> (puerto 80) o <strong>www-ssl</strong> (puerto 443)</li>
+                        <li>En <strong>System → Users</strong>, crear un usuario con permisos de <strong>read, write, api</strong></li>
                         <li>Asegurarse de que el firewall permita el acceso al puerto configurado</li>
                     </ol>
                 </div>
@@ -389,6 +374,79 @@
         </section>
     </main>
 
+    <!-- Modal: Agregar/Editar Router MikroTik -->
+    <div class="modal-overlay" id="routerModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3 id="routerModalTitle"><i class="fas fa-router"></i> Agregar Router</h3>
+                <span id="routerStatusBadge" class="connection-badge" style="display:none;"></span>
+                <button class="modal-close" onclick="closeModal('routerModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="routerForm" class="config-form" style="padding:1.5rem;">
+                <input type="hidden" id="router_id">
+
+                <div class="form-group">
+                    <label for="mk_nombre"><i class="fas fa-tag"></i> Nombre descriptivo *</label>
+                    <input type="text" id="mk_nombre" placeholder="Ej: Router Principal" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mk_host"><i class="fas fa-server"></i> Host / IP del Router *</label>
+                        <input type="text" id="mk_host" placeholder="Ej: 186.33.61.21" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mk_port"><i class="fas fa-plug"></i> Puerto REST API</label>
+                        <input type="number" id="mk_port" value="80" placeholder="80">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mk_username"><i class="fas fa-user"></i> Usuario</label>
+                        <input type="text" id="mk_username" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="mk_password"><i class="fas fa-key"></i> Contraseña</label>
+                        <input type="password" id="mk_password" placeholder="••••••••">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mk_address_list"><i class="fas fa-list"></i> Address List Morosos</label>
+                        <input type="text" id="mk_address_list" value="MOROSOS" placeholder="MOROSOS">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Usar HTTPS</label>
+                        <div class="toggle-switch" style="margin-top:8px;">
+                            <input type="checkbox" id="mk_ssl">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="mk_activo" checked style="width:auto;margin-right:8px;">
+                        Router activo
+                    </label>
+                </div>
+
+                <div class="form-actions" style="margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="probarDesdeModal()">
+                        <i class="fas fa-plug"></i> Probar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal: Nuevo Plan -->
     <div class="modal-overlay" id="planModal">
         <div class="modal modal-sm">
@@ -563,17 +621,42 @@
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        // Configuración específica de esta página
-        document.getElementById('mikrotikForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
+        // ============ GESTIÓN DE ROUTERS MIKROTIK ============
 
+        function abrirModalRouter(id='', nombre='', host='', port=80, username='', use_ssl=false, address_list='MOROSOS', activo=true) {
+            document.getElementById('router_id').value = id;
+            document.getElementById('mk_nombre').value = nombre;
+            document.getElementById('mk_host').value = host;
+            document.getElementById('mk_port').value = port;
+            document.getElementById('mk_username').value = username;
+            document.getElementById('mk_password').value = '';
+            document.getElementById('mk_ssl').checked = use_ssl;
+            document.getElementById('mk_address_list').value = address_list;
+            document.getElementById('mk_activo').checked = activo;
+            document.getElementById('mk_password').placeholder = id ? '(dejar vacío para no cambiar)' : '••••••••';
+            document.getElementById('routerModalTitle').textContent = id ? 'Editar Router' : 'Agregar Router';
+            document.getElementById('routerStatusBadge').style.display = 'none';
+            openModal('routerModal');
+        }
+
+        document.getElementById('routerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('router_id').value;
             const formData = {
+                id: id || null,
+                nombre: document.getElementById('mk_nombre').value,
                 host: document.getElementById('mk_host').value,
                 port: parseInt(document.getElementById('mk_port').value) || 80,
                 username: document.getElementById('mk_username').value,
                 password: document.getElementById('mk_password').value,
-                use_ssl: document.getElementById('mk_ssl').checked
+                use_ssl: document.getElementById('mk_ssl').checked,
+                address_list_cortados: document.getElementById('mk_address_list').value,
+                activo: document.getElementById('mk_activo').checked
             };
+
+            const btn = e.target.querySelector('[type=submit]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
             try {
                 const response = await fetch('/api/config/mikrotik', {
@@ -581,56 +664,71 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
-
                 const result = await response.json();
-
                 if (result.success) {
-                    showToast('Configuración guardada exitosamente', 'success');
-                    checkMikroTikStatus();
+                    showToast('Router guardado correctamente', 'success');
+                    closeModal('routerModal');
+                    location.reload();
                 } else {
                     showToast(result.error || 'Error al guardar', 'error');
                 }
             } catch (error) {
                 showToast('Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
             }
         });
 
-        async function testConnection() {
-            const formData = {
-                host: document.getElementById('mk_host').value,
-                port: parseInt(document.getElementById('mk_port').value) || 80,
-                username: document.getElementById('mk_username').value,
-                password: document.getElementById('mk_password').value,
-                use_ssl: document.getElementById('mk_ssl').checked
-            };
-
-            const badge = document.getElementById('connectionBadge');
-            badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
-            badge.className = 'connection-badge testing';
-
+        async function probarRouter(id, host, port, username, use_ssl, explicit_password='') {
+            showToast('Probando conexión a ' + host + '...', 'info');
+            const badge = document.getElementById('routerStatusBadge');
             try {
+                const payload = { id: id || null, host, port, username, use_ssl };
+                if (explicit_password) payload.password = explicit_password;
                 const response = await fetch('/api/config/mikrotik/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(payload)
                 });
-
                 const result = await response.json();
-
                 if (result.success) {
-                    badge.innerHTML = '<i class="fas fa-check-circle"></i> Conectado';
-                    badge.className = 'connection-badge connected';
-                    showToast(result.message, 'success');
+                    showToast('✅ ' + result.message, 'success');
+                    if (badge) { badge.style.display='inline-flex'; badge.className='connection-badge connected'; badge.innerHTML='<i class="fas fa-check-circle"></i> Conectado'; }
                 } else {
-                    badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
-                    badge.className = 'connection-badge error';
-                    showToast(result.error || 'Error de conexión', 'error');
+                    showToast('❌ ' + (result.error || 'Error de conexión'), 'error');
+                    if (badge) { badge.style.display='inline-flex'; badge.className='connection-badge error'; badge.innerHTML='<i class="fas fa-times-circle"></i> Error'; }
                 }
             } catch (error) {
-                badge.innerHTML = '<i class="fas fa-times-circle"></i> Error';
-                badge.className = 'connection-badge error';
                 showToast('Error de conexión', 'error');
             }
+        }
+
+        async function eliminarRouter(id, nombre) {
+            if (!confirm('¿Eliminar el router "' + nombre + '"? Esta acción no se puede deshacer.')) return;
+            try {
+                const response = await fetch('/api/config/mikrotik/' + id, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Router eliminado', 'success');
+                    const row = document.getElementById('router-row-' + id);
+                    if (row) row.remove();
+                } else {
+                    showToast(result.error || 'Error al eliminar', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        async function probarDesdeModal() {
+            const id = document.getElementById('router_id').value;
+            const host = document.getElementById('mk_host').value;
+            const port = parseInt(document.getElementById('mk_port').value) || 80;
+            const username = document.getElementById('mk_username').value;
+            const password = document.getElementById('mk_password').value;
+            const use_ssl = document.getElementById('mk_ssl').checked;
+            await probarRouter(id, host, port, username, use_ssl, password);
         }
 
         document.getElementById('planForm').addEventListener('submit', async function (e) {
