@@ -1105,7 +1105,6 @@ def configuracion():
 
 @app.route('/antenas')
 @login_required
-@admin_required
 def antenas_view():
     """Página dedicada para gestionar antenas sectoriales y estaciones"""
     routers = ConfigMikroTik.query.all()
@@ -2197,7 +2196,6 @@ def probar_conexion_mikrotik():
 
 @app.route('/api/infraestructura', methods=['GET'])
 @login_required
-@admin_required
 def listar_infraestructura():
     """Listar toda la infraestructura de red"""
     infraestructuras = Infraestructura.query.all()
@@ -2209,7 +2207,6 @@ def listar_infraestructura():
 
 @app.route('/api/infraestructura', methods=['POST'])
 @login_required
-@admin_required
 def guardar_infraestructura():
     """Crear o editar infraestructura de red"""
     try:
@@ -2273,7 +2270,6 @@ def guardar_infraestructura():
 
 @app.route('/api/infraestructura/<int:infra_id>', methods=['DELETE'])
 @login_required
-@admin_required
 def eliminar_infraestructura(infra_id):
     """Eliminar infraestructura de red"""
     try:
