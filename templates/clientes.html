@@ -78,6 +78,17 @@
             </div>
         </header>
 
+        <div class="router-tabs">
+            <button class="router-tab active" data-router-id="all" onclick="filterByRouter('all')">
+                <i class="fas fa-network-wired"></i> TODOS LOS CLIENTES
+            </button>
+            {% for r in routers %}
+            <button class="router-tab" data-router-id="{{ r.id }}" onclick="filterByRouter('{{ r.id }}')">
+                <i class="fas fa-server"></i> {{ r.nombre|upper }}-CLIENTES
+            </button>
+            {% endfor %}
+        </div>
+
         <section class="filters-section">
             <div class="search-box large"><i class="fas fa-search"></i><input type="text" id="searchInput"
                     placeholder="Buscar por nombre, IP o plan..." onkeyup="filterTable()"></div>
@@ -135,7 +146,8 @@
                             data-ultimo="{{ cliente.fecha_ultimo_pago.strftime('%Y-%m-%d') if cliente.fecha_ultimo_pago else '' }}"
                             data-corte="{{ cliente.dia_corte or 1 }}"
                             data-precio="{{ cliente.precio_mensual or 0 }}"
-                            data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}">
+                            data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}"
+                            data-router-id="{{ cliente.router_id or '' }}">
                             <td><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
                             <td>
                                 <div class="client-info">
@@ -254,6 +266,15 @@
                             name="precio_mensual" step="0.01" min="0" value="0" placeholder="Ej: 150.00"></div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group"><label>Router MikroTik *</label>
+                        <select id="router_id" name="router_id" required>
+                            {% for r in routers %}
+                            <option value="{{ r.id }}" {% if r.activo %}selected{% endif %}>{{ r.nombre }} ({{ r.ip_address }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group"><label>Download</label><input type="text" id="velocidad_download"
                             name="velocidad_download" placeholder="Ej: 10M"></div>
                     <div class="form-group"><label>Upload</label><input type="text" id="velocidad_upload"
@@ -302,6 +323,15 @@
                             max="28"></div>
                     <div class="form-group"><label>Precio Mensual (Q)</label><input type="number"
                             id="edit_precio_mensual" step="0.01" min="0"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Router MikroTik *</label>
+                        <select id="edit_router_id" required>
+                            {% for r in routers %}
+                            <option value="{{ r.id }}">{{ r.nombre }} ({{ r.ip_address }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>Vel. Download</label><input type="text" id="edit_velocidad_download"
@@ -581,17 +611,22 @@
                     document.getElementById('edit_precio_mensual').value = d.cliente.precio_mensual || 0;
                     document.getElementById('edit_velocidad_download').value = d.cliente.velocidad_download || '10M';
                     document.getElementById('edit_velocidad_upload').value = d.cliente.velocidad_upload || '5M';
+                    const rSelect = document.getElementById('edit_router_id');
+                    if (rSelect) {
+                        rSelect.value = d.cliente.router_id || '';
+                    }
                     openModal('editClienteModal');
                 } else {
                     showToast('Error al cargar cliente', 'error');
                 }
             } catch (e) {
-                showToast('Error de conexi�n', 'error');
+                showToast('Error de conexión', 'error');
             }
         }
         document.getElementById('editClienteForm').addEventListener('submit', async function (e) {
             e.preventDefault();
             const id = document.getElementById('edit_id').value;
+            const rSelect = document.getElementById('edit_router_id');
             const f = {
                 nombre: document.getElementById('edit_nombre').value,
                 ip_address: document.getElementById('edit_ip_address').value,
@@ -603,7 +638,8 @@
                 dia_corte: document.getElementById('edit_dia_corte').value,
                 precio_mensual: document.getElementById('edit_precio_mensual').value,
                 velocidad_download: document.getElementById('edit_velocidad_download').value,
-                velocidad_upload: document.getElementById('edit_velocidad_upload').value
+                velocidad_upload: document.getElementById('edit_velocidad_upload').value,
+                router_id: rSelect ? parseInt(rSelect.value) || null : null
             };
             try {
                 const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });

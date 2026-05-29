@@ -111,6 +111,8 @@ if (clienteForm) {
 
         const planSelect = document.getElementById('plan');
         const selectedOption = planSelect.options[planSelect.selectedIndex];
+        const routerSelect = document.getElementById('router_id');
+        const router_id = routerSelect ? parseInt(routerSelect.value) || null : null;
 
         const formData = {
             nombre: document.getElementById('nombre').value,
@@ -124,7 +126,8 @@ if (clienteForm) {
             dia_corte: document.getElementById('dia_corte').value || 1,
             precio_mensual: document.getElementById('precio_mensual').value || selectedOption.dataset.precio || 0,
             velocidad_download: document.getElementById('velocidad_download').value || selectedOption.dataset.download,
-            velocidad_upload: document.getElementById('velocidad_upload').value || selectedOption.dataset.upload
+            velocidad_upload: document.getElementById('velocidad_upload').value || selectedOption.dataset.upload,
+            router_id: router_id
         };
 
         try {
@@ -505,6 +508,7 @@ function filterTable() {
     const estadoValue = filterEstado ? filterEstado.value : '';
     const planValue = filterPlan ? filterPlan.value : '';
     const pagoValue = filterPago ? filterPago.value : '';
+    const routerValue = window.currentRouterFilter || 'all';
 
     const table = document.getElementById('clientesTable');
     if (!table) return;
@@ -516,6 +520,7 @@ function filterTable() {
         const estado = row.dataset.estado || '';
         const plan = row.dataset.plan || '';
         const ip = row.querySelector('code') ? row.querySelector('code').textContent.toLowerCase() : '';
+        const routerId = row.dataset.routerId || '';
 
         const matchSearch = !searchValue ||
             nombre.includes(searchValue) ||
@@ -524,6 +529,7 @@ function filterTable() {
 
         const matchEstado = !estadoValue || estado === estadoValue;
         const matchPlan = !planValue || plan === planValue;
+        const matchRouter = routerValue === 'all' || routerId === routerValue;
 
         let matchPago = true;
         if (pagoValue) {
@@ -531,7 +537,7 @@ function filterTable() {
             matchPago = pagoValue === 'pendiente' ? pendiente : !pendiente;
         }
 
-        row.style.display = (matchSearch && matchEstado && matchPlan && matchPago) ? '' : 'none';
+        row.style.display = (matchSearch && matchEstado && matchPlan && matchPago && matchRouter) ? '' : 'none';
     });
 
     // Actualizar contador de resultados visibles
@@ -1028,3 +1034,13 @@ detailStyles.textContent = `
     }
 `;
 document.head.appendChild(detailStyles);
+
+// Router tabs filtering function
+window.currentRouterFilter = 'all';
+window.filterByRouter = function(routerId) {
+    window.currentRouterFilter = routerId.toString();
+    document.querySelectorAll('.router-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.routerId === routerId.toString());
+    });
+    filterTable();
+};
