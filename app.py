@@ -199,6 +199,38 @@ class Plan(db.Model):
     descripcion = db.Column(db.String(200))
 
 
+class Infraestructura(db.Model):
+    """Infraestructura de red: Antenas sectoriales y estaciones"""
+    __tablename__ = 'infraestructura'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=False)
+    tipo = db.Column(db.String(50), nullable=False)  # 'Sectorial' o 'Estación'
+    mikrotik_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=True)
+    ubicacion = db.Column(db.String(200))
+    modelo = db.Column(db.String(100))
+    notas = db.Column(db.String(500))
+    fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relación
+    mikrotik = db.relationship('ConfigMikroTik', backref=db.backref('infraestructuras', lazy=True))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'ip_address': self.ip_address,
+            'tipo': self.tipo,
+            'mikrotik_id': self.mikrotik_id,
+            'mikrotik_nombre': self.mikrotik.nombre if self.mikrotik else None,
+            'ubicacion': self.ubicacion,
+            'modelo': self.modelo,
+            'notas': self.notas,
+            'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d %H:%M') if self.fecha_registro else None
+        }
+
+
 class AuditLog(db.Model):
     """Registro de actividad del sistema"""
     __tablename__ = 'audit_log'
@@ -1068,7 +1100,8 @@ def configuracion():
     config = ConfigMikroTik.query.first()
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes)
+    infraestructuras = Infraestructura.query.all()
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes, infraestructuras=infraestructuras)
 
 # ============== API MIKROTIK STATUS ==============
 
@@ -2151,6 +2184,120 @@ def probar_conexion_mikrotik():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============== INFRAESTRUCTURA ==============
+
+@app.route('/api/infraestructura', methods=['GET'])
+@login_required
+@admin_required
+def listar_infraestructura():
+    """Listar toda la infraestructura de red"""
+    infraestructuras = Infraestructura.query.all()
+    return jsonify({
+        'success': True,
+        'infraestructuras': [i.to_dict() for i in infraestructuras]
+    })
+
+
+@app.route('/api/infraestructura', methods=['POST'])
+@login_required
+@admin_required
+def guardar_infraestructura():
+    """Crear o editar infraestructura de red"""
+    try:
+        data = request.get_json()
+        infra_id = data.get('id')
+        nombre = data.get('nombre', '').strip()
+        ip_address = data.get('ip_address', '').strip()
+        tipo = data.get('tipo', '').strip()
+        
+        if not nombre or not ip_address or not tipo:
+            return jsonify({'success': False, 'error': 'Nombre, IP y Tipo son campos requeridos'}), 400
+
+        if infra_id:
+            infra = Infraestructura.query.get(infra_id)
+            if not infra:
+                return jsonify({'success': False, 'error': 'Registro de infraestructura no encontrado'}), 404
+            accion = "editar"
+            detalle_anterior = f"nombre: {infra.nombre}, IP: {infra.ip_address}, tipo: {infra.tipo}"
+        else:
+            infra = Infraestructura()
+            accion = "crear"
+            detalle_anterior = ""
+
+        infra.nombre = nombre
+        infra.ip_address = ip_address
+        infra.tipo = tipo
+        
+        mikrotik_id = data.get('mikrotik_id')
+        infra.mikrotik_id = int(mikrotik_id) if (mikrotik_id and str(mikrotik_id).strip() != "") else None
+        
+        infra.ubicacion = data.get('ubicacion', '').strip()
+        infra.modelo = data.get('modelo', '').strip()
+        infra.notes = data.get('notas', '').strip() if 'notas' in data else data.get('notes', '').strip() # handle both
+        infra.notas = data.get('notas', '').strip()
+
+        db.session.add(infra)
+        db.session.commit()
+
+        # Registrar en bitácora (AuditLog)
+        detalle_log = f"{accion.capitalize()} infraestructura: {infra.nombre} ({infra.ip_address}, {infra.tipo})"
+        if accion == "editar":
+            detalle_log += f" | Anterior: {detalle_anterior}"
+            
+        audit = AuditLog(
+            usuario=current_user.username,
+            accion=accion,
+            entidad="infraestructura",
+            entidad_id=infra.id,
+            detalle=detalle_log,
+            ip_origen=request.remote_addr
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Infraestructura guardada correctamente', 'infraestructura': infra.to_dict()})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/infraestructura/<int:infra_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def eliminar_infraestructura(infra_id):
+    """Eliminar infraestructura de red"""
+    try:
+        infra = Infraestructura.query.get(infra_id)
+        if not infra:
+            return jsonify({'success': False, 'error': 'Registro de infraestructura no encontrado'}), 404
+
+        nombre = infra.nombre
+        ip_address = infra.ip_address
+        tipo = infra.tipo
+
+        db.session.delete(infra)
+        db.session.commit()
+
+        # Registrar en bitácora (AuditLog)
+        audit = AuditLog(
+            usuario=current_user.username,
+            accion="eliminar",
+            entidad="infraestructura",
+            entidad_id=infra_id,
+            detalle=f"Eliminar infraestructura: {nombre} ({ip_address}, {tipo})",
+            ip_origen=request.remote_addr
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Infraestructura eliminada correctamente'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/planes', methods=['GET'])
 def obtener_planes():
     """Obtener lista de planes"""
@@ -3131,11 +3278,11 @@ def whatsapp_cambiar_numero():
 
 
 # Ejecutar migración al importar (para gunicorn) — protegido con lock de archivo
-import fcntl as _fcntl
-import tempfile as _tempfile
-
-_lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
 try:
+    import fcntl as _fcntl
+    import tempfile as _tempfile
+    
+    _lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
     _lock_fd = open(_lock_path, 'w')
     _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
     try:
