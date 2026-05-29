@@ -503,8 +503,8 @@
 
         const map = L.map('map').setView([14.6349, -90.5069], 13);
 
-        // Capa principal: CartoDB Voyager (m�s confiable que OSM directo)
-        const layerOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        // Capa principal: CartoDB Voyager (ms confiable que OSM directo)
+        const layerOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 20,
@@ -524,7 +524,7 @@
             attribution: '&copy; OpenTopoMap', maxZoom: 17,
             crossOrigin: true
         });
-        const layerDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        const layerDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
             attribution: '&copy; CartoDB', subdomains: 'abcd', maxZoom: 20,
             crossOrigin: true
         });
