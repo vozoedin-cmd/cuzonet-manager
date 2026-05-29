@@ -2561,16 +2561,22 @@ def init_db():
         except Exception as e:
             print(f"[WARNING] migrate_db falló: {e}")
         
-        # Crear usuario admin por defecto si no existe
+        # Asegurar que el usuario admin existe, está activo y tiene rol de administrador
         try:
-            if Usuario.query.count() == 0:
+            admin = Usuario.query.filter_by(username='admin').first()
+            if not admin:
                 admin = Usuario(username='admin', nombre='Administrador', rol='admin')
                 admin.set_password('admin')
                 db.session.add(admin)
-                db.session.commit()
                 print("[OK] Usuario admin creado (user: admin, pass: admin)")
+            else:
+                admin.rol = 'admin'
+                admin.activo = True
+                admin.set_password('admin')
+                print("[OK] Usuario admin restaurado a rol admin y pass admin")
+            db.session.commit()
         except Exception as e:
-            print(f"[WARNING] Error creando admin: {e}")
+            print(f"[WARNING] Error asegurando admin: {e}")
         
         # Crear planes por defecto si no existen
         try:
