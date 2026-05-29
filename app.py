@@ -954,7 +954,11 @@ def avisos_cobro(mes=None):
         mes = datetime.now().strftime('%Y-%m')
 
     # Obtener clientes activos
-    clientes_activos = Cliente.query.filter_by(estado='activo').order_by(Cliente.nombre).all()
+    router_id = request.args.get('router_id', type=int)
+    query = Cliente.query.filter_by(estado='activo')
+    if router_id:
+        query = query.filter_by(router_id=router_id)
+    clientes_activos = query.order_by(Cliente.nombre).all()
 
     # Filtrar morosos: clientes sin pago registrado en el mes
     if filtro == 'morosos':
@@ -1708,15 +1712,19 @@ def obtener_pagos_cliente(cliente_id):
 def exportar_clientes():
     """Exportar clientes a Excel"""
     try:
+        router_id = request.args.get('router_id', type=int)
         # Intentar usar openpyxl
         try:
             from openpyxl import Workbook
             from openpyxl.styles import Font, PatternFill, Alignment
         except ImportError:
             # Si no está instalado, exportar como CSV
-            return exportar_clientes_csv()
+            return exportar_clientes_csv(router_id=router_id)
         
-        clientes = Cliente.query.order_by(Cliente.nombre).all()
+        query = Cliente.query
+        if router_id:
+            query = query.filter_by(router_id=router_id)
+        clientes = query.order_by(Cliente.nombre).all()
         
         wb = Workbook()
         ws = wb.active
@@ -1782,12 +1790,15 @@ def exportar_clientes():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def exportar_clientes_csv():
+def exportar_clientes_csv(router_id=None):
     """Exportar clientes a CSV (fallback)"""
     import csv
     from io import StringIO
     
-    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    query = Cliente.query
+    if router_id:
+        query = query.filter_by(router_id=router_id)
+    clientes = query.order_by(Cliente.nombre).all()
     
     output = StringIO()
     writer = csv.writer(output)
@@ -1830,8 +1841,12 @@ def importar_clientes():
         
         filename = file.filename.lower()
         
-        config_activa = ConfigMikroTik.query.filter_by(activo=True).first()
-        active_router_id = config_activa.id if config_activa else None
+        router_id = request.form.get('router_id', type=int)
+        if router_id:
+            active_router_id = router_id
+        else:
+            config_activa = ConfigMikroTik.query.filter_by(activo=True).first()
+            active_router_id = config_activa.id if config_activa else None
         
         clientes_importados = 0
         clientes_omitidos = 0

@@ -67,6 +67,17 @@ function openModal(modalId) {
     if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        
+        // Si se abre el modal de nuevo cliente, pre-seleccionar el router activo
+        if (modalId === 'clienteModal') {
+            const activeTab = document.querySelector('.router-tab.active');
+            if (activeTab && activeTab.dataset.routerId !== 'all') {
+                const routerSelect = document.getElementById('router_id');
+                if (routerSelect) {
+                    routerSelect.value = activeTab.dataset.routerId;
+                }
+            }
+        }
     }
 }
 
@@ -610,9 +621,15 @@ function imprimirMorosos() {
     const hoy = new Date();
     const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     const fechaHoy = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+    const routerValue = window.currentRouterFilter || 'all';
+    const activeTab = document.querySelector('.router-tab.active');
+    const routerName = activeTab ? activeTab.textContent.trim() : '';
 
     const rows = Array.from(table.querySelectorAll('tbody tr[data-id]'))
-        .filter(row => esPendiente(row))
+        .filter(row => {
+            const matchRouter = routerValue === 'all' || row.dataset.routerId === routerValue;
+            return matchRouter && esPendiente(row);
+        })
         .sort((a, b) => parseInt(a.dataset.corte || 1) - parseInt(b.dataset.corte || 1));
 
     if (rows.length === 0) {
@@ -702,7 +719,7 @@ function imprimirMorosos() {
         </div>
         <div class="title">
             <h2>⚠ Clientes con Pago Pendiente</h2>
-            <p>${meses[hoy.getMonth()]} ${hoy.getFullYear()} &nbsp;|&nbsp; Generado el ${fechaHoy}</p>
+            <p>${routerName ? routerName + ' &nbsp;|&nbsp; ' : ''}${meses[hoy.getMonth()]} ${hoy.getFullYear()} &nbsp;|&nbsp; Generado el ${fechaHoy}</p>
         </div>
     </div>
 

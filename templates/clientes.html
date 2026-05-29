@@ -63,9 +63,9 @@
             <div class="header-right">
                 <button class="btn btn-secondary" onclick="openModal('importModal')"><i class="fas fa-upload"></i>
                     Importar</button>
-                <button class="btn btn-secondary" onclick="window.open('/api/clientes/exportar')"><i
+                <button class="btn btn-secondary" onclick="exportarClientes()"><i
                         class="fas fa-download"></i> Exportar</button>
-                <button class="btn btn-warning" onclick="window.open('/avisos-cobro')"
+                <button class="btn btn-warning" onclick="abrirAvisosCobro()"
                     style="background: #e67e22; color: white;"><i class="fas fa-file-invoice-dollar"></i> Avisos de
                     Cobro</button>
                 <button class="btn" onclick="imprimirMorosos()"
@@ -661,6 +661,11 @@
 
             const f = new FormData();
             f.append('file', document.getElementById('importFile').files[0]);
+            
+            const activeTab = document.querySelector('.router-tab.active');
+            if (activeTab && activeTab.dataset.routerId !== 'all') {
+                f.append('router_id', activeTab.dataset.routerId);
+            }
             try {
                 const r = await fetch('/api/clientes/importar', { method: 'POST', body: f });
                 const d = await r.json();
@@ -701,6 +706,26 @@
             document.querySelector('.upload-label').style.display = 'flex';
             document.getElementById('fileSelected').style.display = 'none';
             document.getElementById('btnImport').disabled = true;
+        }
+
+        function exportarClientes() {
+            const activeTab = document.querySelector('.router-tab.active');
+            const routerId = activeTab ? activeTab.dataset.routerId : '';
+            let url = '/api/clientes/exportar';
+            if (routerId && routerId !== 'all') {
+                url += '?router_id=' + routerId;
+            }
+            window.open(url);
+        }
+
+        function abrirAvisosCobro() {
+            const activeTab = document.querySelector('.router-tab.active');
+            const routerId = activeTab ? activeTab.dataset.routerId : '';
+            let url = '/avisos-cobro';
+            if (routerId && routerId !== 'all') {
+                url += '?router_id=' + routerId;
+            }
+            window.open(url);
         }
     </script>
     <style>
