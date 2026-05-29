@@ -1100,8 +1100,17 @@ def configuracion():
     config = ConfigMikroTik.query.first()
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes)
+
+
+@app.route('/antenas')
+@login_required
+@admin_required
+def antenas_view():
+    """Página dedicada para gestionar antenas sectoriales y estaciones"""
+    routers = ConfigMikroTik.query.all()
     infraestructuras = Infraestructura.query.all()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes, infraestructuras=infraestructuras)
+    return render_template('antenas.html', routers=routers, infraestructuras=infraestructuras)
 
 # ============== API MIKROTIK STATUS ==============
 

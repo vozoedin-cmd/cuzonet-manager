@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gestión de antenas sectoriales y estaciones">
+    <title>CuzoNet Manager - Antenas y Estaciones</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            {% if current_user.rol == 'admin' %}
+            <li class="nav-item active">
+                <a href="/antenas" class="nav-link">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>Antenas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/pagos" class="nav-link">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>Pagos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reportes" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reportes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="nav-item"><a href="/mapa" class="nav-link"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a></li>
+            <li class="nav-item"><a href="/monitor" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Monitor</span></a></li>
+            {% if current_user.rol == 'admin' %}
+            <li class="nav-item"><a href="/actividad" class="nav-link"><i class="fas fa-history"></i><span>Actividad</span></a></li>
+            <li class="nav-item"><a href="/usuarios" class="nav-link"><i class="fas fa-user-cog"></i><span>Usuarios</span></a></li>
+            {% endif %}
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="theme-toggle" onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);border-radius:var(--radius-md);transition:all .2s;" onmouseover="this.style.background='rgba(0, 212, 255,0.1)'" onmouseout="this.style.background='transparent'">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeText">Modo Claro</span>
+            </div>
+            <div class="mikrotik-status" id="mikrotikStatus">
+                <div class="status-indicator offline"></div>
+                <span>MikroTik: Verificando...</span>
+            </div>
+            <a href="/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Cerrar Sesión</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Infraestructura de Antenas</h1>
+                <p class="header-subtitle">Registra y gestiona las direcciones IP de tus antenas sectoriales y estaciones</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="abrirModalInfraestructura()">
+                    <i class="fas fa-plus"></i> Registrar Antena
+                </button>
+            </div>
+        </header>
+
+        <!-- Filtros y Búsqueda -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.2rem; margin-bottom: 2rem; display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+            <div style="position: relative; flex: 1; min-width: 250px;">
+                <i class="fas fa-search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                <input type="text" id="buscarAntena" placeholder="Buscar por nombre, IP, modelo..." onkeyup="filtrarTabla()" style="width: 100%; padding: 12px 16px 12px 42px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.95rem;">
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <label for="filtrarTipo" style="color: var(--text-secondary); font-size: 0.9rem;">Tipo:</label>
+                <select id="filtrarTipo" onchange="filtrarTabla()" style="padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem;">
+                    <option value="">Todos</option>
+                    <option value="Sectorial">Sectoriales</option>
+                    <option value="Estación">Estaciones</option>
+                </select>
+
+                <label for="filtrarRouter" style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 1rem;">Router:</label>
+                <select id="filtrarRouter" onchange="filtrarTabla()" style="padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem;">
+                    <option value="">Todos</option>
+                    {% for r in routers %}
+                    <option value="{{ r.nombre }}">{{ r.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Tabla de Antenas -->
+        <section class="config-section" style="padding:0;">
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="antenasTable">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>IP Address</th>
+                            <th>Tipo</th>
+                            <th>Router MikroTik</th>
+                            <th>Modelo</th>
+                            <th>Ubicación / Torre</th>
+                            <th>Notas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="infraestructuraTbody">
+                        {% for i in infraestructuras %}
+                        <tr id="infra-row-{{ i.id }}">
+                            <td><strong>{{ i.nombre }}</strong></td>
+                            <td>
+                                <a href="http://{{ i.ip_address }}" target="_blank" style="color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Abrir interfaz web del equipo">
+                                    <code>{{ i.ip_address }}</code>
+                                    <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge" style="background-color: {{ '#3b82f6' if i.tipo == 'Sectorial' else '#6b7280' }}; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                                    {{ i.tipo }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if i.mikrotik %}
+                                <span style="font-size:0.9rem; color:var(--text-secondary);">
+                                    <i class="fas fa-router" style="margin-right:4px;"></i>{{ i.mikrotik.nombre }}
+                                </span>
+                                {% else %}
+                                <span style="font-size:0.9rem; color:var(--text-secondary); font-style:italic;">Ninguno</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ i.modelo or '-' }}</td>
+                            <td>{{ i.ubicacion or '-' }}</td>
+                            <td><span style="font-size:0.85rem; color:var(--text-secondary);" title="{{ i.notas }}">{{ i.notas or '-' }}</span></td>
+                            <td>
+                                <div style="display:flex;gap:6px;">
+                                    <button class="btn btn-secondary btn-sm" 
+                                            data-id="{{ i.id }}"
+                                            data-nombre="{{ i.nombre }}"
+                                            data-ip="{{ i.ip_address }}"
+                                            data-tipo="{{ i.tipo }}"
+                                            data-mikrotik="{{ i.mikrotik_id or '' }}"
+                                            data-modelo="{{ i.modelo or '' }}"
+                                            data-ubicacion="{{ i.ubicacion or '' }}"
+                                            data-notas="{{ i.notas or '' }}"
+                                            onclick="editarInfraestructuraBtn(this)" 
+                                            title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="eliminarInfraestructura({{ i.id }}, '{{ i.nombre|escape }}')" title="Eliminar" style="background-color:var(--danger, #ef4444); border-color:var(--danger, #ef4444); color:#fff;">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="noDataRow">
+                            <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                                <div class="empty-state small">
+                                    <i class="fas fa-broadcast-tower" style="font-size: 3rem; margin-bottom: 1rem; display: block; color: var(--border-color);"></i>
+                                    <h3>No hay antenas o estaciones registradas</h3>
+                                    <p style="margin-top: 0.5rem;">Comienza agregando tus antenas base (sectoriales) y estaciones de clientes en el botón de arriba.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Agregar/Editar Infraestructura (Antena/Estación) -->
+    <div class="modal-overlay" id="infraestructuraModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3 id="infraestructuraModalTitle"><i class="fas fa-broadcast-tower"></i> Registrar Equipo</h3>
+                <button class="modal-close" onclick="closeModal('infraestructuraModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="infraestructuraForm" class="config-form" style="padding:1.5rem;">
+                <input type="hidden" id="infra_id">
+
+                <div class="form-group">
+                    <label for="infra_nombre"><i class="fas fa-tag"></i> Nombre del Equipo *</label>
+                    <input type="text" id="infra_nombre" placeholder="Ej: Sectorial Principal Norte" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="infra_ip"><i class="fas fa-network-wired"></i> Dirección IP *</label>
+                        <input type="text" id="infra_ip" placeholder="Ej: 192.168.100.10" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="infra_tipo"><i class="fas fa-project-diagram"></i> Tipo de Equipo *</label>
+                        <select id="infra_tipo" required style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                            <option value="Sectorial">Sectorial (Antena Base)</option>
+                            <option value="Estación">Estación (Cliente / CPE)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="infra_mikrotik"><i class="fas fa-router"></i> Router MikroTik Asociado</label>
+                        <select id="infra_mikrotik" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                            <option value="">Ninguno / Sin router</option>
+                            {% for r in routers %}
+                            <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="infra_modelo"><i class="fas fa-mobile-alt"></i> Modelo de Equipo</label>
+                        <input type="text" id="infra_modelo" placeholder="Ej: Rocket M5 / LiteBeam">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="infra_ubicacion"><i class="fas fa-map-marker-alt"></i> Ubicación / Torre</label>
+                    <input type="text" id="infra_ubicacion" placeholder="Ej: Torre Principal - Cerro Alto">
+                </div>
+
+                <div class="form-group">
+                    <label for="infra_notas"><i class="fas fa-comment-alt"></i> Notas / Comentarios</label>
+                    <textarea id="infra_notas" rows="3" placeholder="Detalles adicionales sobre este equipo..." style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); resize: vertical;"></textarea>
+                </div>
+
+                <div class="form-actions" style="margin-top:1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('infraestructuraModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // ============ GESTIÓN DE ANTENAS ============
+
+        function abrirModalInfraestructura(id='', nombre='', ip='', tipo='Sectorial', mikrotik_id='', modelo='', ubicacion='', notas='') {
+            document.getElementById('infra_id').value = id;
+            document.getElementById('infra_nombre').value = nombre;
+            document.getElementById('infra_ip').value = ip;
+            document.getElementById('infra_tipo').value = tipo;
+            document.getElementById('infra_mikrotik').value = mikrotik_id;
+            document.getElementById('infra_modelo').value = modelo;
+            document.getElementById('infra_ubicacion').value = ubicacion;
+            document.getElementById('infra_notas').value = notas;
+            
+            document.getElementById('infraestructuraModalTitle').innerHTML = id ? '<i class="fas fa-edit"></i> Editar Equipo' : '<i class="fas fa-broadcast-tower"></i> Registrar Equipo';
+            openModal('infraestructuraModal');
+        }
+
+        function editarInfraestructuraBtn(btn) {
+            const id = btn.getAttribute('data-id');
+            const nombre = btn.getAttribute('data-nombre');
+            const ip = btn.getAttribute('data-ip');
+            const tipo = btn.getAttribute('data-tipo');
+            const mikrotik_id = btn.getAttribute('data-mikrotik');
+            const modelo = btn.getAttribute('data-modelo');
+            const ubicacion = btn.getAttribute('data-ubicacion');
+            const notas = btn.getAttribute('data-notes') || btn.getAttribute('data-notas');
+            abrirModalInfraestructura(id, nombre, ip, tipo, mikrotik_id, modelo, ubicacion, notas);
+        }
+
+        document.getElementById('infraestructuraForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('infra_id').value;
+            const formData = {
+                id: id || null,
+                nombre: document.getElementById('infra_nombre').value.trim(),
+                ip_address: document.getElementById('infra_ip').value.trim(),
+                tipo: document.getElementById('infra_tipo').value,
+                mikrotik_id: document.getElementById('infra_mikrotik').value || null,
+                modelo: document.getElementById('infra_modelo').value.trim(),
+                ubicacion: document.getElementById('infra_ubicacion').value.trim(),
+                notas: document.getElementById('infra_notas').value.trim()
+            };
+
+            const btn = e.target.querySelector('[type=submit]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            try {
+                const response = await fetch('/api/infraestructura', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message || 'Equipo guardado correctamente', 'success');
+                    closeModal('infraestructuraModal');
+                    location.reload();
+                } else {
+                    showToast(result.error || 'Error al guardar equipo', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión con el servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+            }
+        });
+
+        async function eliminarInfraestructura(id, nombre) {
+            if (!confirm(`¿Está seguro de que desea eliminar el equipo "${nombre}"?`)) {
+                return;
+            }
+
+            showToast('Eliminando equipo...', 'info');
+
+            try {
+                const response = await fetch(`/api/infraestructura/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message || 'Equipo eliminado correctamente', 'success');
+                    const row = document.getElementById(`infra-row-${id}`);
+                    if (row) {
+                        row.remove();
+                        // Si la tabla queda vacía, recargar para mostrar el empty state
+                        const tbody = document.getElementById('infraestructuraTbody');
+                        if (tbody) {
+                            // check if only noDataRow should be shown
+                            const rows = tbody.querySelectorAll('tr:not(#noDataRow)');
+                            if (rows.length === 0) {
+                                location.reload();
+                            }
+                        }
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    showToast(result.error || 'Error al eliminar el equipo', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión con el servidor', 'error');
+            }
+        }
+
+        // ============ FILTRADO DE TABLA ============
+        function filtrarTabla() {
+            const query = document.getElementById('buscarAntena').value.toLowerCase().trim();
+            const tipoFiltro = document.getElementById('filtrarTipo').value;
+            const routerFiltro = document.getElementById('filtrarRouter').value;
+            const rows = document.querySelectorAll('#infraestructuraTbody tr:not(#noDataRow)');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const nombre = row.cells[0].innerText.toLowerCase();
+                const ip = row.cells[1].innerText.toLowerCase();
+                const tipo = row.cells[2].innerText.trim();
+                const router = row.cells[3].innerText.trim();
+                const modelo = row.cells[4].innerText.toLowerCase();
+                const ubicacion = row.cells[5].innerText.toLowerCase();
+                const notas = row.cells[6].innerText.toLowerCase();
+
+                const coincideBusqueda = !query || 
+                    nombre.includes(query) || 
+                    ip.includes(query) || 
+                    modelo.includes(query) || 
+                    ubicacion.includes(query) || 
+                    notas.includes(query);
+
+                const coincideTipo = !tipoFiltro || tipo === tipoFiltro;
+                const coincideRouter = !routerFiltro || router.includes(routerFiltro);
+
+                if (coincideBusqueda && coincideTipo && coincideRouter) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Mostrar u ocultar mensaje de "No se encontraron resultados" si corresponde
+            let noDataRow = document.getElementById('noDataRow');
+            if (visibleCount === 0) {
+                if (!noDataRow) {
+                    noDataRow = document.createElement('tr');
+                    noDataRow.id = 'noDataRow';
+                    noDataRow.innerHTML = `
+                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                            <div class="empty-state small">
+                                <i class="fas fa-search" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; color: var(--border-color);"></i>
+                                <p>No se encontraron antenas que coincidan con los filtros</p>
+                            </div>
+                        </td>
+                    `;
+                    document.getElementById('infraestructuraTbody').appendChild(noDataRow);
+                } else {
+                    noDataRow.style.display = '';
+                }
+            } else {
+                if (noDataRow) {
+                    // if it was the default "no antennas registered" keep it hidden if there are rows,
+                    // or remove search noDataRow if there are rows matching search.
+                    noDataRow.style.display = 'none';
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
