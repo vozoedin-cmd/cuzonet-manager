@@ -2590,6 +2590,31 @@ def migrate_db():
                         except Exception as e:
                             print(f"[MIGRATION] Error agregando '{col_name}': {e}")
             
+            # Asegurar que todos los clientes tengan un router_id válido, migrando al router Humber si existe
+            if 'clientes' in inspector.get_table_names():
+                try:
+                    humber_router = ConfigMikroTik.query.filter(ConfigMikroTik.nombre.ilike('%humber%')).first()
+                    if humber_router:
+                        with db.engine.connect() as conn:
+                            res = conn.execute(text(f"SELECT COUNT(*) FROM clientes WHERE router_id IS NULL OR router_id != {humber_router.id}"))
+                            count = res.scalar()
+                            if count > 0:
+                                conn.execute(text(f"UPDATE clientes SET router_id = {humber_router.id}"))
+                                conn.commit()
+                                print(f"[MIGRATION] Se migraron {count} clientes al router Humber (ID {humber_router.id})")
+                    else:
+                        first_r = ConfigMikroTik.query.first()
+                        if first_r:
+                            with db.engine.connect() as conn:
+                                res = conn.execute(text("SELECT COUNT(*) FROM clientes WHERE router_id IS NULL"))
+                                count = res.scalar()
+                                if count > 0:
+                                    conn.execute(text(f"UPDATE clientes SET router_id = {first_r.id} WHERE router_id IS NULL"))
+                                    conn.commit()
+                                    print(f"[MIGRATION] Se asignaron {count} clientes al router por defecto ID {first_r.id}")
+                except Exception as db_e:
+                    print(f"[MIGRATION] Error al verificar/migrar clientes a router Humber: {db_e}")
+
             # Verificar si la tabla config_mikrotik existe
             if 'config_mikrotik' in inspector.get_table_names():
                 existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]

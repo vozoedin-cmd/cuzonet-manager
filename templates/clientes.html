@@ -79,11 +79,8 @@
         </header>
 
         <div class="router-tabs">
-            <button class="router-tab active" data-router-id="all" onclick="filterByRouter('all')">
-                <i class="fas fa-network-wired"></i> TODOS LOS CLIENTES
-            </button>
             {% for r in routers %}
-            <button class="router-tab" data-router-id="{{ r.id }}" onclick="filterByRouter('{{ r.id }}')">
+            <button class="router-tab {% if loop.first %}active{% endif %}" data-router-id="{{ r.id }}" onclick="filterByRouter('{{ r.id }}')">
                 <i class="fas fa-server"></i> {{ r.nombre|upper }}-CLIENTES
             </button>
             {% endfor %}

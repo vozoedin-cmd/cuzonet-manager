@@ -975,6 +975,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Marcar colores de pago y inicializar contador
     marcarPagos();
+    
+    // Inicializar filtro de router desde la pestaña activa
+    const activeRouterTab = document.querySelector('.router-tab.active');
+    window.currentRouterFilter = activeRouterTab ? activeRouterTab.dataset.routerId : 'all';
+    
     filterTable();
 });
 
