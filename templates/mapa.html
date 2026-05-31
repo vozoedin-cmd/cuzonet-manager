@@ -301,7 +301,151 @@
             .map-side-panel { display: none; }
             .map-wrapper { height: calc(100vh - 200px); }
         }
+
+        /* Searchable Select CSS */
+        .searchable-select {
+            position: relative;
+            width: 100%;
+            user-select: none;
+        }
+        .select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .select-trigger:hover {
+            border-color: var(--primary);
+        }
+        .select-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-md);
+            margin-top: 6px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 212, 255, 0.1);
+            z-index: 1050;
+            overflow: hidden;
+        }
+        .select-dropdown.active {
+            display: block;
+        }
+        .select-search-box {
+            position: relative;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .select-search-box i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            line-height: 1;
+        }
+        .select-search-box input {
+            width: 100%;
+            padding: 8px 12px 8px 30px !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-sm) !important;
+            background: rgba(0,0,0,0.3) !important;
+            color: var(--text-primary) !important;
+            font-size: 0.85rem !important;
+            box-sizing: border-box !important;
+        }
+        .select-search-box input:focus {
+            border-color: var(--primary) !important;
+            outline: none;
+        }
+        .select-options-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .select-option {
+            padding: 8px 14px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            transition: background 0.15s, color 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .select-option:hover {
+            background: var(--gradient-primary);
+            color: #fff;
+        }
+        .select-option.selected {
+            background: rgba(0, 212, 255, 0.15);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .select-option-ip {
+            font-family: monospace;
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+        .select-option:hover .select-option-ip {
+            opacity: 0.9;
+        }
+
+        body.light-mode .select-trigger {
+            background: #fff;
+            border-color: #C2CDD5;
+            color: #303854;
+        }
+        body.light-mode .select-trigger:hover {
+            border-color: var(--primary-dark);
+        }
+        body.light-mode .select-dropdown {
+            background: #fff;
+            border-color: #C2CDD5;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        body.light-mode .select-search-box input {
+            background: #F6F3EA !important;
+            border-color: #C2CDD5 !important;
+            color: #303854 !important;
+        }
+        body.light-mode .select-option {
+            color: #303854;
+        }
+        body.light-mode .select-option:hover {
+            background: var(--gradient-primary);
+            color: #fff;
+        }
+        body.light-mode .select-option.selected {
+            background: rgba(0, 212, 255, 0.08);
+            color: var(--primary-dark);
+        }
     </style>
+    <!-- PWA Setup -->
+    <meta name="theme-color" content="#00d4ff">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/img/logo.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('PWA Service Worker registrado con éxito'))
+                    .catch(err => console.error('Error al registrar PWA Service Worker:', err));
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -362,7 +506,7 @@
                 <p class="header-subtitle">Ubicaci&oacute;n geogr&aacute;fica de los clientes</p>
             </div>
             <div class="header-right">
-                <button class="btn btn-primary" onclick="openModal('ubicacionModal')">
+                <button class="btn btn-primary" onclick="abrirModalUbicacion()">
                     <i class="fas fa-map-pin"></i> Asignar Ubicaci&oacute;n
                 </button>
             </div>
@@ -428,9 +572,22 @@
             <div class="modal-form" style="padding: 20px;">
                 <div class="ubicacion-form">
                     <label style="color:var(--text-secondary);">Seleccionar Cliente:</label>
-                    <select id="ubicacionCliente" onchange="cargarUbicacionActual()">
-                        <option value="">-- Seleccionar --</option>
-                    </select>
+                    <div class="searchable-select" id="clienteSearchableSelect">
+                        <div class="select-trigger" onclick="toggleSelectDropdown(event)">
+                            <span id="selectedClientLabel">-- Seleccionar Cliente --</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="select-dropdown" id="selectDropdown">
+                            <div class="select-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="selectSearchInput" placeholder="Escribe para buscar..." oninput="filterSelectOptions(event)" autocomplete="off">
+                            </div>
+                            <div class="select-options-list" id="selectOptionsList">
+                                <!-- Opciones cargadas dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="ubicacionCliente" value="">
                     <label style="color:var(--text-secondary);">Coordenadas (clic en el mapa o ingresa manualmente):</label>
                     <div class="form-row-map">
                         <input type="number" step="any" id="ubicacionLat" placeholder="Latitud (ej: 14.6349)">
@@ -817,30 +974,97 @@
             }).addTo(map);
         });
 
+        // Searchable Select Logic
+        var clientesListData = []; // Guardará los clientes temporalmente
+
+        function toggleSelectDropdown(event) {
+            event.stopPropagation();
+            document.getElementById('selectDropdown').classList.toggle('active');
+            var searchInput = document.getElementById('selectSearchInput');
+            if (document.getElementById('selectDropdown').classList.contains('active')) {
+                searchInput.value = '';
+                filterSelectOptions();
+                setTimeout(function() { searchInput.focus(); }, 50);
+            }
+        }
+
+        function filterSelectOptions(event) {
+            var val = document.getElementById('selectSearchInput').value.toLowerCase();
+            var listContainer = document.getElementById('selectOptionsList');
+            listContainer.innerHTML = '';
+
+            var filtered = clientesListData.filter(function(c) {
+                var nombre = c.nombre ? c.nombre.toLowerCase() : '';
+                var ip = c.ip_address ? c.ip_address.toLowerCase() : '';
+                return nombre.includes(val) || ip.includes(val);
+            });
+
+            if (filtered.length === 0) {
+                var noResults = document.createElement('div');
+                noResults.style.padding = '8px 14px';
+                noResults.style.color = 'var(--text-muted)';
+                noResults.style.fontSize = '0.85rem';
+                noResults.textContent = 'No se encontraron resultados';
+                listContainer.appendChild(noResults);
+                return;
+            }
+
+            var currentVal = document.getElementById('ubicacionCliente').value;
+
+            filtered.forEach(function(c) {
+                var div = document.createElement('div');
+                div.className = 'select-option' + (currentVal == c.id ? ' selected' : '');
+                
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = c.nombre;
+
+                var ipSpan = document.createElement('span');
+                ipSpan.className = 'select-option-ip';
+                ipSpan.textContent = c.ip_address || '';
+
+                div.appendChild(nameSpan);
+                div.appendChild(ipSpan);
+
+                div.addEventListener('click', function() {
+                    selectClient(c.id, c.nombre + ' (' + (c.ip_address || '') + ')', c.latitud, c.longitud);
+                });
+
+                listContainer.appendChild(div);
+            });
+        }
+
+        function selectClient(id, label, lat, lng) {
+            document.getElementById('ubicacionCliente').value = id;
+            document.getElementById('selectedClientLabel').textContent = label;
+            document.getElementById('ubicacionLat').value = lat || '';
+            document.getElementById('ubicacionLng').value = lng || '';
+            document.getElementById('selectDropdown').classList.remove('active');
+        }
+
+        // Cerrar dropdown si se hace clic fuera de él
+        document.addEventListener('click', function(e) {
+            var dropdown = document.getElementById('selectDropdown');
+            var trigger = document.getElementById('clienteSearchableSelect');
+            if (dropdown && trigger && !trigger.contains(e.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
+
+        function abrirModalUbicacion() {
+            document.getElementById('ubicacionCliente').value = '';
+            document.getElementById('selectedClientLabel').textContent = '-- Seleccionar Cliente --';
+            document.getElementById('ubicacionLat').value = '';
+            document.getElementById('ubicacionLng').value = '';
+            openModal('ubicacionModal');
+        }
+
         async function cargarClientesSelect() {
             try {
                 var res = await fetch('/api/clientes');
                 var data = await res.json();
                 if (!data.success) return;
-                var select = document.getElementById('ubicacionCliente');
-                data.clientes.forEach(function(c) {
-                    var opt = document.createElement('option');
-                    opt.value = c.id;
-                    opt.textContent = c.nombre + ' (' + c.ip_address + ')';
-                    opt.dataset.lat = c.latitud || '';
-                    opt.dataset.lng = c.longitud || '';
-                    select.appendChild(opt);
-                });
+                clientesListData = data.clientes;
             } catch(e) { console.error(e); }
-        }
-
-        function cargarUbicacionActual() {
-            var select = document.getElementById('ubicacionCliente');
-            var opt = select.options[select.selectedIndex];
-            if (opt && opt.dataset.lat) {
-                document.getElementById('ubicacionLat').value = opt.dataset.lat;
-                document.getElementById('ubicacionLng').value = opt.dataset.lng;
-            }
         }
 
         async function guardarUbicacion() {

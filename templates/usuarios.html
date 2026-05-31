@@ -38,6 +38,19 @@
             padding: 1px 7px; border-radius: 10px; margin-left: 6px;
         }
     </style>
+    <!-- PWA Setup -->
+    <meta name="theme-color" content="#00d4ff">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/img/logo.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('PWA Service Worker registrado con éxito'))
+                    .catch(err => console.error('Error al registrar PWA Service Worker:', err));
+            });
+        }
+    </script>
 </head>
 <body>
     <div class="bg-animation">

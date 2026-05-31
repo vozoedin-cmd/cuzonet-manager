@@ -3,7 +3,7 @@ CuzoNet Manager - Sistema de Gestión de Clientes ISP
 Con funciones avanzadas: Pagos, Corte por Address List, Importar/Exportar Excel
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -3422,6 +3422,16 @@ except (ImportError, OSError):
         print(f"[WARNING] init_db falló: {e}")
 except Exception as e:
     print(f"[WARNING] init_db falló: {e}")
+
+
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'sw.js', mimetype='application/javascript')
+
+
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'manifest.json', mimetype='application/json')
 
 
 if __name__ == '__main__':

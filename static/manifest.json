@@ -1,0 +1,16 @@
+{
+  "name": "CuzoNet Manager",
+  "short_name": "CuzoNet",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#00d4ff",
+  "icons": [
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
