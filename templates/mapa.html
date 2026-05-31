@@ -1036,8 +1036,22 @@
         function selectClient(id, label, lat, lng) {
             document.getElementById('ubicacionCliente').value = id;
             document.getElementById('selectedClientLabel').textContent = label;
-            document.getElementById('ubicacionLat').value = lat || '';
-            document.getElementById('ubicacionLng').value = lng || '';
+            if (lat && lng) {
+                document.getElementById('ubicacionLat').value = lat;
+                document.getElementById('ubicacionLng').value = lng;
+                
+                // Reposicionar el marcador temporal si el cliente ya tiene una ubicación guardada
+                var latlng = L.latLng(lat, lng);
+                if (tempMarker) map.removeLayer(tempMarker);
+                tempMarker = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: '<div style="background:#00d4ff;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0, 212, 255,0.5);"></div>',
+                        iconSize: [24, 24], iconAnchor: [12, 12]
+                    })
+                }).addTo(map);
+                map.panTo(latlng);
+            }
             document.getElementById('selectDropdown').classList.remove('active');
         }
 
@@ -1053,8 +1067,11 @@
         function abrirModalUbicacion() {
             document.getElementById('ubicacionCliente').value = '';
             document.getElementById('selectedClientLabel').textContent = '-- Seleccionar Cliente --';
-            document.getElementById('ubicacionLat').value = '';
-            document.getElementById('ubicacionLng').value = '';
+            // Solo limpiar las coordenadas si el usuario NO ha hecho clic en el mapa (no hay tempMarker)
+            if (!tempMarker) {
+                document.getElementById('ubicacionLat').value = '';
+                document.getElementById('ubicacionLng').value = '';
+            }
             openModal('ubicacionModal');
         }
 
