@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendedor Dashboard - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .vendedor-main {
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .balance-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .balance-title {
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .balance-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2ed573;
+            text-shadow: 0 0 10px rgba(46, 213, 115, 0.3);
+        }
+        .plan-grid-vendedor {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .plan-button {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .plan-button:hover {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: #00d4ff;
+            transform: translateY(-2px);
+        }
+        .plan-button i {
+            font-size: 24px;
+            color: #00d4ff;
+            margin-bottom: 8px;
+        }
+        .plan-button h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .plan-button p {
+            font-size: 14px;
+            color: #2ed573;
+            font-weight: 500;
+        }
+        .recent-vouchers {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        .recent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .voucher-item-vendedor {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .voucher-item-vendedor:last-child {
+            border-bottom: none;
+        }
+        .voucher-info-vendedor h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .voucher-info-vendedor p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .voucher-action-vendedor {
+            display: flex;
+            gap: 8px;
+        }
+        .ticket-modal-content {
+            background: #ffffff;
+            color: #000000;
+            padding: 24px;
+            border-radius: 8px;
+            max-width: 320px;
+            margin: 0 auto;
+            font-family: 'Courier New', Courier, monospace;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .ticket-modal-content * {
+            color: #000000 !important;
+        }
+    </style>
+</head>
+<body class="vendedor-theme">
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+    </div>
+
+    <!-- Header simple para móvil -->
+    <div style="background: rgba(255, 255, 255, 0.02); padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-network-wired" style="color:#00d4ff; font-size: 20px;"></i>
+            <span style="font-weight:700; font-size: 18px; color: var(--text-primary);">CuzoNet Vales</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 14px; color: var(--text-secondary);">Hola, {{ current_user.nombre }}</span>
+            <a href="/logout" style="color: #ff6b6b; font-size: 18px;"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </div>
+
+    <div class="vendedor-main">
+        <!-- Tarjeta de Saldo -->
+        <div class="balance-container">
+            <div class="balance-title">Mi Saldo Disponible</div>
+            <div class="balance-value" id="balanceValue">Q{{ "%.2f"|format(current_user.balance) }}</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                <i class="fas fa-server"></i> Conectado a: <strong>{{ router.nombre if router else 'Hotspot' }}</strong>
+            </div>
+        </div>
+
+        <!-- Botones de Vender -->
+        <div style="margin-bottom: 12px;">
+            <h2 style="font-size: 18px; font-weight:600; margin-bottom: 12px; color: var(--text-primary);">Generar Nuevo Voucher</h2>
+        </div>
+        <div class="plan-grid-vendedor">
+            {% for p in planes %}
+            <div class="plan-button" onclick="confirmarGenerar('{{ p.id }}', '{{ p.nombre }}', '{{ p.precio }}')">
+                <i class="fas fa-wifi"></i>
+                <h3>Plan {{ p.nombre }}</h3>
+                <p>Q{{ "%.2f"|format(p.precio) }}</p>
+            </div>
+            {% else %}
+            <div style="grid-column: span 2; text-align: center; color: var(--text-secondary); padding: 20px;">
+                No hay planes de Hotspot configurados.
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Historial Reciente -->
+        <div class="recent-vouchers">
+            <div class="recent-header">
+                <h2 style="font-size: 16px; font-weight:600; color: var(--text-primary);">Ventas Recientes</h2>
+                <i class="fas fa-history" style="color: var(--text-secondary);"></i>
+            </div>
+            <div id="vouchersList">
+                {% for v in vouchers %}
+                <div class="voucher-item-vendedor">
+                    <div class="voucher-info-vendedor">
+                        <h4>{{ v.codigo }}</h4>
+                        <p>{{ v.plan.nombre if v.plan else 'Voucher' }} • Q{{ "%.2f"|format(v.precio) }}</p>
+                    </div>
+                    <div class="voucher-action-vendedor">
+                        <button class="btn btn-secondary btn-sm" onclick="imprimirTicketLocal('{{ v.codigo }}', '{{ v.contrasena }}', '{{ v.plan.nombre if v.plan else \'Voucher\' }}', '{{ v.precio }}', '{{ v.fecha_creacion.strftime(\'%Y-%m-%d %H:%M\') }}')" style="padding: 6px 10px;">
+                            <i class="fas fa-print"></i>
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="compartirWhatsApp('{{ v.codigo }}', '{{ v.contrasena }}', '{{ v.plan.nombre if v.plan else \'Voucher\' }}', '{{ v.precio }}')" style="padding: 6px 10px; background: #25d366; border-color: #25d366;">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 20px; color: var(--text-secondary);" id="noVouchersMessage">
+                    No has generado vouchers todavía hoy.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ticket en Pantalla (Impresión Térmica) -->
+    <div id="ticketModal" class="modal">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+            <div class="ticket-modal-content">
+                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: bold;">CUZONET</h3>
+                    <p style="margin: 2px 0; font-size: 12px;">Internet Hotspot</p>
+                </div>
+                <div style="font-size: 13px; line-height: 1.4; margin-bottom: 10px;">
+                    <p style="margin: 2px 0;"><strong>Fecha:</strong> <span id="t_fecha"></span></p>
+                    <p style="margin: 2px 0;"><strong>Plan:</strong> <span id="t_plan"></span></p>
+                    <p style="margin: 2px 0;"><strong>Precio:</strong> Q<span id="t_precio"></span></p>
+                </div>
+                <div style="text-align: center; border: 2px solid #000; padding: 10px; margin: 15px 0; border-radius: 4px;">
+                    <p style="margin: 0; font-size: 11px; text-transform: uppercase;">Código de Acceso</p>
+                    <h2 style="margin: 5px 0; font-size: 24px; font-weight: bold; letter-spacing: 1px;" id="t_codigo"></h2>
+                    <p style="margin: 0; font-size: 11px;">Clave: <strong id="t_clave"></strong></p>
+                </div>
+                <div style="text-align: center; font-size: 10px; border-top: 1px dashed #000; padding-top: 10px;">
+                    <p style="margin: 2px 0;">¡Gracias por su compra!</p>
+                    <p style="margin: 2px 0;">Conéctese a la red wifi y coloque su código para navegar.</p>
+                </div>
+            </div>
+            <div style="max-width: 320px; margin: 15px auto 0 auto; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-primary" onclick="cerrarTicket()" style="flex: 1;">Aceptar</button>
+                <button class="btn btn-secondary" id="btnImprimirModal" style="flex: 1;"><i class="fas fa-print"></i> Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de lógica AJAX y UI -->
+    <script>
+        let currentVoucher = null;
+
+        function confirmarGenerar(planId, nombre, precio) {
+            if (confirm(`¿Deseas generar un voucher para el Plan ${nombre} por Q${parseFloat(precio).toFixed(2)}?`)) {
+                generarVoucher(planId);
+            }
+        }
+
+        function generarVoucher(planId) {
+            // Mostrar cargando
+            document.getElementById('balanceValue').innerText = "Generando...";
+            
+            fetch('/api/hotspot/generar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ plan_id: planId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentVoucher = data.voucher;
+                    
+                    // Actualizar saldo
+                    document.getElementById('balanceValue').innerText = `Q${data.nuevo_saldo.toFixed(2)}`;
+                    
+                    // Ocultar mensaje vacío si existe
+                    const noVouchers = document.getElementById('noVouchersMessage');
+                    if (noVouchers) noVouchers.style.display = 'none';
+                    
+                    // Agregar a la lista superior
+                    const vouchersList = document.getElementById('vouchersList');
+                    const newItem = document.createElement('div');
+                    newItem.className = 'voucher-item-vendedor';
+                    newItem.innerHTML = `
+                        <div class="voucher-info-vendedor">
+                            <h4>${currentVoucher.codigo}</h4>
+                            <p>${currentVoucher.plan} • Q${currentVoucher.precio.toFixed(2)}</p>
+                        </div>
+                        <div class="voucher-action-vendedor">
+                            <button class="btn btn-secondary btn-sm" onclick="imprimirTicketLocal('${currentVoucher.codigo}', '${currentVoucher.contrasena}', '${currentVoucher.plan}', '${currentVoucher.precio}', '${currentVoucher.fecha}')" style="padding: 6px 10px;">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="compartirWhatsApp('${currentVoucher.codigo}', '${currentVoucher.contrasena}', '${currentVoucher.plan}', '${currentVoucher.precio}')" style="padding: 6px 10px; background: #25d366; border-color: #25d366;">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                        </div>
+                    `;
+                    vouchersList.insertBefore(newItem, vouchersList.firstChild);
+                    
+                    // Mostrar ticket en pantalla
+                    mostrarTicket(currentVoucher.codigo, currentVoucher.contrasena, currentVoucher.plan, currentVoucher.precio, currentVoucher.fecha, currentVoucher.id);
+                } else {
+                    alert(`Error: ${data.error}`);
+                    // Reestablecer saldo en pantalla recargando
+                    window.location.reload();
+                }
+            })
+            .catch(err => {
+                alert('Ocurrió un error en la conexión de red.');
+                window.location.reload();
+            });
+        }
+
+        function mostrarTicket(codigo, contrasena, plan, precio, fecha, id) {
+            document.getElementById('t_codigo').innerText = codigo;
+            document.getElementById('t_clave').innerText = contrasena;
+            document.getElementById('t_plan').innerText = plan;
+            document.getElementById('t_precio').innerText = parseFloat(precio).toFixed(2);
+            document.getElementById('t_fecha').innerText = fecha;
+            
+            // Configurar botón imprimir del modal
+            document.getElementById('btnImprimirModal').onclick = function() {
+                window.open(`/vendedor/voucher/imprimir/${id}`, '_blank', 'width=350,height=450');
+            };
+            
+            document.getElementById('ticketModal').classList.add('active');
+        }
+
+        function cerrarTicket() {
+            document.getElementById('ticketModal').classList.remove('active');
+        }
+
+        function imprimirTicketLocal(codigo, contrasena, plan, precio, fecha) {
+            // Abrir popup de impresion dinamica sin ID si es necesario
+            const win = window.open('', '_blank', 'width=350,height=450');
+            win.document.write(`
+                <html>
+                <head>
+                    <title>Imprimir Ticket</title>
+                    <style>
+                        body {
+                            font-family: 'Courier New', Courier, monospace;
+                            margin: 10px;
+                            padding: 0;
+                            color: #000;
+                            font-size: 13px;
+                            max-width: 280px;
+                        }
+                        .ticket {
+                            border: none;
+                        }
+                        .header {
+                            text-align: center;
+                            border-bottom: 1px dashed #000;
+                            padding-bottom: 8px;
+                            margin-bottom: 8px;
+                        }
+                        .header h3 { margin: 0; font-size: 16px; font-weight: bold; }
+                        .details { margin-bottom: 10px; line-height: 1.3; }
+                        .details p { margin: 2px 0; }
+                        .code-box {
+                            text-align: center;
+                            border: 2px solid #000;
+                            padding: 8px;
+                            margin: 12px 0;
+                            border-radius: 4px;
+                        }
+                        .code-box h2 { margin: 4px 0; font-size: 20px; font-weight: bold; }
+                        .footer {
+                            text-align: center;
+                            font-size: 10px;
+                            border-top: 1px dashed #000;
+                            padding-top: 8px;
+                        }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <div class="ticket">
+                        <div class="header">
+                            <h3>CUZONET</h3>
+                            <p style="margin: 2px 0; font-size: 11px;">Internet Hotspot</p>
+                        </div>
+                        <div class="details">
+                            <p><strong>Fecha:</strong> ${fecha}</p>
+                            <p><strong>Plan:</strong> ${plan}</p>
+                            <p><strong>Precio:</strong> Q${parseFloat(precio).toFixed(2)}</p>
+                        </div>
+                        <div class="code-box">
+                            <p style="margin: 0; font-size: 10px; text-transform: uppercase;">Código de Acceso</p>
+                            <h2>${codigo}</h2>
+                            <p style="margin: 0; font-size: 10px;">Clave: <strong>${contrasena}</strong></p>
+                        </div>
+                        <div class="footer">
+                            <p style="margin: 2px 0;">¡Gracias por su compra!</p>
+                            <p style="margin: 2px 0;">Conéctese a la red wifi y coloque su código para navegar.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        function compartirWhatsApp(codigo, contrasena, plan, precio) {
+            const mensaje = `*CUZONET - TICKET HOTSPOT*\n` +
+                            `━━━━━━━━━━━━━━━━━━\n` +
+                            `📡 *Servicio:* Internet Wifi\n` +
+                            `📋 *Plan:* ${plan}\n` +
+                            `💰 *Precio:* Q${parseFloat(precio).toFixed(2)}\n\n` +
+                            `🔑 *CÓDIGO DE ACCESO:* \`${codigo}\`\n` +
+                            `🔐 *Contraseña:* \`${contrasena}\`\n\n` +
+                            `━━━━━━━━━━━━━━━━━━\n` +
+                            `_Conéctate a la señal Wifi de tu sector e ingresa tu código para navegar._`;
+            
+            const encoded = encodeURIComponent(mensaje);
+            window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -68,9 +68,15 @@ class Usuario(UserMixin, db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     nombre = db.Column(db.String(100), default='Administrador')
-    rol = db.Column(db.String(20), default='admin')  # admin, operador
+    rol = db.Column(db.String(20), default='admin')  # admin, operador, vendedor
     activo = db.Column(db.Boolean, default=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    balance = db.Column(db.Float, default=0.0)
+    router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=True)
+    
+    # Relaciones
+    vouchers = db.relationship('Voucher', backref='vendedor', lazy=True)
+    transacciones = db.relationship('TransaccionVendedor', backref='vendedor', lazy=True)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -185,6 +191,7 @@ class ConfigMikroTik(db.Model):
     password = db.Column(db.String(100), nullable=False)
     use_ssl = db.Column(db.Boolean, default=False)
     activo = db.Column(db.Boolean, default=True)
+    tipo = db.Column(db.String(20), default='residential')  # residential, hotspot
     # Nombre del address list para clientes cortados
     address_list_cortados = db.Column(db.String(50), default='MOROSOS')
 
@@ -230,6 +237,83 @@ class Infraestructura(db.Model):
             'modelo': self.modelo,
             'notas': self.notas,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d %H:%M') if self.fecha_registro else None
+        }
+
+
+class PlanHotspot(db.Model):
+    """Planes de Hotspot para vouchers"""
+    __tablename__ = 'planes_hotspot'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), nullable=False)  # e.g., "1 Hora", "1 Día"
+    precio = db.Column(db.Float, nullable=False)
+    perfil_hotspot = db.Column(db.String(50), nullable=False)  # Nombre del perfil en MikroTik
+    limit_uptime = db.Column(db.String(20))  # e.g., "01:00:00" o "1d" (opcional)
+    activo = db.Column(db.Boolean, default=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'precio': self.precio,
+            'perfil_hotspot': self.perfil_hotspot,
+            'limit_uptime': self.limit_uptime,
+            'activo': self.activo
+        }
+
+
+class Voucher(db.Model):
+    """Vouchers de Hotspot generados"""
+    __tablename__ = 'vouchers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(50), nullable=False, unique=True)
+    contrasena = db.Column(db.String(50), nullable=False)
+    precio = db.Column(db.Float, nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey('planes_hotspot.id'), nullable=False)
+    router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=False)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    estado = db.Column(db.String(20), default='activo')  # activo, usado
+    mikrotik_id = db.Column(db.String(50))  # ID en MikroTik (para eliminarlo luego si es necesario)
+    
+    # Relaciones
+    plan = db.relationship('PlanHotspot', backref=db.backref('vouchers', lazy=True))
+    router = db.relationship('ConfigMikroTik', backref=db.backref('vouchers', lazy=True))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'codigo': self.codigo,
+            'contrasena': self.contrasena,
+            'precio': self.precio,
+            'plan_nombre': self.plan.nombre if self.plan else None,
+            'router_nombre': self.router.nombre if self.router else None,
+            'vendedor_nombre': self.vendedor.nombre if self.vendedor else None,
+            'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M') if self.fecha_creacion else None,
+            'estado': self.estado
+        }
+
+
+class TransaccionVendedor(db.Model):
+    """Historial de transacciones de saldo de vendedores"""
+    __tablename__ = 'transacciones_vendedor'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    tipo = db.Column(db.String(20), nullable=False)  # carga, venta
+    monto = db.Column(db.Float, nullable=False)
+    descripcion = db.Column(db.String(200))
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'vendedor_id': self.vendedor_id,
+            'tipo': self.tipo,
+            'monto': self.monto,
+            'descripcion': self.descripcion,
+            'fecha': self.fecha.strftime('%Y-%m-%d %H:%M') if self.fecha else None
         }
 
 
@@ -512,6 +596,47 @@ class MikroTikAPI:
         except Exception as e:
             return False, str(e)
 
+    # ============== HOTSPOT METHODS ==============
+    
+    def create_hotspot_user(self, name, password, profile, comment="", limit_uptime=None):
+        """Crea un usuario de Hotspot en MikroTik"""
+        try:
+            nombre_limpio = limpiar_texto_mikrotik(name)
+            data = {
+                "name": nombre_limpio,
+                "password": password,
+                "profile": profile,
+                "comment": limpiar_texto_mikrotik(comment)
+            }
+            if limit_uptime:
+                data["limit-uptime"] = limit_uptime
+                
+            response = self.session.put(
+                f"{self.base_url}/ip/hotspot/user",
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                return True, result.get('.id', '')
+            else:
+                return False, f"Error {response.status_code}: {response.text}"
+                
+        except Exception as e:
+            return False, str(e)
+
+    def delete_hotspot_user(self, user_id):
+        """Elimina un usuario de Hotspot en MikroTik por su ID (.id)"""
+        try:
+            response = self.session.delete(
+                f"{self.base_url}/ip/hotspot/user/{user_id}",
+                timeout=15
+            )
+            return response.status_code in [200, 204], response.text
+        except Exception as e:
+            return False, str(e)
+
 
 def get_mikrotik_api(router_id=None):
     """Obtiene instancia de la API de MikroTik con la configuración activa o por ID"""
@@ -557,6 +682,8 @@ def login():
         if user and user.check_password(password) and user.activo:
             login_user(user, remember=True)
             registrar_auditoria('login', 'usuario', user.id, f'Inicio de sesión: {username}')
+            if user.rol == 'vendedor':
+                return redirect(url_for('vendedor_dashboard'))
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
@@ -706,6 +833,8 @@ def api_eliminar_usuario(user_id):
 @login_required
 def index():
     """Página principal - Dashboard"""
+    if current_user.rol == 'vendedor':
+        return redirect(url_for('vendedor_dashboard'))
     clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).limit(10).all()
     total_clientes = Cliente.query.count()
     clientes_activos = Cliente.query.filter_by(estado='activo').count()
@@ -2605,6 +2734,50 @@ def migrate_db():
                         except Exception as e:
                             print(f"[MIGRATION] Error agregando '{col_name}': {e}")
             
+            # Verificar si la tabla config_mikrotik existe
+            if 'config_mikrotik' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
+                
+                if 'address_list_cortados' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'address_list_cortados' agregada")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error al agregar address_list_cortados: {e}")
+                
+                if 'tipo' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN tipo VARCHAR(20) DEFAULT 'residential'"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'tipo' agregada a config_mikrotik")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error al agregar tipo a config_mikrotik: {e}")
+            
+            # Verificar si la tabla usuarios existe
+            if 'usuarios' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('usuarios')]
+                
+                if 'balance' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE usuarios ADD COLUMN balance FLOAT DEFAULT 0.0"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'balance' agregada a usuarios")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error al agregar balance a usuarios: {e}")
+                        
+                if 'router_id' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE usuarios ADD COLUMN router_id INTEGER"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'router_id' agregada a usuarios")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error al agregar router_id a usuarios: {e}")
+
             # Asegurar que todos los clientes tengan un router_id válido, migrando al router Humber si existe
             if 'clientes' in inspector.get_table_names():
                 try:
@@ -2629,19 +2802,6 @@ def migrate_db():
                                     print(f"[MIGRATION] Se asignaron {count} clientes al router por defecto ID {first_r.id}")
                 except Exception as db_e:
                     print(f"[MIGRATION] Error al verificar/migrar clientes a router Humber: {db_e}")
-
-            # Verificar si la tabla config_mikrotik existe
-            if 'config_mikrotik' in inspector.get_table_names():
-                existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
-                
-                if 'address_list_cortados' not in existing_columns:
-                    try:
-                        with db.engine.connect() as conn:
-                            conn.execute(text("ALTER TABLE config_mikrotik ADD COLUMN address_list_cortados VARCHAR(50) DEFAULT 'MOROSOS'"))
-                            conn.commit()
-                        print("[MIGRATION] Columna 'address_list_cortados' agregada")
-                    except Exception as e:
-                        print(f"[MIGRATION] Error: {e}")
         except Exception as e:
             print(f"[MIGRATION] Error general: {e}")
 
@@ -3422,6 +3582,346 @@ except (ImportError, OSError):
         print(f"[WARNING] init_db falló: {e}")
 except Exception as e:
     print(f"[WARNING] init_db falló: {e}")
+
+
+def vendedor_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        if current_user.rol != 'vendedor':
+            flash('Acceso exclusivo para vendedores', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ============== RUTAS DE HOTSPOT & VOUCHERS ==============
+
+@app.route('/admin/hotspot')
+@login_required
+@admin_required
+def hotspot_admin():
+    """Panel de administración de Hotspots y Vendedores"""
+    planes = PlanHotspot.query.all()
+    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    todos_routers = ConfigMikroTik.query.all()
+    vendedores = Usuario.query.filter_by(rol='vendedor').all()
+    transacciones = TransaccionVendedor.query.order_by(TransaccionVendedor.fecha.desc()).limit(50).all()
+    
+    total_vouchers = Voucher.query.count()
+    ganancia_total = db.session.query(db.func.sum(Voucher.precio)).scalar() or 0.0
+    
+    return render_template('hotspot_admin.html',
+                           planes=planes,
+                           routers=routers,
+                           todos_routers=todos_routers,
+                           vendedores=vendedores,
+                           transacciones=transacciones,
+                           total_vouchers=total_vouchers,
+                           ganancia_total=ganancia_total)
+
+
+@app.route('/admin/hotspot/router/guardar', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_router_guardar():
+    """Guardar o editar un router asignándolo como tipo hotspot"""
+    router_id = request.form.get('router_id')
+    tipo_accion = request.form.get('accion_tipo', 'editar')
+    
+    if tipo_accion == 'crear':
+        nombre = request.form.get('nombre')
+        host = request.form.get('host')
+        port = int(request.form.get('port', 80))
+        username = request.form.get('username')
+        password = request.form.get('password')
+        use_ssl = request.form.get('use_ssl') == 'on'
+        
+        router = ConfigMikroTik(
+            nombre=nombre,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            use_ssl=use_ssl,
+            tipo='hotspot'
+        )
+        db.session.add(router)
+        flash('Router Hotspot creado con éxito', 'success')
+    else:
+        router = ConfigMikroTik.query.get_or_404(router_id)
+        router.tipo = 'hotspot'
+        if request.form.get('nombre'):
+            router.nombre = request.form.get('nombre')
+        if request.form.get('host'):
+            router.host = request.form.get('host')
+        if request.form.get('port'):
+            router.port = int(request.form.get('port'))
+        if request.form.get('username'):
+            router.username = request.form.get('username')
+        if request.form.get('password'):
+            router.password = request.form.get('password')
+        router.use_ssl = request.form.get('use_ssl') == 'on'
+        flash('Router configurado como Hotspot', 'success')
+        
+    db.session.commit()
+    registrar_auditoria('guardar_router_hotspot', 'config_mikrotik', router.id if 'router' in locals() else None, 'Router Hotspot guardado')
+    return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/router/cambiar-tipo/<int:id>/<string:nuevo_tipo>')
+@login_required
+@admin_required
+def hotspot_router_cambiar_tipo(id, nuevo_tipo):
+    """Cambiar el tipo de un router (residential o hotspot)"""
+    router = ConfigMikroTik.query.get_or_404(id)
+    if nuevo_tipo in ['residential', 'hotspot']:
+        router.tipo = nuevo_tipo
+        db.session.commit()
+        flash(f'Router {router.nombre} cambiado a tipo {nuevo_tipo}', 'success')
+    return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/plan/guardar', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_plan_guardar():
+    """Guardar o editar un plan de hotspot"""
+    plan_id = request.form.get('plan_id')
+    nombre = request.form.get('nombre')
+    precio = float(request.form.get('precio', 0))
+    perfil_hotspot = request.form.get('perfil_hotspot')
+    limit_uptime = request.form.get('limit_uptime', '').strip() or None
+    
+    if plan_id:
+        plan = PlanHotspot.query.get_or_404(plan_id)
+        plan.nombre = nombre
+        plan.precio = precio
+        plan.perfil_hotspot = perfil_hotspot
+        plan.limit_uptime = limit_uptime
+        flash('Plan de Hotspot actualizado con éxito', 'success')
+    else:
+        plan = PlanHotspot(
+            nombre=nombre,
+            precio=precio,
+            perfil_hotspot=perfil_hotspot,
+            limit_uptime=limit_uptime
+        )
+        db.session.add(plan)
+        flash('Plan de Hotspot creado con éxito', 'success')
+        
+    db.session.commit()
+    registrar_auditoria('guardar_plan_hotspot', 'planes_hotspot', plan.id, f'Plan Hotspot: {nombre}')
+    return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/plan/desactivar/<int:id>')
+@login_required
+@admin_required
+def hotspot_plan_desactivar(id):
+    plan = PlanHotspot.query.get_or_404(id)
+    plan.activo = not plan.activo
+    db.session.commit()
+    estado = 'activado' if plan.activo else 'desactivado'
+    flash(f'Plan {plan.nombre} {estado} con éxito', 'success')
+    return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_vendedor_guardar():
+    """Crear o editar un usuario con rol de vendedor"""
+    vendedor_id = request.form.get('vendedor_id')
+    username = request.form.get('username', '').strip()
+    nombre = request.form.get('nombre', '').strip()
+    password = request.form.get('password', '')
+    router_id = request.form.get('router_id')
+    
+    if router_id:
+        router_id = int(router_id)
+    else:
+        router_id = None
+        
+    if vendedor_id:
+        vendedor = Usuario.query.get_or_404(vendedor_id)
+        vendedor.username = username
+        vendedor.nombre = nombre
+        vendedor.router_id = router_id
+        if password:
+            vendedor.set_password(password)
+        flash('Datos del vendedor actualizados', 'success')
+    else:
+        if Usuario.query.filter_by(username=username).first():
+            flash('El nombre de usuario ya existe', 'error')
+            return redirect(url_for('hotspot_admin'))
+            
+        vendedor = Usuario(
+            username=username,
+            nombre=nombre,
+            rol='vendedor',
+            router_id=router_id,
+            activo=True,
+            balance=0.0
+        )
+        vendedor.set_password(password)
+        db.session.add(vendedor)
+        flash('Vendedor creado con éxito', 'success')
+        
+    db.session.commit()
+    registrar_auditoria('guardar_vendedor', 'usuarios', vendedor.id, f'Vendedor: {username}')
+    return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/vendedor/cargar-saldo', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_vendedor_cargar_saldo():
+    """Cargar balance de saldo a un vendedor"""
+    vendedor_id = int(request.form.get('vendedor_id', 0))
+    monto = float(request.form.get('monto', 0))
+    descripcion = request.form.get('descripcion', '').strip() or 'Carga de saldo autorizada'
+    
+    if monto <= 0:
+        flash('El monto debe ser mayor a cero', 'error')
+        return redirect(url_for('hotspot_admin'))
+        
+    vendedor = Usuario.query.get_or_404(vendedor_id)
+    vendedor.balance += monto
+    
+    transaccion = TransaccionVendedor(
+        vendedor_id=vendedor.id,
+        tipo='carga',
+        monto=monto,
+        descripcion=descripcion
+    )
+    db.session.add(transaccion)
+    db.session.commit()
+    
+    registrar_auditoria('cargar_saldo', 'usuarios', vendedor.id, f'Cargados Q{monto} a {vendedor.username}')
+    flash(f'Saldo cargado exitosamente. Nuevo balance de {vendedor.nombre}: Q{vendedor.balance:.2f}', 'success')
+    return redirect(url_for('hotspot_admin'))
+
+
+# ============== VISTAS Y LOGICA DEL VENDEDOR ==============
+
+@app.route('/vendedor/dashboard')
+@login_required
+@vendedor_required
+def vendedor_dashboard():
+    """Panel del vendedor para generar vouchers"""
+    planes = PlanHotspot.query.filter_by(activo=True).all()
+    router = ConfigMikroTik.query.get(current_user.router_id) if current_user.router_id else None
+    vouchers = Voucher.query.filter_by(vendedor_id=current_user.id).order_by(Voucher.fecha_creacion.desc()).limit(15).all()
+    
+    return render_template('vendedor_dashboard.html',
+                           planes=planes,
+                           router=router,
+                           vouchers=vouchers)
+
+
+@app.route('/api/hotspot/generar', methods=['POST'])
+@login_required
+@vendedor_required
+def hotspot_generar_voucher():
+    """API para generar un voucher y enviarlo al MikroTik"""
+    import random
+    import string
+    
+    data = request.get_json() or {}
+    plan_id = int(data.get('plan_id', 0))
+    
+    plan = PlanHotspot.query.get_or_404(plan_id)
+    if not plan.activo:
+        return jsonify({'success': False, 'error': 'El plan seleccionado no está activo'})
+        
+    if current_user.balance < plan.precio:
+        return jsonify({'success': False, 'error': f'Saldo insuficiente. El plan cuesta Q{plan.precio:.2f} y tu saldo es Q{current_user.balance:.2f}'})
+        
+    if not current_user.router_id:
+        return jsonify({'success': False, 'error': 'No tienes ningún router MikroTik asignado para vender vouchers. Contacta al administrador.'})
+        
+    api = get_mikrotik_api(current_user.router_id)
+    if not api:
+        return jsonify({'success': False, 'error': 'No se pudo establecer conexión con el router MikroTik. Verifica si está en línea.'})
+        
+    caracteres_codigo = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    codigo_random = "".join(random.choices(caracteres_codigo, k=4))
+    codigo = f"CZ-{codigo_random}"
+    contrasena = "".join(random.choices(caracteres_codigo, k=6))
+    
+    comment_vendedor = f"Vendido por {current_user.username}"
+    
+    success, result_id = api.create_hotspot_user(
+        name=codigo,
+        password=contrasena,
+        profile=plan.perfil_hotspot,
+        comment=comment_vendedor,
+        limit_uptime=plan.limit_uptime
+    )
+    
+    if not success:
+        return jsonify({'success': False, 'error': f'MikroTik rechazó la creación del voucher: {result_id}'})
+        
+    current_user.balance -= plan.precio
+    
+    voucher = Voucher(
+        codigo=codigo,
+        contrasena=contrasena,
+        precio=plan.precio,
+        plan_id=plan.id,
+        router_id=current_user.router_id,
+        vendedor_id=current_user.id,
+        estado='activo',
+        mikrotik_id=result_id
+    )
+    db.session.add(voucher)
+    
+    transaccion = TransaccionVendedor(
+        vendedor_id=current_user.id,
+        tipo='venta',
+        monto=plan.precio,
+        descripcion=f"Venta voucher {codigo} (Plan: {plan.nombre})"
+    )
+    db.session.add(transaccion)
+    
+    try:
+        db.session.commit()
+        registrar_auditoria('generar_voucher', 'vouchers', voucher.id, f'Voucher {codigo} generado por {current_user.username}')
+        
+        return jsonify({
+            'success': True,
+            'voucher': {
+                'id': voucher.id,
+                'codigo': codigo,
+                'contrasena': contrasena,
+                'plan': plan.nombre,
+                'precio': plan.precio,
+                'router': voucher.router.nombre if voucher.router else 'Hotspot',
+                'fecha': voucher.fecha_creacion.strftime('%Y-%m-%d %H:%M')
+            },
+            'nuevo_saldo': current_user.balance
+        })
+    except Exception as e:
+        db.session.rollback()
+        try:
+            api.delete_hotspot_user(result_id)
+        except Exception:
+            pass
+        return jsonify({'success': False, 'error': f'Error al registrar el voucher en el sistema: {str(e)}'})
+
+
+@app.route('/vendedor/voucher/imprimir/<int:id>')
+@login_required
+@vendedor_required
+def vendedor_voucher_imprimir(id):
+    """Vista para imprimir un ticket individual de voucher"""
+    voucher = Voucher.query.get_or_404(id)
+    if voucher.vendedor_id != current_user.id:
+        flash('No tienes permiso para ver este voucher', 'error')
+        return redirect(url_for('vendedor_dashboard'))
+    return render_template('imprimir_voucher.html', voucher=voucher)
 
 
 @app.route('/sw.js')

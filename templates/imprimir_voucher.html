@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imprimir Ticket - CuzoNet</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 10px;
+            padding: 0;
+            color: #000;
+            font-size: 13px;
+            max-width: 280px;
+            background: #fff;
+        }
+        .ticket {
+            border: none;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .header h3 { 
+            margin: 0; 
+            font-size: 18px; 
+            font-weight: bold; 
+        }
+        .details { 
+            margin-bottom: 10px; 
+            line-height: 1.4; 
+        }
+        .details p { 
+            margin: 2px 0; 
+        }
+        .code-box {
+            text-align: center;
+            border: 2px solid #000;
+            padding: 8px;
+            margin: 12px 0;
+            border-radius: 4px;
+        }
+        .code-box h2 { 
+            margin: 4px 0; 
+            font-size: 22px; 
+            font-weight: bold; 
+            letter-spacing: 1px;
+        }
+        .qr-container {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .qr-container img {
+            width: 120px;
+            height: 120px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            border-top: 1px dashed #000;
+            padding-top: 8px;
+        }
+    </style>
+</head>
+<body onload="window.print(); setTimeout(window.close, 1000);">
+    <div class="ticket">
+        <div class="header">
+            <h3>CUZONET</h3>
+            <p style="margin: 2px 0; font-size: 11px;">Internet Hotspot</p>
+        </div>
+        
+        <div class="details">
+            <p><strong>Fecha:</strong> {{ voucher.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</p>
+            <p><strong>Plan:</strong> {{ voucher.plan.nombre }}</p>
+            <p><strong>Precio:</strong> Q{{ "%.2f"|format(voucher.precio) }}</p>
+            <p><strong>Router:</strong> {{ voucher.router.nombre if voucher.router else 'Hotspot' }}</p>
+        </div>
+        
+        <div class="code-box">
+            <p style="margin: 0; font-size: 10px; text-transform: uppercase;">Código de Acceso</p>
+            <h2>{{ voucher.codigo }}</h2>
+            <p style="margin: 0; font-size: 10px;">Clave: <strong>{{ voucher.contrasena }}</strong></p>
+        </div>
+        
+        <div class="qr-container">
+            <!-- QR para autoconexion si el portal cautivo lo permite, o simplemente que contenga el codigo de acceso -->
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ voucher.codigo }}" alt="QR Code">
+        </div>
+        
+        <div class="footer">
+            <p style="margin: 2px 0;">¡Gracias por su compra!</p>
+            <p style="margin: 2px 0;">Conéctese a la red wifi e ingrese su código para navegar.</p>
+        </div>
+    </div>
+</body>
+</html>

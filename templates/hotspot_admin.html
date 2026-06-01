@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración Hotspot - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/antenas" class="nav-link">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>Antenas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/pagos" class="nav-link">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>Pagos</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/admin/hotspot" class="nav-link">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Hotspot</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reportes" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reportes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuracion</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/mapa" class="nav-link">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>Mapa</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/monitor" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Monitor</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/actividad" class="nav-link">
+                    <i class="fas fa-history"></i>
+                    <span>Actividad</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/usuarios" class="nav-link">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Usuarios</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Cerrar Sesión</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1>Administración de Hotspot</h1>
+                <p class="header-subtitle">Vendedores, Planes y Routers de Tickets</p>
+            </div>
+            <div class="header-right" style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="openModal('vendedorModal')">
+                    <i class="fas fa-user-plus"></i> Nuevo Vendedor
+                </button>
+                <button class="btn btn-secondary" onclick="openModal('planModal')">
+                    <i class="fas fa-plus"></i> Nuevo Plan
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(0, 212, 255, 0.1); color: #00d4ff;">
+                    <i class="fas fa-ticket-alt"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Vouchers Emitidos</h3>
+                    <p class="stat-value">{{ total_vouchers }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(46, 213, 115, 0.1); color: #2ed573;">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Recaudación Total</h3>
+                    <p class="stat-value">Q{{ "%.2f"|format(ganancia_total) }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(255, 107, 107, 0.1); color: #ff6b6b;">
+                    <i class="fas fa-store-alt"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Vendedores Activos</h3>
+                    <p class="stat-value">{{ vendedores|length }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mensajes Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }}" style="margin-bottom: 20px; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Secciones del Panel -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <h2>Vendedores de Hotspot</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Usuario</th>
+                            <th>Saldo Disponible</th>
+                            <th>Router Asignado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in vendedores %}
+                        <tr>
+                            <td><strong>{{ v.nombre }}</strong></td>
+                            <td>{{ v.username }}</td>
+                            <td><span style="color: #2ed573; font-weight: 600;">Q{{ "%.2f"|format(v.balance) }}</span></td>
+                            <td>
+                                {% if v.router_id %}
+                                    <span class="badge badge-success">{{ v.router.nombre if v.router else 'Asignado' }}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Ninguno</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-secondary btn-sm" onclick="cargarSaldo('{{ v.id }}', '{{ v.nombre }}')">
+                                    <i class="fas fa-dollar-sign"></i> Recargar
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="editarVendedor('{{ v.id }}', '{{ v.username }}', '{{ v.nombre }}', '{{ v.router_id or '' }}')">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-secondary);">No hay vendedores registrados aún.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+            <!-- Planes Hotspot -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Planes de Vouchers</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Precio</th>
+                                <th>Perfil MikroTik</th>
+                                <th>Límite Uptime</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in planes %}
+                            <tr>
+                                <td><strong>{{ p.nombre }}</strong></td>
+                                <td>Q{{ "%.2f"|format(p.precio) }}</td>
+                                <td><code>{{ p.perfil_hotspot }}</code></td>
+                                <td>{{ p.limit_uptime or 'Perfil por defecto' }}</td>
+                                <td>
+                                    <span class="badge {{ 'badge-success' if p.activo else 'badge-danger' }}">
+                                        {{ 'Activo' if p.activo else 'Inactivo' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="/admin/hotspot/plan/desactivar/{{ p.id }}" class="btn btn-sm {{ 'btn-secondary' if p.activo else 'btn-primary' }}">
+                                        <i class="fas {{ 'fa-ban' if p.activo else 'fa-check' }}"></i>
+                                    </a>
+                                    <button class="btn btn-primary btn-sm" onclick="editarPlan('{{ p.id }}', '{{ p.nombre }}', '{{ p.precio }}', '{{ p.perfil_hotspot }}', '{{ p.limit_uptime or '' }}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary);">No hay planes creados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Routers Hotspot -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Routers Asignados a Hotspot</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Host / IP</th>
+                                <th>Tipo</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in todos_routers %}
+                            <tr>
+                                <td><strong>{{ r.nombre }}</strong></td>
+                                <td>{{ r.host }}</td>
+                                <td>
+                                    <span class="badge {{ 'badge-success' if r.tipo == 'hotspot' else 'badge-secondary' }}">
+                                        {{ 'Hotspot' if r.tipo == 'hotspot' else 'Residencial' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if r.tipo != 'hotspot' %}
+                                        <a href="/admin/hotspot/router/cambiar-tipo/{{ r.id }}/hotspot" class="btn btn-secondary btn-sm">
+                                            <i class="fas fa-exchange-alt"></i> Usar como Hotspot
+                                        </a>
+                                    {% else %}
+                                        <a href="/admin/hotspot/router/cambiar-tipo/{{ r.id }}/residential" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-exchange-alt"></i> Quitar Hotspot
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-secondary);">No hay routers configurados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de Transacciones -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Historial Reciente de Saldo (Vendedores)</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Vendedor</th>
+                            <th>Tipo</th>
+                            <th>Monto</th>
+                            <th>Descripción</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transacciones %}
+                        <tr>
+                            <td>{{ t.vendedor.nombre if t.vendedor else 'Vendedor eliminado' }}</td>
+                            <td>
+                                <span class="badge {{ 'badge-success' if t.tipo == 'carga' else 'badge-danger' }}">
+                                    {{ 'Carga' if t.tipo == 'carga' else 'Venta' }}
+                                </span>
+                            </td>
+                            <td><strong style="color: {{ '#2ed573' if t.tipo == 'carga' else '#ff6b6b' }}">Q{{ "%.2f"|format(t.monto) }}</strong></td>
+                            <td>{{ t.descripcion }}</td>
+                            <td>{{ t.fecha.strftime('%Y-%m-%d %H:%M') if t.fecha else '' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-secondary);">No se registran transacciones de saldo aún.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Vendedor -->
+    <div id="vendedorModal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2 id="vendedorModalTitle">Nuevo Vendedor</h2>
+                <button class="close-btn" onclick="closeModal('vendedorModal')">&times;</button>
+            </div>
+            <form action="/admin/hotspot/vendedor/guardar" method="POST">
+                <input type="hidden" name="vendedor_id" id="vendedor_id">
+                <div class="form-group">
+                    <label for="v_nombre">Nombre del Vendedor</label>
+                    <input type="text" name="nombre" id="v_nombre" required class="form-control" placeholder="Ej: Tienda Maria">
+                </div>
+                <div class="form-group">
+                    <label for="v_username">Nombre de Usuario (Login)</label>
+                    <input type="text" name="username" id="v_username" required class="form-control" placeholder="Ej: mariapop">
+                </div>
+                <div class="form-group">
+                    <label for="v_password">Contraseña</label>
+                    <input type="password" name="password" id="v_password" class="form-control" placeholder="Clave del vendedor">
+                    <small style="color: var(--text-secondary);">Si estás editando, déjala en blanco para mantener la contraseña actual.</small>
+                </div>
+                <div class="form-group">
+                    <label for="v_router">MikroTik Hotspot Asignado</label>
+                    <select name="router_id" id="v_router" class="form-control">
+                        <option value="">Selecciona un MikroTik...</option>
+                        {% for r in routers %}
+                            <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('vendedorModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Plan -->
+    <div id="planModal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2 id="planModalTitle">Nuevo Plan de Voucher</h2>
+                <button class="close-btn" onclick="closeModal('planModal')">&times;</button>
+            </div>
+            <form action="/admin/hotspot/plan/guardar" method="POST">
+                <input type="hidden" name="plan_id" id="plan_id">
+                <div class="form-group">
+                    <label for="p_nombre">Nombre del Plan</label>
+                    <input type="text" name="nombre" id="p_nombre" required class="form-control" placeholder="Ej: 1 Hora / 1 Día">
+                </div>
+                <div class="form-group">
+                    <label for="p_precio">Precio (Q)</label>
+                    <input type="number" step="0.01" name="precio" id="p_precio" required class="form-control" placeholder="Precio de venta">
+                </div>
+                <div class="form-group">
+                    <label for="p_perfil">Perfil Hotspot (en MikroTik)</label>
+                    <input type="text" name="perfil_hotspot" id="p_perfil" required class="form-control" placeholder="Ej: 1h / 1dia">
+                </div>
+                <div class="form-group">
+                    <label for="p_uptime">Límite Uptime (MikroTik limit-uptime)</label>
+                    <input type="text" name="limit_uptime" id="p_uptime" class="form-control" placeholder="Ej: 01:00:00 o 1d. Dejar vacío si lo define el perfil.">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('planModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Carga Saldo -->
+    <div id="saldoModal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>Cargar Saldo a Vendedor</h2>
+                <button class="close-btn" onclick="closeModal('saldoModal')">&times;</button>
+            </div>
+            <form action="/admin/hotspot/vendedor/cargar-saldo" method="POST">
+                <input type="hidden" name="vendedor_id" id="saldo_vendedor_id">
+                <div class="form-group">
+                    <label>Vendedor</label>
+                    <input type="text" id="saldo_vendedor_nombre" readonly class="form-control" style="background: rgba(255,255,255,0.05); color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                    <label for="s_monto">Monto a Cargar (Q)</label>
+                    <input type="number" step="0.01" name="monto" id="s_monto" required class="form-control" placeholder="Monto en Quetzales">
+                </div>
+                <div class="form-group">
+                    <label for="s_desc">Descripción / Referencia de Pago</label>
+                    <input type="text" name="descripcion" id="s_desc" class="form-control" placeholder="Ej: Carga saldo por efectivo recibido">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('saldoModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Abonar Saldo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function cargarSaldo(id, nombre) {
+            document.getElementById('saldo_vendedor_id').value = id;
+            document.getElementById('saldo_vendedor_nombre').value = nombre;
+            openModal('saldoModal');
+        }
+
+        function editarVendedor(id, username, nombre, routerId) {
+            document.getElementById('vendedor_id').value = id;
+            document.getElementById('v_nombre').value = nombre;
+            document.getElementById('v_username').value = username;
+            document.getElementById('v_router').value = routerId;
+            document.getElementById('v_password').required = false;
+            document.getElementById('vendedor_ModalTitle').innerText = "Editar Vendedor";
+            openModal('vendedorModal');
+        }
+
+        function editarPlan(id, nombre, precio, perfil, uptime) {
+            document.getElementById('plan_id').value = id;
+            document.getElementById('p_nombre').value = nombre;
+            document.getElementById('p_precio').value = precio;
+            document.getElementById('p_perfil').value = perfil;
+            document.getElementById('p_uptime').value = uptime;
+            document.getElementById('planModalTitle').innerText = "Editar Plan de Voucher";
+            openModal('planModal');
+        }
+    </script>
+</body>
+</html>
