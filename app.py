@@ -3561,27 +3561,32 @@ def whatsapp_cambiar_numero():
         return jsonify({'success': False, 'error': str(e)})
 
 
-# Ejecutar migración al importar (para gunicorn) — protegido con lock de archivo
-try:
-    import fcntl as _fcntl
-    import tempfile as _tempfile
-    
-    _lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
-    _lock_fd = open(_lock_path, 'w')
-    _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
+# Ejecutar migración al importar (para gunicorn) de forma asíncrona para no bloquear el health check
+import threading
+
+def run_init_db_async():
     try:
-        init_db()
-    finally:
-        _fcntl.flock(_lock_fd, _fcntl.LOCK_UN)
-        _lock_fd.close()
-except (ImportError, OSError):
-    # fcntl no disponible en Windows (desarrollo local) — ejecutar sin lock
-    try:
-        init_db()
+        import fcntl as _fcntl
+        import tempfile as _tempfile
+        
+        _lock_path = os.path.join(_tempfile.gettempdir(), 'cuzonet_init.lock')
+        _lock_fd = open(_lock_path, 'w')
+        _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
+        try:
+            init_db()
+        finally:
+            _fcntl.flock(_lock_fd, _fcntl.LOCK_UN)
+            _lock_fd.close()
+    except (ImportError, OSError):
+        try:
+            init_db()
+        except Exception as e:
+            print(f"[WARNING] init_db falló: {e}")
     except Exception as e:
         print(f"[WARNING] init_db falló: {e}")
-except Exception as e:
-    print(f"[WARNING] init_db falló: {e}")
+
+# Arrancar la inicialización de base de datos de fondo
+threading.Thread(target=run_init_db_async, daemon=True).start()
 
 
 def vendedor_required(f):
