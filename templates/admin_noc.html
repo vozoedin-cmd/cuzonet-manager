@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC Alertas - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired"></i>
+                <span>CuzoNet</span>
+            </div>
+            <p class="logo-subtitle">MikroTik Manager</p>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/clientes" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/admin/hotspot" class="nav-link">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Hotspot</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/admin/noc" class="nav-link">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>NOC / Alertas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/configuracion" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuracion</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Cerrar Sesión</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1>NOC Inteligente (Fase 1)</h1>
+                <p class="header-subtitle">Monitoreo de Alertas Webhook (Omada Controller)</p>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-secondary" onclick="window.location.reload();">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(255, 107, 107, 0.1); color: #ff6b6b;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Total Alertas</h3>
+                    <p class="stat-value">{{ alertas|length }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secciones del Panel -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <h2>Últimas Alertas Recibidas</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Dispositivo (MAC/IP)</th>
+                            <th>Estado</th>
+                            <th>Mensaje / Evento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in alertas %}
+                        <tr>
+                            <td>{{ a.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td><strong>{{ a.dispositivo }}</strong></td>
+                            <td>
+                                <span class="badge {{ 'badge-danger' if 'off' in a.estado.lower() or 'alert' in a.estado.lower() else 'badge-success' }}">
+                                    {{ a.estado }}
+                                </span>
+                            </td>
+                            <td>{{ a.mensaje }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                                <i class="fas fa-check-circle" style="font-size: 2rem; color: #2ed573; margin-bottom: 10px; display: block;"></i>
+                                No se han recibido alertas de Omada aún.<br>
+                                <small>La ruta del Webhook es: <code>http://tu-vps/api/webhook/omada</code></small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

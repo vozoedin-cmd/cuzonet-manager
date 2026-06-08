@@ -343,6 +343,18 @@ class AuditLog(db.Model):
         }
 
 
+class AlertaOmada(db.Model):
+    """Registro de alertas recibidas del webhook de Omada"""
+    __tablename__ = 'alertas_omada'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    dispositivo = db.Column(db.String(100))
+    estado = db.Column(db.String(50))
+    mensaje = db.Column(db.String(500))
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    raw_payload = db.Column(db.Text)
+
+
 def registrar_auditoria(accion, entidad=None, entidad_id=None, detalle=None):
     """Helper para registrar eventos de auditoría"""
     try:
@@ -3927,6 +3939,45 @@ def vendedor_voucher_imprimir(id):
         flash('No tienes permiso para ver este voucher', 'error')
         return redirect(url_for('vendedor_dashboard'))
     return render_template('imprimir_voucher.html', voucher=voucher)
+
+
+# ============== WEBHOOK OMADA NOC ==============
+
+@app.route('/api/webhook/omada', methods=['POST'])
+def webhook_omada():
+    """Recibe las alertas de TP-Link Omada Controller"""
+    try:
+        # Omada envía los datos en JSON
+        data = request.json or {}
+        
+        # Extraer información (dependerá de cómo lo envíe Omada, pero usamos campos genéricos por ahora)
+        dispositivo = data.get('clientMac') or data.get('apMac') or data.get('deviceMac') or 'Desconocido'
+        mensaje = data.get('msg') or data.get('message') or 'Alerta sin mensaje'
+        tipo_alerta = data.get('msgType') or data.get('type') or 'ALERTA'
+        
+        # Crear la alerta
+        nueva_alerta = AlertaOmada(
+            dispositivo=dispositivo,
+            estado=tipo_alerta,
+            mensaje=mensaje,
+            raw_payload=json.dumps(data)
+        )
+        db.session.add(nueva_alerta)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Alerta registrada correctamente'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/noc')
+@login_required
+@admin_required
+def admin_noc():
+    """Panel NOC para ver las alertas de la red"""
+    alertas = AlertaOmada.query.order_by(AlertaOmada.fecha.desc()).limit(100).all()
+    return render_template('admin_noc.html', alertas=alertas)
 
 
 @app.route('/sw.js')
