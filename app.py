@@ -13,10 +13,17 @@ import os
 import json
 import zipfile
 import requests
+import threading
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Configuración de Gemini AI
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'cuzonet-secret-key-2024')
@@ -3943,6 +3950,31 @@ def vendedor_voucher_imprimir(id):
 
 # ============== WEBHOOK OMADA NOC ==============
 
+def analizar_alerta_con_ia(alerta_id, contexto_alerta):
+    """Analiza una alerta usando Google Gemini en segundo plano"""
+    with app.app_context():
+        alerta = AlertaOmada.query.get(alerta_id)
+        if not alerta:
+            return
+            
+        if not GEMINI_API_KEY:
+            alerta.analisis_ia = "API Key de Gemini no configurada en DigitalOcean."
+            db.session.commit()
+            return
+            
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = f"Eres un experto NOC en redes ISP y equipos TP-Link Omada. Se detectó esta alerta:\n\nDispositivo: {alerta.dispositivo}\nEstado: {alerta.estado}\nMensaje Original: {alerta.mensaje}\nDetalles JSON: {contexto_alerta}\n\nEnumera 3 posibles causas técnicas precisas de esta falla y 2 acciones inmediatas a revisar. Sé muy breve, profesional y responde en español."
+            
+            response = model.generate_content(prompt)
+            alerta.analisis_ia = response.text
+            db.session.commit()
+        except Exception as e:
+            print(f"Error en análisis de IA Gemini: {e}")
+            alerta.analisis_ia = f"Error al consultar la IA: {str(e)}"
+            db.session.commit()
+
+
 @app.route('/api/webhook/omada', methods=['POST'])
 def webhook_omada():
     """Recibe las alertas de TP-Link Omada Controller"""
@@ -3964,6 +3996,11 @@ def webhook_omada():
         )
         db.session.add(nueva_alerta)
         db.session.commit()
+        
+        # Lanzar análisis de IA en segundo plano solo si es una alerta importante o error
+        estado_lower = tipo_alerta.lower()
+        if 'off' in estado_lower or 'alert' in estado_lower or 'err' in estado_lower:
+            threading.Thread(target=analizar_alerta_con_ia, args=(nueva_alerta.id, json.dumps(data))).start()
         
         return jsonify({'success': True, 'message': 'Alerta registrada correctamente'}), 200
     except Exception as e:
