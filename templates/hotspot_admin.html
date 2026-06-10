@@ -351,12 +351,13 @@
     </main>
 
     <!-- Modal Vendedor -->
-    <div id="vendedorModal" class="modal">
-        <div class="modal-content card">
+    <div id="vendedorModal" class="modal-overlay">
+        <div class="modal">
             <div class="modal-header">
                 <h2 id="vendedorModalTitle">Nuevo Vendedor</h2>
-                <button class="close-btn" onclick="closeModal('vendedorModal')">&times;</button>
+                <button type="button" class="btn-icon" onclick="closeModal('vendedorModal')"><i class="fas fa-times"></i></button>
             </div>
+            <div class="modal-body" style="padding: 24px;">
             <form action="/admin/hotspot/vendedor/guardar" method="POST">
                 <input type="hidden" name="vendedor_id" id="vendedor_id">
                 <div class="form-group">
@@ -386,16 +387,18 @@
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
     <!-- Modal Plan -->
-    <div id="planModal" class="modal">
-        <div class="modal-content card">
+    <div id="planModal" class="modal-overlay">
+        <div class="modal">
             <div class="modal-header">
                 <h2 id="planModalTitle">Nuevo Plan de Voucher</h2>
-                <button class="close-btn" onclick="closeModal('planModal')">&times;</button>
+                <button type="button" class="btn-icon" onclick="closeModal('planModal')"><i class="fas fa-times"></i></button>
             </div>
+            <div class="modal-body" style="padding: 24px;">
             <form action="/admin/hotspot/plan/guardar" method="POST">
                 <input type="hidden" name="plan_id" id="plan_id">
                 <div class="form-group">
@@ -419,16 +422,18 @@
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
     <!-- Modal Carga Saldo -->
-    <div id="saldoModal" class="modal">
-        <div class="modal-content card">
+    <div id="saldoModal" class="modal-overlay">
+        <div class="modal">
             <div class="modal-header">
                 <h2>Cargar Saldo a Vendedor</h2>
-                <button class="close-btn" onclick="closeModal('saldoModal')">&times;</button>
+                <button type="button" class="btn-icon" onclick="closeModal('saldoModal')"><i class="fas fa-times"></i></button>
             </div>
+            <div class="modal-body" style="padding: 24px;">
             <form action="/admin/hotspot/vendedor/cargar-saldo" method="POST">
                 <input type="hidden" name="vendedor_id" id="saldo_vendedor_id">
                 <div class="form-group">
@@ -448,6 +453,7 @@
                     <button type="submit" class="btn btn-primary">Abonar Saldo</button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
@@ -472,7 +478,7 @@
             document.getElementById('v_username').value = username;
             document.getElementById('v_router').value = routerId;
             document.getElementById('v_password').required = false;
-            document.getElementById('vendedor_ModalTitle').innerText = "Editar Vendedor";
+            document.getElementById('vendedorModalTitle').innerText = "Editar Vendedor";
             openModal('vendedorModal');
         }
 
