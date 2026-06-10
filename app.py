@@ -3857,8 +3857,8 @@ def hotspot_vendedor_guardar():
         flash('Datos del vendedor actualizados', 'success')
     else:
         if Usuario.query.filter_by(username=username).first():
-            flash('El nombre de usuario ya existe', 'error')
-            return redirect(url_for('hotspot_vendedores'))
+            flash(f'¡ATENCIÓN! El nombre de usuario "{username}" ya está registrado en el sistema. Usa otro diferente.', 'error')
+            return redirect(url_for('hotspot_vendedor_nuevo'))
             
         vendedor = Usuario(
             username=username,

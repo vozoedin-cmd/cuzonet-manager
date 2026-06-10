@@ -4,30 +4,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear Vendedor - CuzoNet Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Crear Vendedor - CuzoNet Manager PRO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .pro-form-container {
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-color);
-            padding: 32px;
-            max-width: 900px;
-            margin: 0 auto;
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #050505;
+            color: #fff;
         }
+        
+        .main-content {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+            min-height: 100vh;
+        }
+
+        .pro-form-container {
+            background: rgba(15, 15, 20, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Efecto de luz superior */
+        .pro-form-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), var(--info-color), transparent);
+            opacity: 0.5;
+        }
+
         .pro-header {
-            background: var(--gradient-primary);
-            padding: 24px 32px;
-            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-            margin: -32px -32px 32px -32px;
+            margin-bottom: 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            z-index: 2;
         }
-        .pro-header h2 { margin: 0; color: white; font-size: 1.4rem; }
+
+        .pro-header h2 { 
+            margin: 0; 
+            font-size: 2rem; 
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        
+        .pro-header p {
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+
+        .btn-volver {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-volver:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+
+        .pro-group {
+            position: relative;
+        }
+
+        .pro-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #a5b4fc;
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .pro-input, .pro-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 1.05rem;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s ease;
+            outline: none;
+            box-sizing: border-box;
+        }
+        
+        .pro-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .pro-input:focus, .pro-select:focus {
+            background: rgba(0, 0, 0, 0.5);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .pro-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a5b4fc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+        
+        .pro-select option {
+            background: #1e1e24;
+            color: #fff;
+            padding: 12px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            border-radius: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Outfit', sans-serif;
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            margin-top: 16px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.6);
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        
+        .btn-submit i {
+            font-size: 1.3rem;
+        }
+
+        /* Alertas PRO */
+        .pro-alert {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            color: #fca5a5;
+            padding: 16px 20px;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        .pro-alert.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid #10b981;
+            color: #6ee7b7;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .pro-form-container { padding: 24px; margin: 16px; }
+            .pro-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+        }
+        
+        /* Decoraciones de fondo */
+        .glow-circle {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .glow-1 { top: -100px; left: -100px; }
+        .glow-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(0,0,0,0) 70%); }
     </style>
 </head>
 
@@ -36,59 +242,73 @@
     <div class="bg-animation">
         <div class="bg-gradient"></div>
         <div class="bg-grid"></div>
-        <div class="floating-orbs">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-        </div>
     </div>
 
     {% include 'sidebar.html' %}
 
     <main class="main-content">
         <div class="pro-form-container">
+            <div class="glow-circle glow-1"></div>
+            <div class="glow-circle glow-2"></div>
+            
             <div class="pro-header">
-                <h2><i class="fas fa-user-plus"></i> Crear Vendedor</h2>
-                <a href="/admin/hotspot/vendedores" class="btn btn-secondary" style="border: rgba(255,255,255,0.2) 1px solid; background: rgba(0,0,0,0.3); color: white;">
+                <div>
+                    <h2>Crear Vendedor</h2>
+                    <p>Agrega un nuevo socio comercial o punto de venta a tu red.</p>
+                </div>
+                <a href="/admin/hotspot/vendedores" class="btn-volver">
                     <i class="fas fa-arrow-left"></i> Volver a Lista
                 </a>
             </div>
             
-            <form action="/admin/hotspot/vendedor/guardar" method="POST">
+            <!-- Mostrar alertas rojas brillantes aquí en caso de error -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="pro-alert {{ category }}">
+                            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% else %}check-circle{% endif %}" style="font-size: 1.5rem;"></i>
+                            <div><strong>Aviso del Sistema:</strong> {{ message }}</div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form action="/admin/hotspot/vendedor/guardar" method="POST" style="position: relative; z-index: 2;">
                 <input type="hidden" name="vendedor_id" id="vendedor_id">
                 
-                <div class="form-row">
-                    <div class="form-group full">
-                        <label>Tipo de Vendedor</label>
-                        <select class="form-control" name="tipo_vendedor" style="background: var(--bg-tertiary);">
-                            <option value="acumulativo">Acumulativo (Comisión Postpago)</option>
-                            <option value="prepago">Prepago (Saldo Anticipado)</option>
+                <div class="form-row full">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-briefcase"></i> Tipo de Vendedor</label>
+                        <select class="pro-select" name="tipo_vendedor">
+                            <option value="acumulativo">Comisión Acumulativa (Postpago)</option>
+                            <option value="prepago">Saldo Prepagado (Venta Directa)</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group full">
-                        <label>Nombre Vendedor / Negocio</label>
-                        <input type="text" name="nombre" class="form-control" placeholder="Ej: Tienda Maria" required>
+                <div class="form-row full">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-store"></i> Nombre del Negocio o Vendedor</label>
+                        <input type="text" name="nombre" class="pro-input" placeholder="Ej: Abarrotes Doña Maria..." required autocomplete="off">
                     </div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Usuario (Teléfono)</label>
-                        <input type="text" name="username" class="form-control" placeholder="Usuario para Iniciar Sesión" required>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-mobile-alt"></i> Usuario / Teléfono</label>
+                        <input type="text" name="username" class="pro-input" placeholder="Ej: 55512345" required autocomplete="off">
                     </div>
-                    <div class="form-group">
-                        <label>Contraseña</label>
-                        <input type="password" name="password" class="form-control" placeholder="Clave de Acceso" required>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-lock"></i> Contraseña de Acceso</label>
+                        <input type="password" name="password" class="pro-input" placeholder="••••••••" required>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group full">
-                        <label>Asignar a TPV / Router MikroTik</label>
-                        <select name="router_id" class="form-control">
-                            <option value="">Ninguno (Vendedor Global o Sin Asignar)</option>
+                <div class="form-row full">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-server"></i> Asignar a Router MikroTik (Opcional)</label>
+                        <select name="router_id" class="pro-select">
+                            <option value="">-- Modo Global (Sin router específico) --</option>
                             {% for r in routers %}
                                 <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
                             {% endfor %}
@@ -96,12 +316,10 @@
                     </div>
                 </div>
 
-                <div class="form-row" style="margin-top: 32px;">
-                    <div class="form-group full" style="display: flex; justify-content: center;">
-                        <button type="submit" class="btn btn-success" style="padding: 14px 40px; font-size: 1.1rem; background: var(--gradient-success); border-radius: 50px;">
-                            <i class="fas fa-save"></i> Generar Vendedor
-                        </button>
-                    </div>
+                <div class="form-row full">
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-bolt"></i> Registrar Nuevo Vendedor
+                    </button>
                 </div>
             </form>
         </div>
