@@ -82,6 +82,7 @@ class Usuario(UserMixin, db.Model):
     router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=True)
     
     # Relaciones
+    router = db.relationship('ConfigMikroTik', backref='vendedores_asignados', lazy=True)
     vouchers = db.relationship('Voucher', backref='vendedor', lazy=True)
     transacciones = db.relationship('TransaccionVendedor', backref='vendedor', lazy=True)
     
