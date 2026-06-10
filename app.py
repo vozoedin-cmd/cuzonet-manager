@@ -2804,7 +2804,8 @@ def migrate_db():
                 if 'activo' not in existing_columns:
                     try:
                         with db.engine.connect() as conn:
-                            conn.execute(text("ALTER TABLE planes_hotspot ADD COLUMN activo BOOLEAN DEFAULT 1"))
+                            # Postgres usa TRUE, SQLite usa 1 o TRUE
+                            conn.execute(text("ALTER TABLE planes_hotspot ADD COLUMN activo BOOLEAN DEFAULT TRUE"))
                             conn.commit()
                         print("[MIGRATION] Columna 'activo' agregada a planes_hotspot")
                     except Exception as e:
