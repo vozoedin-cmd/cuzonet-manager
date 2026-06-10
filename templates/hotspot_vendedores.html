@@ -89,8 +89,8 @@
                                 <span class="stat-badge" style="background: rgba(255,255,255,0.1); color: var(--text-muted);">Sin Asignar</span>
                                 {% endif %}
                             </td>
-                            <td><span style="font-weight: 600; color: var(--warning);">Q. {{ "%.2f"|format(item.vendedor.balance) }}</span></td>
-                            <td><span style="color: var(--success);">Q. {{ "%.2f"|format(item.total_abonado) }}</span></td>
+                            <td><span style="font-weight: 600; color: var(--warning);">Q. {{ "%.2f"|format(item.vendedor.balance or 0.0) }}</span></td>
+                            <td><span style="color: var(--success);">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
                             <td><span class="ip-badge">{{ item.fichas_impresas }} fichas</span></td>
                             <td>
                                 <div style="display: flex; gap: 8px;">

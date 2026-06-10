@@ -116,7 +116,7 @@
                             {% for t in transacciones[:10] %}
                             <tr>
                                 <td>{{ t.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
-                                <td><div class="client-info"><span class="client-name">{{ t.vendedor.nombre }}</span></div></td>
+                                <td><div class="client-info"><span class="client-name">{{ t.vendedor.nombre if t.vendedor else 'Desconocido' }}</span></div></td>
                                 <td>
                                     {% if t.tipo == 'abono' %}
                                         <span class="stat-badge active" style="background: rgba(16,185,129,0.2); color: var(--success);">Abono</span>
