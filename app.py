@@ -3982,24 +3982,42 @@ def webhook_omada():
         # Omada envía los datos en JSON
         data = request.json or {}
         
-        # Extraer información (dependerá de cómo lo envíe Omada, pero usamos campos genéricos por ahora)
-        dispositivo = data.get('clientMac') or data.get('apMac') or data.get('deviceMac') or 'Desconocido'
-        mensaje = data.get('msg') or data.get('message') or 'Alerta sin mensaje'
-        tipo_alerta = data.get('msgType') or data.get('type') or 'ALERTA'
+        # Extraer información basándonos en el JSON real de Omada
+        mensaje_crudo = data.get('text') or data.get('description') or 'Alerta sin mensaje'
+        dispositivo = data.get('Site') or 'Desconocido'
+        
+        # Limpiar el mensaje si viene como una cadena JSON interna (ej. [{"operation": "... "}])
+        mensaje_limpio = mensaje_crudo
+        if isinstance(mensaje_crudo, str) and mensaje_crudo.strip().startswith('['):
+            try:
+                parsed_text = json.loads(mensaje_crudo)
+                if isinstance(parsed_text, list) and len(parsed_text) > 0:
+                    item = parsed_text[0]
+                    mensaje_limpio = item.get('operation') or item.get('content') or mensaje_crudo
+            except Exception:
+                pass
+
+        # Determinar el tipo de alerta basado en el texto del mensaje
+        estado_lower = mensaje_limpio.lower()
+        if 'off' in estado_lower or 'disconnect' in estado_lower or 'fail' in estado_lower or 'err' in estado_lower:
+            tipo_alerta = 'OFFLINE/ERROR'
+        elif 'connect' in estado_lower or 'success' in estado_lower:
+            tipo_alerta = 'ONLINE/OK'
+        else:
+            tipo_alerta = 'INFO'
         
         # Crear la alerta
         nueva_alerta = AlertaOmada(
             dispositivo=dispositivo,
             estado=tipo_alerta,
-            mensaje=mensaje,
+            mensaje=mensaje_limpio,
             raw_payload=json.dumps(data)
         )
         db.session.add(nueva_alerta)
         db.session.commit()
         
         # Lanzar análisis de IA en segundo plano solo si es una alerta importante o error
-        estado_lower = tipo_alerta.lower()
-        if 'off' in estado_lower or 'alert' in estado_lower or 'err' in estado_lower:
+        if tipo_alerta == 'OFFLINE/ERROR':
             threading.Thread(target=analizar_alerta_con_ia, args=(nueva_alerta.id, json.dumps(data))).start()
         
         return jsonify({'success': True, 'message': 'Alerta registrada correctamente'}), 200
