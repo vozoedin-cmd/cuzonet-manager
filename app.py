@@ -3908,6 +3908,15 @@ def hotspot_vendedor_cargar_saldo():
 
 # ============== VISTAS Y LOGICA DEL VENDEDOR ==============
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    # Para no interferir con las excepciones de Werkzeug (como 404) que son subclases de HTTPException
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    return "<div style='padding:20px; background:black; color:lime; font-family:monospace; white-space:pre-wrap;'>" + traceback.format_exc() + "</div>", 500
+
 @app.route('/vendedor/dashboard')
 @login_required
 @vendedor_required
