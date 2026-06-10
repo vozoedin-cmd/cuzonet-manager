@@ -2798,7 +2798,36 @@ def migrate_db():
                     except Exception as e:
                         print(f"[MIGRATION] Error al agregar router_id a usuarios: {e}")
 
-            # Asegurar que todos los clientes tengan un router_id válido, migrando al router Humber si existe
+            # Verificar planes_hotspot
+            if 'planes_hotspot' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('planes_hotspot')]
+                if 'activo' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE planes_hotspot ADD COLUMN activo BOOLEAN DEFAULT 1"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'activo' agregada a planes_hotspot")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error planes_hotspot: {e}")
+
+            # Verificar vouchers
+            if 'vouchers' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('vouchers')]
+                if 'estado' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE vouchers ADD COLUMN estado VARCHAR(20) DEFAULT 'activo'"))
+                            conn.execute(text("ALTER TABLE vouchers ADD COLUMN mikrotik_id VARCHAR(50)"))
+                            conn.commit()
+                    except Exception as e:
+                        print(f"[MIGRATION] Error vouchers 1: {e}")
+                if 'vendedor_id' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE vouchers ADD COLUMN vendedor_id INTEGER DEFAULT 1"))
+                            conn.commit()
+                    except Exception as e:
+                        print(f"[MIGRATION] Error vouchers 2: {e}")
             if 'clientes' in inspector.get_table_names():
                 try:
                     humber_router = ConfigMikroTik.query.filter(ConfigMikroTik.nombre.ilike('%humber%')).first()
