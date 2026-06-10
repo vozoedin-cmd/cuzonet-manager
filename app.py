@@ -3636,7 +3636,7 @@ def hotspot_admin():
     total_vouchers = Voucher.query.count()
     ganancia_total = db.session.query(db.func.sum(Voucher.precio)).scalar() or 0.0
     
-    return render_template('hotspot_admin.html',
+    return render_template('hotspot_dashboard.html',
                            planes=planes,
                            routers=routers,
                            todos_routers=todos_routers,
@@ -3752,6 +3752,36 @@ def hotspot_plan_desactivar(id):
     return redirect(url_for('hotspot_admin'))
 
 
+@app.route('/admin/hotspot/vendedores')
+@login_required
+@admin_required
+def hotspot_vendedores():
+    vendedores = Usuario.query.filter_by(rol='vendedor').all()
+    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    
+    vendedores_data = []
+    for v in vendedores:
+        fichas_impresas = Voucher.query.filter_by(vendedor_id=v.id).count()
+        abonos = TransaccionVendedor.query.filter_by(vendedor_id=v.id, tipo='abono').all()
+        total_abonado = sum(a.monto for a in abonos)
+        
+        vendedores_data.append({
+            'vendedor': v,
+            'fichas_impresas': fichas_impresas,
+            'total_abonado': total_abonado
+        })
+        
+    return render_template('hotspot_vendedores.html', 
+                           vendedores_data=vendedores_data,
+                           routers=routers)
+
+@app.route('/admin/hotspot/vendedor/nuevo')
+@login_required
+@admin_required
+def hotspot_vendedor_nuevo():
+    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    return render_template('hotspot_vendedor_crear.html', routers=routers)
+
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
 @login_required
 @admin_required
@@ -3779,7 +3809,7 @@ def hotspot_vendedor_guardar():
     else:
         if Usuario.query.filter_by(username=username).first():
             flash('El nombre de usuario ya existe', 'error')
-            return redirect(url_for('hotspot_admin'))
+            return redirect(url_for('hotspot_vendedores'))
             
         vendedor = Usuario(
             username=username,
@@ -3795,7 +3825,7 @@ def hotspot_vendedor_guardar():
         
     db.session.commit()
     registrar_auditoria('guardar_vendedor', 'usuarios', vendedor.id, f'Vendedor: {username}')
-    return redirect(url_for('hotspot_admin'))
+    return redirect(url_for('hotspot_vendedores'))
 
 
 @app.route('/admin/hotspot/vendedor/cargar-saldo', methods=['POST'])

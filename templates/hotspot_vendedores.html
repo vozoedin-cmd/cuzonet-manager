@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Vendedores - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        <div class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-users-cog"></i> Gestión de Vendedores</h1>
+                <p class="header-subtitle">Administra los usuarios TPV y revendedores de fichas</p>
+            </div>
+            <div class="header-right">
+                <a href="/admin/hotspot/vendedor/nuevo" class="btn btn-primary" style="background: var(--gradient-success);">
+                    <i class="fas fa-plus"></i> Agregar Vendedor
+                </a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages" style="margin-bottom: 24px;">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="padding: 16px; border-radius: 10px; background: rgba(0, 212, 255, 0.1); border-left: 4px solid var(--primary); color: white; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                <i class="fas fa-info-circle" style="color: var(--primary);"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div class="table-section">
+            <div class="table-header">
+                <h2>Directorio de Vendedores</h2>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Buscar por nombre o usuario...">
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre (Negocio)</th>
+                            <th>Usuario (Tel)</th>
+                            <th>Router / TPV</th>
+                            <th>Saldo Actual</th>
+                            <th>Abonos Recibidos</th>
+                            <th>Fichas Creadas</th>
+                            <th>Operaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in vendedores_data %}
+                        <tr>
+                            <td>
+                                <div class="client-info">
+                                    <div class="client-avatar">
+                                        <i class="fas fa-user-tie"></i>
+                                    </div>
+                                    <span class="client-name">{{ item.vendedor.nombre }}</span>
+                                </div>
+                            </td>
+                            <td><span style="color: var(--primary-light);">{{ item.vendedor.username }}</span></td>
+                            <td>
+                                {% if item.vendedor.router %}
+                                <span class="stat-badge active"><i class="fas fa-server"></i> {{ item.vendedor.router.nombre }}</span>
+                                {% else %}
+                                <span class="stat-badge" style="background: rgba(255,255,255,0.1); color: var(--text-muted);">Sin Asignar</span>
+                                {% endif %}
+                            </td>
+                            <td><span style="font-weight: 600; color: var(--warning);">Q. {{ "%.2f"|format(item.vendedor.balance) }}</span></td>
+                            <td><span style="color: var(--success);">Q. {{ "%.2f"|format(item.total_abonado) }}</span></td>
+                            <td><span class="ip-badge">{{ item.fichas_impresas }} fichas</span></td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn-icon success" title="Abonar Saldo" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Aún no hay vendedores creados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Carga Saldo (Reusable for list view) -->
+    <div id="saldoModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-wallet"></i> Recargar Saldo</h2>
+                <button type="button" class="btn-icon" onclick="closeModal('saldoModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <form action="/admin/hotspot/vendedor/cargar-saldo" method="POST">
+                    <input type="hidden" name="vendedor_id" id="saldo_vendedor_id">
+                    <div class="form-group">
+                        <label>Vendedor</label>
+                        <input type="text" id="saldo_vendedor_nombre" readonly class="form-control" style="background: rgba(255,255,255,0.05); color: var(--text-primary);">
+                    </div>
+                    <div class="form-group">
+                        <label for="s_monto">Monto a Cargar (Q)</label>
+                        <input type="number" step="0.01" name="monto" id="s_monto" required class="form-control" placeholder="Monto en Quetzales">
+                    </div>
+                    <div class="form-group">
+                        <label for="s_desc">Descripción / Referencia de Pago</label>
+                        <input type="text" name="descripcion" id="s_desc" class="form-control" placeholder="Ej: Pago recibido en efectivo">
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('saldoModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="background: var(--gradient-success);">Abonar a la Cuenta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+        function cargarSaldo(id, nombre) {
+            document.getElementById('saldo_vendedor_id').value = id;
+            document.getElementById('saldo_vendedor_nombre').value = nombre;
+            openModal('saldoModal');
+        }
+    </script>
+</body>
+</html>

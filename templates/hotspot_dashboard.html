@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuzoNet Manager - Hotspot Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        <div class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-ticket-alt"></i> Dashboard Hotspot</h1>
+                <p class="header-subtitle">Resumen general de fichas, ventas y operaciones del sistema Hotspot</p>
+            </div>
+            <div class="header-right">
+                <a href="/admin/hotspot/fichas" class="btn btn-primary">
+                    <i class="fas fa-print"></i> Imprimir Fichas
+                </a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages" style="margin-bottom: 24px;">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="padding: 16px; border-radius: 10px; background: rgba(0, 212, 255, 0.1); border-left: 4px solid var(--primary); color: white; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                <i class="fas fa-info-circle" style="color: var(--primary);"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Estadísticas Principales -->
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <i class="fas fa-ticket-alt"></i>
+                </div>
+                <div class="stat-info">
+                    <p>Fichas Totales</p>
+                    <h3>{{ total_vouchers }}</h3>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="stat-info">
+                    <p>Recaudación Histórica</p>
+                    <h3>Q. {{ "%.2f"|format(ganancia_total) }}</h3>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-info">
+                    <p>RBs Activos</p>
+                    <h3>{{ routers|length }}</h3>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon red">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <p>Vendedores</p>
+                    <h3>{{ vendedores|length }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección Principal -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+            
+            <!-- Últimas Ventas/Recargas -->
+            <div class="table-section">
+                <div class="table-header">
+                    <h2><i class="fas fa-history"></i> Actividad Reciente de Vendedores</h2>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Vendedor</th>
+                                <th>Tipo</th>
+                                <th>Monto</th>
+                                <th>Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in transacciones[:10] %}
+                            <tr>
+                                <td>{{ t.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td><div class="client-info"><span class="client-name">{{ t.vendedor.nombre }}</span></div></td>
+                                <td>
+                                    {% if t.tipo == 'abono' %}
+                                        <span class="stat-badge active" style="background: rgba(16,185,129,0.2); color: var(--success);">Abono</span>
+                                    {% else %}
+                                        <span class="stat-badge" style="background: rgba(239,68,68,0.2); color: var(--danger);">Cargo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if t.tipo == 'abono' %}
+                                        <span style="color: var(--success);">+ Q.{{ "%.2f"|format(t.monto) }}</span>
+                                    {% else %}
+                                        <span style="color: var(--danger);">- Q.{{ "%.2f"|format(t.monto) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><span style="color: var(--text-muted); font-size: 0.85em;">{{ t.descripcion }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">No hay transacciones recientes</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Top Planes -->
+            <div class="table-section">
+                <div class="table-header">
+                    <h2><i class="fas fa-star"></i> Top Planes / Perfiles</h2>
+                </div>
+                <div class="table-container" style="padding: 20px;">
+                    <ul style="list-style: none; padding: 0;">
+                        {% for plan in planes %}
+                        <li style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-size: 0.8em; font-weight: bold; color: white;">
+                                    {{ loop.index }}
+                                </div>
+                                <span>{{ plan.nombre }}</span>
+                            </div>
+                            <span style="font-weight: 600; color: var(--success);">Q. {{ "%.2f"|format(plan.precio) }}</span>
+                        </li>
+                        {% else %}
+                        <li style="color: var(--text-muted); text-align: center; padding: 20px;">No hay planes registrados</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+</body>
+</html>
