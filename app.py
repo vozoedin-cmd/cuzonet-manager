@@ -3782,6 +3782,24 @@ def hotspot_vendedor_nuevo():
     routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
     return render_template('hotspot_vendedor_crear.html', routers=routers)
 
+@app.route('/admin/hotspot/fichas')
+@login_required
+@admin_required
+def hotspot_fichas():
+    planes = PlanHotspot.query.filter_by(activo=True).all()
+    return render_template('hotspot_impresion_multiple.html', planes=planes)
+
+@app.route('/admin/hotspot/fichas/generar_masivo', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_generar_masivo():
+    plan_id = request.form.get('plan_id')
+    cantidad = int(request.form.get('cantidad', 1))
+    
+    # Pendiente: Lógica de MikroTik para creación en lote real
+    flash(f'Lote de {cantidad} fichas en proceso de generación (Función en desarrollo)', 'info')
+    return redirect(url_for('hotspot_fichas'))
+
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
 @login_required
 @admin_required

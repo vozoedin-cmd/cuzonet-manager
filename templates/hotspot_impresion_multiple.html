@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impresión Múltiple - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .pro-form-container {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            padding: 32px;
+            max-width: 800px;
+            margin: 40px auto;
+            box-shadow: var(--shadow-lg);
+        }
+        .pro-header {
+            background: linear-gradient(135deg, #e63946 0%, #b71c1c 100%);
+            padding: 24px 32px;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            margin: -32px -32px 32px -32px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.2);
+        }
+        .pro-header h2 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+    </style>
+</head>
+
+<body>
+    <!-- Fondo animado -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-3"></div>
+        </div>
+    </div>
+
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages" style="margin-bottom: 24px; max-width: 800px; margin: 0 auto 24px auto;">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="padding: 16px; border-radius: 10px; background: rgba(0, 212, 255, 0.1); border-left: 4px solid var(--primary); color: white; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                <i class="fas fa-info-circle" style="color: var(--primary);"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div class="pro-form-container">
+            <div class="pro-header">
+                <h2><i class="fas fa-print"></i> Impresión Múltiple</h2>
+            </div>
+            
+            <form action="/admin/hotspot/fichas/generar_masivo" method="POST" style="margin-top: 40px; padding-bottom: 20px;">
+                <div class="form-row" style="align-items: center; justify-content: center; display: flex; flex-direction: column; gap: 30px;">
+                    <div class="form-group" style="width: 100%; max-width: 500px;">
+                        <label style="font-weight: 600; font-size: 1.05rem; color: var(--text-primary);">
+                            Plan <span style="color: #e63946;">*</span>
+                        </label>
+                        <select name="plan_id" class="form-control" style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 14px; font-size: 1rem; border-radius: 8px;" required>
+                            <option value="">Seleccione el plan</option>
+                            {% for p in planes %}
+                                <option value="{{ p.id }}">{{ p.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="width: 100%; max-width: 500px;">
+                        <label style="font-weight: 600; font-size: 1.05rem; color: var(--text-primary);">
+                            Cantidad Fichas a Crear <span style="color: #e63946;">*</span>
+                        </label>
+                        <input type="number" name="cantidad" class="form-control" style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 14px; font-size: 1rem; border-radius: 8px;" min="1" max="500" required>
+                    </div>
+                    
+                    <div class="form-group" style="width: 100%; max-width: 500px; margin-top: 20px; text-align: center;">
+                        <button type="submit" class="btn" style="padding: 16px 40px; font-size: 1.2rem; background: #2e7d32; color: white; border-radius: 8px; width: 100%; font-weight: 600; transition: transform 0.2s, background 0.2s; cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);" onmouseover="this.style.background='#1b5e20'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#2e7d32'; this.style.transform='translateY(0)'">
+                            Generar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
