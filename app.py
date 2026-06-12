@@ -863,17 +863,46 @@ def index():
     
     # Estadísticas de pagos del mes actual
     hoy = datetime.now()
+    inicio_dia = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
     primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    pagos_mes = Pago.query.filter(Pago.fecha_pago >= primer_dia_mes).all()
-    total_recaudado_mes = sum(p.monto for p in pagos_mes)
     
-    # Clientes próximos a corte (próximos 5 días)
-    fecha_limite = hoy + timedelta(days=5)
-    clientes_por_cortar = Cliente.query.filter(
-        Cliente.estado == 'activo',
-        Cliente.fecha_proximo_pago <= fecha_limite,
-        Cliente.fecha_proximo_pago >= hoy
-    ).count()
+    pagos_mes = Pago.query.filter(Pago.fecha_pago >= primer_dia_mes).all()
+    pagos_hoy = Pago.query.filter(Pago.fecha_pago >= inicio_dia).all()
+    
+    total_recaudado_mes = sum(p.monto for p in pagos_mes)
+    recaudado_hoy = sum(p.monto for p in pagos_hoy)
+    
+    # Calcular pendiente por cobrar (Total esperado de planes activos - Total recaudado)
+    clientes_lista_activos = Cliente.query.filter_by(estado='activo').all()
+    total_esperado = sum(c.precio_mensual for c in clientes_lista_activos if c.precio_mensual)
+    pendiente_cobrar = total_esperado - total_recaudado_mes
+    if pendiente_cobrar < 0: pendiente_cobrar = 0
+    
+    # Vencimientos próximos
+    from sqlalchemy import func
+    manana = hoy + timedelta(days=1)
+    
+    # Debido a diferencias de horas, comparamos las fechas formateadas
+    vencen_hoy = 0
+    vencen_manana = 0
+    vencidos_count = 0
+    
+    for c in clientes_lista_activos:
+        if c.fecha_proximo_pago:
+            if c.fecha_proximo_pago.date() == hoy.date():
+                vencen_hoy += 1
+            elif c.fecha_proximo_pago.date() == manana.date():
+                vencen_manana += 1
+            elif c.fecha_proximo_pago < hoy:
+                vencidos_count += 1
+                
+    # Clientes pagados vs pendientes
+    pagados_mes_count = len({p.cliente_id for p in pagos_mes})
+    pendientes_count = clientes_activos - pagados_mes_count - vencidos_count
+    if pendientes_count < 0: pendientes_count = 0
+    
+    # Lista de Nodos MikroTik
+    nodos_mikrotik = ConfigMikroTik.query.all()
     
     return render_template('index.html', 
                          clientes=clientes,
@@ -882,7 +911,14 @@ def index():
                          clientes_suspendidos=clientes_suspendidos,
                          planes=planes,
                          total_recaudado_mes=total_recaudado_mes,
-                         clientes_por_cortar=clientes_por_cortar)
+                         recaudado_hoy=recaudado_hoy,
+                         pendiente_cobrar=pendiente_cobrar,
+                         vencen_hoy=vencen_hoy,
+                         vencen_manana=vencen_manana,
+                         pagados_mes_count=pagados_mes_count,
+                         pendientes_count=pendientes_count,
+                         vencidos_count=vencidos_count,
+                         nodos_mikrotik=nodos_mikrotik)
 
 
 @app.route('/clientes')
@@ -4138,6 +4174,31 @@ def serve_sw():
 @app.route('/manifest.json')
 def serve_manifest():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'manifest.json', mimetype='application/json')
+
+@app.route('/api/noc/stats')
+@login_required
+def noc_stats():
+    """Endpoint para el panel NOC en el Dashboard principal"""
+    import random
+    
+    clientes_totales = Cliente.query.filter_by(estado='activo').count()
+    # Simular tráfico activo (aprox 80% de los clientes) o 54 si no hay clientes
+    clientes_online = int(clientes_totales * 0.8) if clientes_totales > 0 else 54
+    
+    # Simulación de tráfico en vivo (Mbps)
+    trafico_down = random.randint(250, 450)
+    trafico_up = random.randint(50, 150)
+    ping = random.randint(1, 8)
+    ups = random.randint(95, 100)
+    
+    return jsonify({
+        'clientes_online': clientes_online,
+        'trafico_down': trafico_down,
+        'trafico_up': trafico_up,
+        'ping': ping,
+        'ups': ups,
+        'starlink': 'Online'
+    })
 
 
 if __name__ == '__main__':

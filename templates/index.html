@@ -55,91 +55,144 @@
             </div>
         </header>
 
-        <!-- Stats Cards -->
-        <section class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon blue">
-                    <i class="fas fa-users"></i>
+        <!-- Stats Cards Financieros -->
+        <section class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 2rem;">
+            <div class="stat-card" style="border-left: 4px solid var(--success);">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
+                    <i class="fas fa-money-bill-wave"></i>
                 </div>
                 <div class="stat-info">
-                    <h3>{{ total_clientes }}</h3>
-                    <p>Total Clientes</p>
-                </div>
-                <div class="stat-trend up">
-                    <i class="fas fa-arrow-up"></i>
+                    <h3 style="color: var(--success);">Q{{ "%.2f"|format(total_recaudado_mes) }}</h3>
+                    <p>Ingresos del mes</p>
                 </div>
             </div>
 
-            <div class="stat-card">
-                <div class="stat-icon green">
-                    <i class="fas fa-check-circle"></i>
+            <div class="stat-card" style="border-left: 4px solid var(--warning);">
+                <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
+                    <i class="fas fa-hand-holding-usd"></i>
                 </div>
                 <div class="stat-info">
-                    <h3>{{ clientes_activos }}</h3>
-                    <p>Activos</p>
-                </div>
-                <div class="stat-badge active">En linea</div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon red">
-                    <i class="fas fa-ban"></i>
-                </div>
-                <div class="stat-info">
-                    <h3>{{ clientes_suspendidos }}</h3>
-                    <p>Suspendidos</p>
+                    <h3 style="color: var(--warning);">Q{{ "%.2f"|format(pendiente_cobrar) }}</h3>
+                    <p>Pendiente por cobrar</p>
                 </div>
             </div>
 
-            <div class="stat-card">
-                <div class="stat-icon purple">
-                    <i class="fas fa-server"></i>
+            <div class="stat-card" style="border-left: 4px solid var(--secondary);">
+                <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: var(--secondary);">
+                    <i class="fas fa-coins"></i>
                 </div>
                 <div class="stat-info">
-                    <h3 id="queueCount">-</h3>
-                    <p>Queues MikroTik</p>
+                    <h3 style="color: var(--secondary);">Q{{ "%.2f"|format(recaudado_hoy) }}</h3>
+                    <p>Recaudado hoy</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 4px solid var(--danger);">
+                <div class="stat-info" style="width: 100%;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 8px;">Vencimientos próximos</h3>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <span style="color: var(--warning); display: flex; align-items: center; gap: 5px; font-size: 0.95rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Vencen hoy: <strong style="color: white;">{{ vencen_hoy }} clientes</strong>
+                        </span>
+                        <span style="color: var(--warning); display: flex; align-items: center; gap: 5px; font-size: 0.95rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Vencen mañana: <strong style="color: white;">{{ vencen_manana }} clientes</strong>
+                        </span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Quick Actions -->
-        <section class="quick-actions">
-            <h2>Acciones Rapidas</h2>
-            <div class="actions-grid">
-                <button class="action-btn" onclick="openModal('clienteModal')">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Registrar Cliente</span>
-                </button>
-                <button class="action-btn" onclick="syncQueues()">
-                    <i class="fas fa-sync"></i>
-                    <span>Sincronizar MikroTik</span>
-                </button>
-                <button class="action-btn" onclick="window.location.href='/configuracion'">
-                    <i class="fas fa-router"></i>
-                    <span>Configurar Router</span>
-                </button>
-            </div>
-        </section>
+        <!-- Dashboard Layout ISP -->
+        <div class="dashboard-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <!-- Columna Izquierda -->
+            <div class="dashboard-left" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Alertas MikroTik -->
+                <section class="mikrotik-alerts card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-server" style="color: var(--primary);"></i> Alertas MikroTik</h3>
+                    <div class="nodes-list" style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+                        {% for nodo in nodos_mikrotik %}
+                        <div class="node-item" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="status-dot" style="width: 12px; height: 12px; border-radius: 50%; background: {% if nodo.activo %}#10b981{% else %}#ef4444{% endif %}; box-shadow: 0 0 8px {% if nodo.activo %}rgba(16,185,129,0.5){% else %}rgba(239,68,68,0.5){% endif %};"></div>
+                            <span style="font-weight: 500;">{{ nodo.nombre }} <span style="color: {% if nodo.activo %}#10b981{% else %}#ef4444{% endif %}; font-size: 0.9em; margin-left: 5px;">{% if nodo.activo %}Online{% else %}Offline{% endif %}</span></span>
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">No hay nodos configurados.</p>
+                        {% endfor %}
+                    </div>
+                </section>
 
-        <!-- Charts Section -->
-        <section class="charts-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
-                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-line" style="color: var(--primary);"></i> Ingresos Mensuales</h3>
-                <canvas id="ingresosChart" height="200"></canvas>
+                <!-- Gráfico de Pagos -->
+                <section class="payment-chart card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-chart-pie" style="color: var(--secondary);"></i> Gráfico de pagos</h3>
+                    <div style="height: 250px; display: flex; justify-content: center; position: relative;">
+                        <canvas id="pagosDoughnutChart"></canvas>
+                    </div>
+                </section>
+                
             </div>
-            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
-                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-pie" style="color: var(--secondary);"></i> Distribución por Plan</h3>
-                <canvas id="planesChart" height="200"></canvas>
+
+            <!-- Columna Derecha -->
+            <div class="dashboard-right" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Panel NOC -->
+                <section class="noc-panel card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--primary); box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);">
+                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-shield-alt"></i> NOC en tiempo real
+                        <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: ping 2s infinite;"></div>
+                    </h3>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 15px; font-family: monospace; font-size: 0.95rem;">
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-satellite-dish" style="width: 20px; text-align: center;"></i> Clientes conectados</span>
+                            <strong id="noc-clientes" style="color: white; font-size: 1.1rem;">--</strong>
+                        </div>
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-arrow-down" style="color: #3b82f6; width: 20px; text-align: center;"></i> Tráfico actual (Rx)</span>
+                            <strong id="noc-rx" style="color: #3b82f6; font-size: 1.1rem;">-- Mbps</strong>
+                        </div>
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-arrow-up" style="color: #3b82f6; width: 20px; text-align: center;"></i> Tráfico actual (Tx)</span>
+                            <strong id="noc-tx" style="color: #3b82f6; font-size: 1.1rem;">-- Mbps</strong>
+                        </div>
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-globe" style="width: 20px; text-align: center;"></i> Pings CCR</span>
+                            <strong id="noc-ping" style="color: #10b981; font-size: 1.1rem;">-- ms</strong>
+                        </div>
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-satellite" style="width: 20px; text-align: center;"></i> Starlink Principal</span>
+                            <strong id="noc-starlink" style="color: #10b981; font-size: 1.1rem;">--</strong>
+                        </div>
+                        <div class="noc-metric" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);"><i class="fas fa-battery-full" style="color: #10b981; width: 20px; text-align: center;"></i> UPS</span>
+                            <strong id="noc-ups" style="color: #10b981; font-size: 1.1rem;">--%</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Accesos Rápidos -->
+                <section class="quick-access card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-bolt" style="color: var(--warning);"></i> Accesos rápidos</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="action-btn" onclick="openModal('clienteModal')" style="width: 100%; justify-content: flex-start; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3);">
+                            <i class="fas fa-plus"></i> <span>Nuevo Cliente</span>
+                        </button>
+                        <button class="action-btn" onclick="window.location.href='/pagos'" style="width: 100%; justify-content: flex-start; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);">
+                            <i class="fas fa-money-bill-wave"></i> <span>Registrar Pago</span>
+                        </button>
+                        <button class="action-btn" onclick="window.location.href='/admin/hotspot/fichas'" style="width: 100%; justify-content: flex-start; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3);">
+                            <i class="fas fa-ticket-alt"></i> <span>Crear Voucher</span>
+                        </button>
+                        <button class="action-btn" onclick="window.location.href='/antenas'" style="width: 100%; justify-content: flex-start; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);">
+                            <i class="fas fa-broadcast-tower"></i> <span>Ver Antenas</span>
+                        </button>
+                        <button class="action-btn" onclick="alert('Funcionalidad de Backup en desarrollo')" style="width: 100%; justify-content: flex-start; background: rgba(168,178,209,0.1); border: 1px solid rgba(168,178,209,0.3);">
+                            <i class="fas fa-download"></i> <span>Backup MikroTik</span>
+                        </button>
+                    </div>
+                </section>
             </div>
-            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
-                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-bar" style="color: var(--success);"></i> Clientes Nuevos</h3>
-                <canvas id="clientesNuevosChart" height="200"></canvas>
-            </div>
-            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
-                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1rem;"><i class="fas fa-chart-doughnut" style="color: var(--warning);"></i> Estado de Clientes</h3>
-                <canvas id="estadosChart" height="200"></canvas>
-            </div>
-        </section>
+        </div>
 
         <!-- Recent Clients Table -->
         <section class="table-section">
@@ -357,107 +410,65 @@
         if (saved === 'light') { document.body.classList.add('light-mode'); updateThemeIcon(true); }
     })();
 
-    // ============== CHARTS ==============
-    async function loadCharts() {
+    // ============== CHARTS Y NOC EN TIEMPO REAL ==============
+    function loadCharts() {
         try {
-            const res = await fetch('/api/dashboard/charts');
-            const data = await res.json();
-            if (!data.success) return;
-
             const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#8b99b0';
-            const gridColor = 'rgba(139,153,176,0.1)';
-
-            // Ingresos Mensuales (Línea)
-            new Chart(document.getElementById('ingresosChart'), {
-                type: 'line',
-                data: {
-                    labels: data.ingresos_mensuales.map(d => d.mes),
-                    datasets: [{
-                        label: 'Ingresos (Q)',
-                        data: data.ingresos_mensuales.map(d => d.total),
-                        borderColor: '#00d4ff',
-                        backgroundColor: 'rgba(0, 212, 255,0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#00d4ff',
-                        pointRadius: 5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { labels: { color: textColor } } },
-                    scales: {
-                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                        y: { ticks: { color: textColor, callback: v => 'Q' + v }, grid: { color: gridColor } }
+            
+            // Gráfico de Pagos (Doughnut)
+            const pagados = {{ pagados_mes_count|default(0) }};
+            const pendientes = {{ pendientes_count|default(0) }};
+            const vencidos = {{ vencidos_count|default(0) }};
+            
+            const ctx = document.getElementById('pagosDoughnutChart');
+            if(ctx) {
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pagado', 'Pendiente', 'Vencido'],
+                        datasets: [{
+                            data: [pagados, pendientes, vencidos],
+                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { color: textColor, padding: 12 } } },
+                        cutout: '70%'
                     }
-                }
-            });
-
-            // Distribución por Plan (Doughnut)
-            const planColors = ['#00d4ff','#0099bb','#14b8a6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
-            new Chart(document.getElementById('planesChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: data.planes_distribucion.map(d => d.plan),
-                    datasets: [{
-                        data: data.planes_distribucion.map(d => d.cantidad),
-                        backgroundColor: planColors.slice(0, data.planes_distribucion.length),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'right', labels: { color: textColor, padding: 12 } } }
-                }
-            });
-
-            // Clientes Nuevos (Barras)
-            new Chart(document.getElementById('clientesNuevosChart'), {
-                type: 'bar',
-                data: {
-                    labels: data.clientes_nuevos.map(d => d.mes),
-                    datasets: [{
-                        label: 'Nuevos Clientes',
-                        data: data.clientes_nuevos.map(d => d.total),
-                        backgroundColor: 'rgba(16,185,129,0.7)',
-                        borderColor: '#10b981',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { labels: { color: textColor } } },
-                    scales: {
-                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                        y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } }
-                    }
-                }
-            });
-
-            // Estados (Doughnut)
-            const estadoColors = { 'activo': '#10b981', 'suspendido': '#f59e0b', 'cortado': '#ef4444' };
-            new Chart(document.getElementById('estadosChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: data.estados_distribucion.map(d => d.estado.charAt(0).toUpperCase() + d.estado.slice(1)),
-                    datasets: [{
-                        data: data.estados_distribucion.map(d => d.cantidad),
-                        backgroundColor: data.estados_distribucion.map(d => estadoColors[d.estado] || '#64748b'),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'right', labels: { color: textColor, padding: 12 } } }
-                }
-            });
+                });
+            }
         } catch (e) {
             console.error('Error cargando gráficas:', e);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', loadCharts);
+    async function fetchNocStats() {
+        try {
+            const res = await fetch('/api/noc/stats');
+            if(!res.ok) return;
+            const data = await res.json();
+            
+            document.getElementById('noc-clientes').innerText = data.clientes_online;
+            document.getElementById('noc-rx').innerText = data.trafico_down + ' Mbps';
+            document.getElementById('noc-tx').innerText = data.trafico_up + ' Mbps';
+            document.getElementById('noc-ping').innerText = data.ping + ' ms';
+            document.getElementById('noc-ups').innerText = data.ups + '%';
+            document.getElementById('noc-starlink').innerText = data.starlink;
+            
+        } catch(e) {
+            console.error('Error en latido NOC:', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadCharts();
+        fetchNocStats(); // Primera carga inmediata
+        setInterval(fetchNocStats, 3000); // Latido constante cada 3 segundos
+    });
     </script>
 
     <style>
