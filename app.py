@@ -886,20 +886,37 @@ def index():
     vencen_hoy = 0
     vencen_manana = 0
     vencidos_count = 0
+    monto_vencido = 0
+    monto_pendiente = 0
     
     for c in clientes_lista_activos:
+        precio = c.precio_mensual or 0
         if c.fecha_proximo_pago:
             if c.fecha_proximo_pago.date() == hoy.date():
                 vencen_hoy += 1
             elif c.fecha_proximo_pago.date() == manana.date():
                 vencen_manana += 1
-            elif c.fecha_proximo_pago < hoy:
+            
+            if c.fecha_proximo_pago < hoy:
                 vencidos_count += 1
+                monto_vencido += precio
+            else:
+                # Si no está vencido, veamos si ya pagó este mes
+                if c.id not in {p.cliente_id for p in pagos_mes}:
+                    monto_pendiente += precio
                 
     # Clientes pagados vs pendientes
     pagados_mes_count = len({p.cliente_id for p in pagos_mes})
     pendientes_count = clientes_activos - pagados_mes_count - vencidos_count
     if pendientes_count < 0: pendientes_count = 0
+    
+    # Porcentaje de morosidad
+    porcentaje_morosidad = int((vencidos_count / clientes_activos * 100)) if clientes_activos > 0 else 0
+    
+    # Nuevos clientes y crecimiento
+    clientes_nuevos_mes = Cliente.query.filter(Cliente.fecha_registro >= primer_dia_mes).count()
+    clientes_mes_pasado = total_clientes - clientes_nuevos_mes
+    crecimiento = int((clientes_nuevos_mes / clientes_mes_pasado * 100)) if clientes_mes_pasado > 0 else (100 if clientes_nuevos_mes > 0 else 0)
     
     # Lista de Nodos MikroTik
     nodos_mikrotik = ConfigMikroTik.query.all()
@@ -918,6 +935,12 @@ def index():
                          pagados_mes_count=pagados_mes_count,
                          pendientes_count=pendientes_count,
                          vencidos_count=vencidos_count,
+                         monto_pagado=total_recaudado_mes,
+                         monto_pendiente=monto_pendiente,
+                         monto_vencido=monto_vencido,
+                         porcentaje_morosidad=porcentaje_morosidad,
+                         clientes_nuevos_mes=clientes_nuevos_mes,
+                         crecimiento=crecimiento,
                          nodos_mikrotik=nodos_mikrotik)
 
 

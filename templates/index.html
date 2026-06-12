@@ -55,6 +55,16 @@
             </div>
         </header>
 
+        <!-- Fila de resumen de clientes -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--primary);">
+            <div style="display: flex; gap: 20px; font-size: 0.95rem;">
+                <span><strong style="color: white;">{{ total_clientes }}</strong> Clientes</span>
+                <span style="color: var(--text-muted);"><strong style="color: var(--success);">{{ clientes_activos }}</strong> Activos</span>
+                <span style="color: var(--text-muted);"><strong style="color: var(--danger);">{{ clientes_suspendidos }}</strong> Suspendidos</span>
+            </div>
+            <i class="fas fa-users" style="color: var(--text-muted);"></i>
+        </div>
+
         <!-- Stats Cards Financieros -->
         <section class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 2rem;">
             <div class="stat-card" style="border-left: 4px solid var(--success);">
@@ -68,12 +78,18 @@
             </div>
 
             <div class="stat-card" style="border-left: 4px solid var(--warning);">
-                <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
-                    <i class="fas fa-hand-holding-usd"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 style="color: var(--warning);">Q{{ "%.2f"|format(pendiente_cobrar) }}</h3>
-                    <p>Pendiente por cobrar</p>
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                    <div class="stat-info" style="flex: 1;">
+                        <h3 style="color: var(--warning);">Q{{ "%.2f"|format(pendiente_cobrar) }}</h3>
+                        <p>Pendiente por cobrar</p>
+                        <div style="margin-top: 10px; background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; font-size: 0.85rem; color: var(--text-muted);">
+                            <span style="color: white;">{{ pendientes_count }} clientes pendientes</span><br>
+                            Morosidad: <strong style="color: {% if porcentaje_morosidad > 15 %}var(--danger){% else %}var(--warning){% endif %};">{{ porcentaje_morosidad }}%</strong>
+                        </div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); width: 40px; height: 40px; flex-shrink: 0;">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </div>
                 </div>
             </div>
 
@@ -96,6 +112,20 @@
                         </span>
                         <span style="color: var(--warning); display: flex; align-items: center; gap: 5px; font-size: 0.95rem;">
                             <i class="fas fa-exclamation-triangle"></i> Vencen mañana: <strong style="color: white;">{{ vencen_manana }} clientes</strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 4px solid var(--primary);">
+                <div class="stat-info" style="width: 100%;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 8px;">Crecimiento de Red</h3>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <span style="color: var(--primary); display: flex; align-items: center; gap: 5px; font-size: 0.95rem;">
+                            <i class="fas fa-chart-line"></i> Nuevos clientes: <strong style="color: white;">{{ clientes_nuevos_mes }}</strong>
+                        </span>
+                        <span style="color: {% if crecimiento >= 0 %}var(--success){% else %}var(--danger){% endif %}; display: flex; align-items: center; gap: 5px; font-size: 0.95rem;">
+                            <i class="fas fa-percentage"></i> Crecimiento: <strong style="color: white;">{% if crecimiento >= 0 %}+{% endif %}{{ crecimiento }}%</strong>
                         </span>
                     </div>
                 </div>
@@ -127,6 +157,20 @@
                     <h3 style="margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-chart-pie" style="color: var(--secondary);"></i> Gráfico de pagos</h3>
                     <div style="height: 250px; display: flex; justify-content: center; position: relative;">
                         <canvas id="pagosDoughnutChart"></canvas>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; font-size: 0.95rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);"><i class="fas fa-circle" style="color: #10b981; font-size: 0.6rem; vertical-align: middle; margin-right: 5px;"></i> Pagado:</span>
+                            <strong style="color: white;">Q{{ "%.2f"|format(monto_pagado|default(0)) }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);"><i class="fas fa-circle" style="color: #f59e0b; font-size: 0.6rem; vertical-align: middle; margin-right: 5px;"></i> Pendiente:</span>
+                            <strong style="color: white;">Q{{ "%.2f"|format(monto_pendiente|default(0)) }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);"><i class="fas fa-circle" style="color: #ef4444; font-size: 0.6rem; vertical-align: middle; margin-right: 5px;"></i> Vencido:</span>
+                            <strong style="color: white;">Q{{ "%.2f"|format(monto_vencido|default(0)) }}</strong>
+                        </div>
                     </div>
                 </section>
                 
@@ -455,9 +499,28 @@
             document.getElementById('noc-clientes').innerText = data.clientes_online;
             document.getElementById('noc-rx').innerText = data.trafico_down + ' Mbps';
             document.getElementById('noc-tx').innerText = data.trafico_up + ' Mbps';
-            document.getElementById('noc-ping').innerText = data.ping + ' ms';
-            document.getElementById('noc-ups').innerText = data.ups + '%';
-            document.getElementById('noc-starlink').innerText = data.starlink;
+            
+            // Logica de colores
+            const pingEl = document.getElementById('noc-ping');
+            if (data.ping < 20) {
+                pingEl.style.color = '#10b981';
+                pingEl.innerText = '🟢 ' + data.ping + ' ms';
+            } else if (data.ping <= 50) {
+                pingEl.style.color = '#f59e0b';
+                pingEl.innerText = '🟡 ' + data.ping + ' ms';
+            } else {
+                pingEl.style.color = '#ef4444';
+                pingEl.innerText = '🔴 ' + data.ping + ' ms';
+            }
+            
+            const upsEl = document.getElementById('noc-ups');
+            if (data.ups > 50) { upsEl.style.color = '#10b981'; upsEl.innerText = '🟢 ' + data.ups + '%'; }
+            else if (data.ups > 20) { upsEl.style.color = '#f59e0b'; upsEl.innerText = '🟡 ' + data.ups + '%'; }
+            else { upsEl.style.color = '#ef4444'; upsEl.innerText = '🔴 ' + data.ups + '%'; }
+            
+            const slEl = document.getElementById('noc-starlink');
+            if (data.starlink === 'Online') { slEl.style.color = '#10b981'; slEl.innerText = '🟢 Online'; }
+            else { slEl.style.color = '#ef4444'; slEl.innerText = '🔴 Offline'; }
             
         } catch(e) {
             console.error('Error en latido NOC:', e);
