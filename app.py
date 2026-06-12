@@ -4064,15 +4064,22 @@ def analizar_alerta_con_ia(alerta_id, contexto_alerta):
 
 
 @app.route('/api/webhook/omada', methods=['POST'])
+@app.route('/api/webhook/omada/', methods=['POST'])
 def webhook_omada():
     """Recibe las alertas de TP-Link Omada Controller"""
     try:
-        # Omada envía los datos en JSON
-        data = request.json or {}
+        # Omada a veces no envía Content-Type: application/json, forzamos su lectura
+        data = request.get_json(force=True, silent=True)
+        if not data and request.data:
+            try:
+                data = json.loads(request.data)
+            except:
+                data = {}
+        data = data or {}
         
         # Extraer información basándonos en el JSON real de Omada
-        mensaje_crudo = data.get('text') or data.get('description') or 'Alerta sin mensaje'
-        dispositivo = data.get('Site') or 'Desconocido'
+        mensaje_crudo = data.get('text') or data.get('description') or data.get('message') or data.get('content') or 'Alerta sin mensaje'
+        dispositivo = data.get('Site') or data.get('site') or data.get('deviceMac') or data.get('apMac') or 'Desconocido'
         
         # Limpiar el mensaje si viene como una cadena JSON interna (ej. [{"operation": "... "}])
         mensaje_limpio = mensaje_crudo
