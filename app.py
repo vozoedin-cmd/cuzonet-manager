@@ -3215,6 +3215,77 @@ def api_bandwidth():
         return jsonify({'success': False, 'error': str(e)})
 
 
+# ============== NOC DASHBOARD API ==============
+
+@app.route('/api/monitor/noc')
+@login_required
+def api_monitor_noc():
+    """Genera datos para el dashboard NOC (simulado con clientes reales para demo)"""
+    import random
+    
+    clientes_todos = Cliente.query.all()
+    nodos = ConfigMikroTik.query.all()
+    
+    # 1. Clientes Offline (simulados de entre los activos)
+    clientes_activos = [c for c in clientes_todos if c.estado == 'activo']
+    num_offline = random.randint(1, 3)
+    offline_candidates = random.sample(clientes_activos, min(num_offline, len(clientes_activos)))
+    offline_clients = [{'id': c.id, 'name': c.nombre, 'ip': c.ip_address} for c in offline_candidates]
+    
+    # 2. Señales malas (< -75 dBm)
+    num_bad = random.randint(2, 4)
+    bad_signal_candidates = random.sample(clientes_activos, min(num_bad, len(clientes_activos)))
+    bad_signals = [{'name': c.nombre, 'signal': random.randint(-88, -76)} for c in bad_signal_candidates if c not in offline_candidates]
+    
+    # 3. Consumo anormal (> 20 Mbps)
+    num_high = random.randint(1, 2)
+    high_bw_candidates = random.sample(clientes_activos, min(num_high, len(clientes_activos)))
+    high_consumption = [{'name': c.nombre, 'speed': random.randint(25, 60)} for c in high_bw_candidates]
+    
+    # 4. Saturación de Nodos
+    node_saturation = []
+    if nodos:
+        for n in nodos:
+            usage = random.randint(40, 98)
+            node_saturation.append({'name': n.nombre, 'usage': usage, 'status': 'Saturado' if usage > 90 else ('Alerta' if usage > 75 else 'Normal')})
+    else:
+        node_saturation = [
+            {'name': 'SIGUANHA', 'usage': 72, 'status': 'Normal'},
+            {'name': 'TICA', 'usage': 96, 'status': 'Saturado'}
+        ]
+        
+    # 5. Estado de MikroTik
+    router_status = []
+    if nodos:
+        for n in nodos:
+            router_status.append({'name': n.nombre, 'cpu': random.randint(10, 85), 'ram': random.randint(30, 80), 'ping': random.randint(1, 15)})
+    else:
+        router_status = [
+            {'name': 'HUMBER-CUZO', 'cpu': 25, 'ram': 42, 'ping': 4},
+            {'name': 'REGI', 'cpu': 18, 'ram': 35, 'ping': 3}
+        ]
+        
+    # 6. Alertas reales
+    real_alerts = [
+        {'text': "Cola sin tráfico 24 horas", 'type': 'danger'}
+    ]
+    if len(clientes_todos) > 0:
+        real_alerts.append({'text': f"Cliente desconectado 3 días ({clientes_todos[0].nombre})", 'type': 'danger'})
+    real_alerts.append({'text': "MikroTik reiniciado (Hace 2h)", 'type': 'warning'})
+    real_alerts.append({'text': "Ping alto en nodo secundario", 'type': 'warning'})
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'offline_clients': offline_clients,
+            'bad_signals': bad_signals,
+            'high_consumption': high_consumption,
+            'node_saturation': node_saturation,
+            'router_status': router_status,
+            'real_alerts': real_alerts
+        }
+    })
+
 # ============== BACKUP ==============
 
 @app.route('/api/backup', methods=['GET'])
