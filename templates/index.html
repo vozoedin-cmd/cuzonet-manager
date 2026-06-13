@@ -329,23 +329,23 @@
                             
                             <!-- ACCIONES AGRUPADAS -->
                             <td style="padding: 15px; border-radius: 0 8px 8px 0; border: 1px solid var(--border-color); border-left: none; text-align: right; overflow: visible;">
-                                <div style="display: flex; gap: 5px; justify-content: flex-end; align-items: center;">
-                                    <button onclick="verHistorial({{ cliente.id }})" style="background: rgba(0, 212, 255, 0.1); color: var(--primary); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Ver">
+                                <div class="action-buttons" style="display: flex; gap: 5px; justify-content: flex-end; align-items: center;">
+                                    <button class="btn-icon view" onclick="verHistorial({{ cliente.id }})" title="Ver detalles">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button onclick="window.location.href='/cliente/{{ cliente.id }}'" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Editar">
+                                    <button class="btn-icon info" onclick="window.location.href='/cliente/{{ cliente.id }}'" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button onclick="window.location.href='/pagos'" style="background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Cobrar">
-                                        <i class="fas fa-money-bill-wave"></i>
+                                    <button class="btn-icon pay" onclick="abrirPagoRapido({{ cliente.id }}, '{{ cliente.nombre }}', {{ cliente.precio_mensual or 0 }})" title="Registrar Pago">
+                                        <i class="fas fa-dollar-sign"></i>
                                     </button>
                                     
                                     <!-- Dropdown -->
                                     <div class="action-dropdown" style="position: relative; display: inline-block;">
-                                        <button onclick="toggleDropdown(this)" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;">
+                                        <button class="btn-icon" onclick="toggleDropdown(this)" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);" title="Más acciones">
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
-                                        <div class="dropdown-content" style="display: none; position: absolute; right: 0; bottom: 100%; margin-bottom: 5px; background: var(--bg-card); min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 1000; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; text-align: left;">
+                                        <div class="dropdown-content" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--bg-card); min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.8); z-index: 9999; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; text-align: left;">
                                             <a href="#" onclick="suspenderCliente({{ cliente.id }})" style="color: var(--warning); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-pause w-20px"></i> Suspender</a>
                                             <a href="#" onclick="activarCliente({{ cliente.id }})" style="color: var(--success); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-play w-20px"></i> Reactivar</a>
                                             <a href="#" style="color: var(--primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-map-marker-alt w-20px"></i> Ver ubicación</a>
