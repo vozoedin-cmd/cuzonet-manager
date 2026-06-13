@@ -4180,6 +4180,12 @@ def hotspot_fichas():
     planes = PlanHotspot.query.filter_by(activo=True).all()
     return render_template('hotspot_impresion_multiple.html', planes=planes)
 
+@app.route('/admin/hotspot/omada_print')
+@login_required
+@admin_required
+def hotspot_omada_print():
+    return render_template('cuzonet_print_studio.html')
+
 @app.route('/admin/hotspot/fichas/generar_masivo', methods=['POST'])
 @login_required
 @admin_required
