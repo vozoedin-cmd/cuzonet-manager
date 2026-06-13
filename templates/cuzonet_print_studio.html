@@ -105,11 +105,12 @@
             const priceStr = document.getElementById('priceInput').value || '-';
             const printArea = document.getElementById('print-area');
             
-            // 1. CURACIÓN DE TEXTO
-            textoFresco = textoFresco.replace(/(\d+)\s*\n\s*(\d+)/g, '$1$2');
+            // 1. LIMPIEZA INICIAL DE TEXTO
+            // Ya no concatenamos saltos de línea porque estaba uniendo los días ("11") con el PIN ("738889")
+            // textoFresco = textoFresco.replace(/(\d+)\s*\n\s*(\d+)/g, '$1$2');
             
             // 2. EXTRACCIÓN Y LIMPIEZA
-            const encontradosFrescos = textoFresco.match(/\d{5,12}/g);
+            const encontradosFrescos = textoFresco.match(/\d{6,12}/g); // PINs de al menos 6 dígitos para ignorar años (2026)
             if(!encontradosFrescos || encontradosFrescos.length === 0) { 
                 typeof showToast !== 'undefined' ? showToast("Por favor, pega los códigos de Omada.", "warning") : alert("Por favor, pega los códigos.");
                 return; 
