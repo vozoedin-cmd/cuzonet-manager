@@ -1347,7 +1347,8 @@ def configuracion():
 @app.route('/antenas')
 @login_required
 def antenas_view():
-                routers = ConfigMikroTik.query.all()
+    """Página dedicada para gestionar antenas sectoriales y estaciones"""
+    routers = ConfigMikroTik.query.all()
     infraestructuras = Infraestructura.query.all()
     return render_template('antenas.html', routers=routers, infraestructuras=infraestructuras)
 
