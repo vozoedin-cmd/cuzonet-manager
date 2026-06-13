@@ -926,7 +926,7 @@ def index():
     for c in clientes:
         c.nombre_router = routers_dict.get(c.router_id, 'No asignado')
         if c.estado == 'activo' and c.fecha_proximo_pago and c.fecha_proximo_pago < hoy:
-            c.dias_vencidos = (hoy.date() - c.fecha_proximo_pago.date()).days
+            c.dias_vencidos = (hoy.date() - c.fecha_proximo_pago.date()).days + 1
         else:
             c.dias_vencidos = 0
     
@@ -968,7 +968,7 @@ def listar_clientes():
     for c in clientes:
         c.nombre_router = routers_dict.get(c.router_id, 'No asignado')
         if c.estado == 'activo' and c.fecha_proximo_pago and c.fecha_proximo_pago < hoy:
-            c.dias_vencidos = (hoy.date() - c.fecha_proximo_pago.date()).days
+            c.dias_vencidos = (hoy.date() - c.fecha_proximo_pago.date()).days + 1
         else:
             c.dias_vencidos = 0
 
