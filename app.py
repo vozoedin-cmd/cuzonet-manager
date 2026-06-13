@@ -1409,15 +1409,24 @@ def ai_chat():
         total_clientes = len(clientes)
         
         morosos = []
+        activos = 0
+        suspendidos = 0
         for c in clientes:
-            if c.estado == 'activo' and c.fecha_proximo_pago and c.fecha_proximo_pago.date() < hoy:
-                dias = (hoy - c.fecha_proximo_pago.date()).days
-                if dias > 0:
-                    morosos.append(f"{c.nombre} ({dias} días vencidos)")
+            if c.estado == 'activo':
+                activos += 1
+                if c.fecha_proximo_pago and c.fecha_proximo_pago.date() < hoy:
+                    dias = (hoy - c.fecha_proximo_pago.date()).days
+                    if dias > 0:
+                        morosos.append(f"{c.nombre} ({dias} días vencidos)")
+            elif c.estado == 'suspendido':
+                suspendidos += 1
                     
         lista_morosos = ", ".join(morosos)
         
-        contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Total de clientes registrados: {total_clientes}\n- Clientes morosos ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n\n"
+        planes = Plan.query.all()
+        lista_planes = ", ".join([f"{p.nombre} ({p.velocidad_download}/{p.velocidad_upload} a Q{p.precio})" for p in planes])
+        
+        contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Clientes registrados: {total_clientes} ({activos} activos, {suspendidos} suspendidos)\n- Clientes morosos ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n- Planes de Internet disponibles: {lista_planes if planes else 'No hay planes configurados'}\n\n"
     except Exception as e:
         contexto = f"Error al cargar contexto: {str(e)}\n\n"
         
