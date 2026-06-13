@@ -1401,7 +1401,19 @@ def ai_chat():
     if not config or not config.activo:
         return jsonify({'success': False, 'error': 'La IA no está habilitada. Configúrala en la sección de Configuración.'})
         
-    system_prompt = "Eres CuzoBot, un asistente avanzado de Inteligencia Artificial para el sistema CuzoNet Manager, un panel de administración para ISPs WISP basado en MikroTik. Tu trabajo es ayudar al administrador de red. Responde de manera profesional, directa, útil y técnica pero fácil de entender."
+    # Inyectar contexto de la base de datos al bot
+    try:
+        from models import Cliente
+        clientes = Cliente.query.all()
+        total_clientes = len(clientes)
+        morosos = [c for c in clientes if c.saldo_pendiente > 0]
+        lista_morosos = ", ".join([f"{c.nombre} (Debe: Q{c.saldo_pendiente})" for c in morosos])
+        
+        contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Total de clientes registrados: {total_clientes}\n- Clientes con deudas ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n\n"
+    except Exception:
+        contexto = ""
+        
+    system_prompt = f"Eres CuzoBot, un asistente avanzado de Inteligencia Artificial para el sistema CuzoNet Manager. Tu trabajo es ayudar al administrador de red analizando los datos.\n\n{contexto}Responde de manera profesional, directa y útil. Si te preguntan por morosos o deudores, dales la información basándote en el contexto proporcionado. No uses formato markdown exagerado."
 
     try:
         if config.provider == 'openai':
