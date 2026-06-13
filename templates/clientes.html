@@ -98,19 +98,17 @@
             <div class="table-container">
                 <table class="data-table" id="clientesTable">
                     <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
-                            <th class="sortable" data-sort="nombre" onclick="sortTable('nombre')">Cliente <i class="fas fa-sort"></i></th>
-                            <th class="sortable" data-sort="ip" onclick="sortTable('ip')">IP <i class="fas fa-sort"></i></th>
-                            <th class="sortable" data-sort="plan" onclick="sortTable('plan')">Plan <i class="fas fa-sort"></i></th>
-                            <th class="sortable" data-sort="velocidad" onclick="sortTable('velocidad')">Velocidad <i class="fas fa-sort"></i></th>
-                            <th>Dia Corte</th>
-                            <th>Estado</th>
-                            <th>Pago</th>
-                            <th>Acciones</th>
+                        <tr style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <th style="padding: 10px 15px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                            <th class="sortable" data-sort="nombre" onclick="sortTable('nombre')" style="padding: 10px 15px; text-align: left;">Cliente & Tel <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="ip" onclick="sortTable('ip')" style="padding: 10px 15px; text-align: left;">Plan & IP <i class="fas fa-sort"></i></th>
+                            <th style="padding: 10px 15px; text-align: left;">Router & Estado</th>
+                            <th style="padding: 10px 15px; text-align: left;">Deuda / Últ. Pago</th>
+                            <th style="padding: 10px 15px; text-align: left;">Consumo MikroTik</th>
+                            <th style="padding: 10px 15px; text-align: right;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody style="font-size: 0.95rem;">
                         {% for cliente in clientes %}
                         <tr data-id="{{ cliente.id }}" data-estado="{{ cliente.estado }}"
                             data-nombre="{{ cliente.nombre }}" data-ip="{{ cliente.ip_address }}"
@@ -121,68 +119,105 @@
                             data-corte="{{ cliente.dia_corte or 1 }}"
                             data-precio="{{ cliente.precio_mensual or 0 }}"
                             data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}"
-                            data-router-id="{{ cliente.router_id or '' }}">
-                            <td><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
-                            <td>
-                                <div class="client-info">
-                                    <div class="client-avatar">{{ cliente.nombre[0].upper() }}</div>
-                                    <div class="client-details">
-                                        <span class="client-name">{{ cliente.nombre }}</span>
-                                        <span class="client-phone">{{ cliente.telefono or '' }}</span>
-                                    </div>
+                            data-router-id="{{ cliente.router_id or '' }}"
+                            style="background: var(--bg-card); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                            
+                            <td style="padding: 15px; border-radius: 8px 0 0 8px; border: 1px solid var(--border-color); border-right: none;"><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
+                            
+                            <!-- CLIENTE Y TELEFONO -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong style="color: white; font-size: 1.05rem;">{{ cliente.nombre }}</strong>
+                                    {% if cliente.telefono %}
+                                    <a href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; text-decoration: none; margin-top: 5px; width: max-content;">
+                                        <i class="fab fa-whatsapp"></i> WhatsApp
+                                    </a>
+                                    {% else %}
+                                    <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">Sin teléfono</span>
+                                    {% endif %}
                                 </div>
                             </td>
-                            <td><code class="ip-badge">{{ cliente.ip_address }}</code></td>
-                            <td>{{ cliente.plan }}</td>
-                            <td><span class="speed-badge">{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload
-                                    }}</span></td>
-                            <td><span class="day-badge">{{ cliente.dia_corte or 1 }}</span></td>
-                            <td>
-                                {% if cliente.estado == 'activo' %}<span class="status-badge active"><i
-                                        class="fas fa-circle"></i> Activo</span>
-                                {% elif cliente.estado == 'cortado' %}<span class="status-badge cut"><i
-                                        class="fas fa-ban"></i> Cortado</span>
-                                {% else %}<span class="status-badge suspended"><i class="fas fa-pause"></i>
-                                    Suspendido</span>{% endif %}
+                            
+                            <!-- PLAN E IP -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <span style="background: rgba(139, 92, 246, 0.2); color: var(--secondary); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; width: max-content;">
+                                        {{ cliente.plan }}
+                                    </span>
+                                    <code style="color: var(--text-muted); font-family: monospace; font-size: 0.85rem;">{{ cliente.ip_address }}</code>
+                                </div>
                             </td>
-                            <td class="td-pago">
-                                <!-- JS asigna el badge de pago -->
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="btn-icon view" onclick="viewCliente({{ cliente.id }})"
-                                        title="Ver detalles"><i class="fas fa-eye"></i></button>
-                                    <button class="btn-icon info" onclick="editarCliente({{ cliente.id }})"
-                                        title="Editar"><i class="fas fa-edit"></i></button>
-                                    <button class="btn-icon cobro" onclick="generarAvisoIndividual({{ cliente.id }})"
-                                        title="Aviso de Cobro"><i class="fas fa-file-invoice-dollar"></i></button>
-                                    <button class="btn-icon" onclick="window.open('/ficha-cliente/{{ cliente.id }}', '_blank')"
-                                        title="Ficha del Cliente" style="background: rgba(0, 212, 255,0.15); color: #00d4ff;"><i class="fas fa-id-card"></i></button>
-                                    <button class="btn-icon pay" onclick="abrirPagoRapido({{ cliente.id }}, '{{ cliente.nombre }}', {{ cliente.precio_mensual or 0 }})"
-                                        title="Registrar Pago"><i class="fas fa-dollar-sign"></i></button>
-                                    {% if cliente.telefono %}
-                                    <button class="btn-icon whatsapp" onclick="enviarWhatsApp('{{ cliente.telefono }}', '{{ cliente.nombre }}', '{{ cliente.precio_mensual or 0 }}', '{{ cliente.plan }}')"
-                                        title="WhatsApp"><i class="fab fa-whatsapp"></i></button>
-                                    {% endif %}
+                            
+                            <!-- ROUTER Y ESTADO -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-server"></i> {{ cliente.nombre_router }}</span>
                                     {% if cliente.estado == 'activo' %}
-                                    <button class="btn-icon warning" onclick="suspenderCliente({{ cliente.id }})"
-                                        title="Suspender"><i class="fas fa-pause"></i></button>
-                                    <button class="btn-icon cut" onclick="cortarCliente({{ cliente.id }})"
-                                        title="Cortar"><i class="fas fa-ban"></i></button>
+                                    <span style="color: #10b981; font-weight: 500; font-size: 0.85rem;"><i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> Activo</span>
+                                    {% elif cliente.estado == 'suspendido' %}
+                                    <span style="color: #f59e0b; font-weight: 500; font-size: 0.85rem;"><i class="fas fa-pause-circle"></i> Suspendido</span>
                                     {% else %}
-                                    <button class="btn-icon success" onclick="activarCliente({{ cliente.id }})"
-                                        title="Activar"><i class="fas fa-play"></i></button>
+                                    <span style="color: #ef4444; font-weight: 500; font-size: 0.85rem;"><i class="fas fa-ban"></i> Cortado</span>
                                     {% endif %}
-                                    <button class="btn-icon danger"
-                                        onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')"
-                                        title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                            
+                            <!-- DEUDA Y ULTIMO PAGO -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    {% if cliente.dias_vencidos > 0 %}
+                                    <span style="color: #ef4444; font-weight: bold; font-size: 0.95rem;">
+                                        <i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> {{ cliente.dias_vencidos }} días vencido
+                                    </span>
+                                    {% else %}
+                                    <span style="color: #10b981; font-weight: bold; font-size: 0.95rem;">Al día</span>
+                                    {% endif %}
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">
+                                        Últ: {% if cliente.fecha_ultimo_pago %}{{ cliente.fecha_ultimo_pago.strftime('%d/%m/%Y') }}{% else %}N/A{% endif %}
+                                    </span>
+                                </div>
+                            </td>
+                            
+                            <!-- CONSUMO LIVE -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                <div class="live-status-cell" data-ip="{{ cliente.ip_address }}" style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="spinner-border spinner-border-sm text-secondary" style="width: 1rem; height: 1rem; border-width: 0.15em;" role="status"></span>
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">Consultando...</span>
+                                </div>
+                            </td>
+                            
+                            <!-- ACCIONES AGRUPADAS -->
+                            <td style="padding: 15px; border-radius: 0 8px 8px 0; border: 1px solid var(--border-color); border-left: none; text-align: right; overflow: visible;">
+                                <div style="display: flex; gap: 5px; justify-content: flex-end; align-items: center;">
+                                    <button class="btn-icon view" onclick="viewCliente({{ cliente.id }})" style="background: rgba(0, 212, 255, 0.1); color: var(--primary); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Ver">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn-icon info" onclick="editarCliente({{ cliente.id }})" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn-icon pay" onclick="abrirPagoRapido({{ cliente.id }}, '{{ cliente.nombre }}', {{ cliente.precio_mensual or 0 }})" style="background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;" title="Cobrar">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </button>
+                                    
+                                    <!-- Dropdown -->
+                                    <div class="action-dropdown" style="position: relative; display: inline-block;">
+                                        <button onclick="toggleDropdown(this)" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <div class="dropdown-content" style="display: none; position: absolute; right: 0; bottom: 100%; margin-bottom: 5px; background: var(--bg-card); min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 1000; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; text-align: left;">
+                                            <a href="#" onclick="suspenderCliente({{ cliente.id }})" style="color: var(--warning); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-pause w-20px"></i> Suspender</a>
+                                            <a href="#" onclick="activarCliente({{ cliente.id }})" style="color: var(--success); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-play w-20px"></i> Reactivar</a>
+                                            <a href="#" style="color: var(--primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-map-marker-alt w-20px"></i> Ver ubicación</a>
+                                            <a href="#" onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')" style="color: var(--danger); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem;"><i class="fas fa-trash w-20px"></i> Eliminar</a>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
                         {% endfor %}
                         {% if not clientes %}
                         <tr>
-                            <td colspan="9" class="empty-state"><i class="fas fa-users"></i>
+                            <td colspan="7" class="empty-state" style="text-align: center; padding: 40px; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 8px;"><i class="fas fa-users" style="font-size: 2rem; margin-bottom: 10px;"></i>
                                 <p>No hay clientes</p>
                             </td>
                         </tr>
@@ -1078,6 +1113,65 @@
             50% { opacity: 0.65; }
         }
     </style>
+    
+    <script>
+    async function fetchClientLiveStatus() {
+        const cells = document.querySelectorAll('.live-status-cell');
+        if (cells.length === 0) return;
+        
+        const ips = Array.from(cells).map(c => c.getAttribute('data-ip'));
+        
+        try {
+            const res = await fetch('/api/mikrotik/clientes_live_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ips: ips })
+            });
+            const data = await res.json();
+            
+            cells.forEach(cell => {
+                const ip = cell.getAttribute('data-ip');
+                const info = data[ip];
+                if (info) {
+                    if (info.online) {
+                        let signalColor = info.signal > -65 ? '#10b981' : (info.signal > -75 ? '#f59e0b' : '#ef4444');
+                        cell.innerHTML = `
+                            <div style="display: flex; flex-direction: column; line-height: 1.4;">
+                                <span style="color: #10b981; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-arrow-down" style="width: 15px;"></i> ${info.rx} Mbps</span>
+                                <span style="color: #3b82f6; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-arrow-up" style="width: 15px;"></i> ${info.tx} Mbps</span>
+                                <span style="color: ${signalColor}; font-size: 0.75rem;"><i class="fas fa-wifi" style="width: 15px;"></i> ${info.signal} dBm</span>
+                            </div>
+                        `;
+                    } else {
+                        cell.innerHTML = `<span style="color: #ef4444; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> Offline</span>`;
+                    }
+                }
+            });
+        } catch(e) {
+            console.error(e);
+            cells.forEach(cell => { cell.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error</span>'; });
+        }
+    }
+
+    function toggleDropdown(btn) {
+        document.querySelectorAll('.dropdown-content').forEach(d => {
+            if (d !== btn.nextElementSibling) d.style.display = 'none';
+        });
+        const content = btn.nextElementSibling;
+        content.style.display = content.style.display === 'block' ? 'none' : 'block';
+    }
+    
+    window.onclick = function(event) {
+        if (!event.target.matches('.fa-ellipsis-v') && !event.target.matches('button[onclick="toggleDropdown(this)"]')) {
+            document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(fetchClientLiveStatus, 2000);
+        setInterval(fetchClientLiveStatus, 15000);
+    });
+    </script>
 </body>
 
 </html>
