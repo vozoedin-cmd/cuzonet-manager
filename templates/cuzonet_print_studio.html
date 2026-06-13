@@ -5,6 +5,7 @@
     <title>CuzoNet Print Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         :root { --brand-color: #03a786; }
@@ -30,6 +31,18 @@
         .v-price { font-size: 0.75rem; font-weight: 900; }
         .v-time { font-size: 0.45rem; font-weight: 700; text-transform: uppercase; margin-top: 1px; }
         .v-footer { font-size: 0.45rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; margin-top: auto; }
+        
+        /* Plantilla Premium */
+        .v-card.premium { border: 2px solid #d4af37; background: linear-gradient(135deg, #fff, #fdfbf1); box-shadow: 0 2px 5px rgba(212,175,55,0.2); }
+        .v-card.premium .v-header { border-bottom: 1px solid #d4af37; color: #d4af37; }
+        .v-card.premium .v-price-box { background-color: #d4af37; color: #000; }
+        
+        /* Plantilla Oscura */
+        .v-card.dark { background: #1e1e1e; border: 1.5px solid #444; color: #fff; }
+        .v-card.dark .v-header { color: #fff; border-bottom: 1px solid #444; }
+        .v-card.dark .v-lbl { color: #aaa; }
+        .v-card.dark .v-val { color: var(--brand-color); }
+        .v-card.dark .v-footer { color: #888; }
         
         @media print { 
             @page { margin: 10mm; } 
@@ -61,11 +74,22 @@
                 </div>
                 <div class="inputs-grid">
                     <div class="input-group"><label>Nombre del Negocio</label><input type="text" id="businessName" value="CUZONET"></div>
+                    <div class="input-group">
+                        <label>Plantilla</label>
+                        <select id="templateSelector" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
+                            <option value="classic">Clásica</option>
+                            <option value="premium">Premium (Oro)</option>
+                            <option value="dark">Oscura</option>
+                        </select>
+                    </div>
                     <div class="input-group"><label>Color de la Marca</label><input type="color" id="colorPicker" value="#03a786" oninput="updateColor(this.value)"></div>
                     <div class="input-group"><label>Duración</label><input type="text" id="timeInput" value="3 HORAS"></div>
                     <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00"></div>
                 </div>
-                <button class="btn-print" onclick="iniciarProceso()">GENERAR E IMPRIMIR <i class="fas fa-print" style="margin-left: 8px;"></i></button>
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn-print" onclick="iniciarProceso(false)">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background-color: #e63946;" onclick="iniciarProceso(true)">EXPORTAR A PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
+                </div>
             </div>
             <div id="print-area"></div>
         </div>
@@ -73,9 +97,10 @@
 
     <script>
         function updateColor(color) { document.documentElement.style.setProperty('--brand-color', color); }
-        function iniciarProceso() {
+        function iniciarProceso(exportPDF = false) {
             let textoFresco = document.getElementById('codesInput').value;
             const businessName = document.getElementById('businessName').value || 'WIFI';
+            const templateStr = document.getElementById('templateSelector').value;
             const timeStr = document.getElementById('timeInput').value || '-';
             const priceStr = document.getElementById('priceInput').value || '-';
             const printArea = document.getElementById('print-area');
@@ -98,16 +123,29 @@
             printArea.innerHTML = '';
             pingsFinales.forEach((code, index) => {
                 const card = document.createElement('div');
-                card.className = 'v-card';
+                card.className = `v-card ${templateStr}`;
                 card.innerHTML = `
-                    <div class="v-header">${businessName}</div>
+                    <div class="v-header"><i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ${businessName}</div>
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">${code}</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
-                    <div class="v-footer">ID: ${index + 1}</div>
+                    <div class="v-footer">Ficha: #${index + 1}</div>
                 `;
                 printArea.appendChild(card);
             });
-            setTimeout(() => { window.print(); }, 500);
+            
+            if (exportPDF) {
+                typeof showToast !== 'undefined' ? showToast("Generando PDF... por favor espera.", "info") : null;
+                const opt = {
+                    margin:       10,
+                    filename:     document.title + '.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(printArea).save();
+            } else {
+                setTimeout(() => { window.print(); }, 500);
+            }
         }
     </script>
 </body>
