@@ -318,13 +318,13 @@ async function sendCuzobotMsg() {
     
     // Add user msg
     const msgsContainer = document.getElementById('cuzobot-messages');
-    msgsContainer.innerHTML += `<div class="cuzobot-msg user-msg">${msg}</div>`;
+    msgsContainer.insertAdjacentHTML('beforeend', `<div class="cuzobot-msg user-msg">${msg}</div>`);
     input.value = '';
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
     
     // Loading state
     const loadingId = 'loading-' + Date.now();
-    msgsContainer.innerHTML += `<div id="${loadingId}" class="cuzobot-msg bot-msg"><i class="fas fa-circle-notch fa-spin"></i> Pensando...</div>`;
+    msgsContainer.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="cuzobot-msg bot-msg"><i class="fas fa-circle-notch fa-spin"></i> Pensando...</div>`);
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
     
     try {
@@ -333,18 +333,26 @@ async function sendCuzobotMsg() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: msg })
         });
-        const result = await response.json();
         
-        document.getElementById(loadingId).remove();
+        let result;
+        try {
+            result = await response.json();
+        } catch(e) {
+            throw new Error("El servidor no devolvió una respuesta válida (Probablemente la librería de OpenAI aún no termina de instalarse o hay un error interno).");
+        }
+        
+        const loadingEl = document.getElementById(loadingId);
+        if(loadingEl) loadingEl.remove();
         
         if (result.success) {
-            msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg">${result.reply.replace(/\\n/g, '<br>')}</div>`;
+            msgsContainer.insertAdjacentHTML('beforeend', `<div class="cuzobot-msg bot-msg">${result.reply.replace(/\n/g, '<br>')}</div>`);
         } else {
-            msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error: ${result.error || 'No se pudo conectar con la IA'}</div>`;
+            msgsContainer.insertAdjacentHTML('beforeend', `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error: ${result.error || 'No se pudo conectar con la IA'}</div>`);
         }
     } catch (err) {
-        document.getElementById(loadingId).remove();
-        msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error de conexión.</div>`;
+        const loadingEl = document.getElementById(loadingId);
+        if(loadingEl) loadingEl.remove();
+        msgsContainer.insertAdjacentHTML('beforeend', `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error de conexión: ${err.message}</div>`);
     }
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
 }
