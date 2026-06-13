@@ -1403,12 +1403,21 @@ def ai_chat():
         
     # Inyectar contexto de la base de datos al bot
     try:
+        from datetime import datetime
+        hoy = datetime.now().date()
         clientes = Cliente.query.all()
         total_clientes = len(clientes)
-        morosos = [c for c in clientes if c.saldo_pendiente > 0]
-        lista_morosos = ", ".join([f"{c.nombre} (Debe: Q{c.saldo_pendiente})" for c in morosos])
         
-        contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Total de clientes registrados: {total_clientes}\n- Clientes con deudas ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n\n"
+        morosos = []
+        for c in clientes:
+            if c.estado == 'activo' and c.fecha_proximo_pago and c.fecha_proximo_pago.date() < hoy:
+                dias = (hoy - c.fecha_proximo_pago.date()).days
+                if dias > 0:
+                    morosos.append(f"{c.nombre} ({dias} días vencidos)")
+                    
+        lista_morosos = ", ".join(morosos)
+        
+        contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Total de clientes registrados: {total_clientes}\n- Clientes morosos ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n\n"
     except Exception as e:
         contexto = f"Error al cargar contexto: {str(e)}\n\n"
         
