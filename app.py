@@ -213,6 +213,18 @@ class ConfigIA(db.Model):
     openai_api_key = db.Column(db.String(200), default='')
     gemini_api_key = db.Column(db.String(200), default='')
     activo = db.Column(db.Boolean, default=False)
+
+class ConfigOmada(db.Model):
+    """Configuración de Omada Controller para generación de vouchers"""
+    __tablename__ = 'config_omada'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(200), nullable=False, default='https://127.0.0.1:8043')
+    username = db.Column(db.String(100), nullable=False, default='admin')
+    password = db.Column(db.String(255), nullable=False, default='')
+    site_id = db.Column(db.String(100), default='Default')
+    activo = db.Column(db.Boolean, default=False)
+
 class Plan(db.Model):
     """Planes de internet predefinidos"""
     __tablename__ = 'planes'
@@ -856,6 +868,40 @@ def api_eliminar_usuario(user_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+# ============== CONFIGURACION OMADA API ==============
+
+@app.route('/api/config/omada', methods=['POST'])
+@login_required
+@admin_required
+def save_config_omada():
+    """Guardar configuración de Omada"""
+    try:
+        data = request.json
+        config = ConfigOmada.query.first()
+        
+        if not config:
+            config = ConfigOmada()
+            db.session.add(config)
+            
+        config.url = data.get('url', '').strip()
+        config.username = data.get('username', '').strip()
+        
+        # Solo actualizar password si se envía uno nuevo
+        if data.get('password'):
+            config.password = data.get('password')
+            
+        config.site_id = data.get('site_id', 'Default').strip()
+        config.activo = data.get('activo', False)
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Configuración de Omada guardada exitosamente'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============== BOT DE INTELIGENCIA ARTIFICIAL ==============
+
 # ============== VISTAS PRINCIPALES ==============
 
 @app.route('/')
@@ -1351,7 +1397,8 @@ def configuracion():
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
     config_ia = ConfigIA.query.first()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia)
+    config_omada = ConfigOmada.query.first()
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia, config_omada=config_omada)
 
 
 @app.route('/antenas')
