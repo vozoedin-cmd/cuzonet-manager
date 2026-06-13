@@ -861,8 +861,8 @@ def index():
     clientes_suspendidos = Cliente.query.filter(Cliente.estado.in_(['suspendido', 'cortado'])).count()
     planes = Plan.query.all()
     
-    # Estadísticas de pagos del mes actual
-    hoy = datetime.now()
+    # Estadísticas de pagos del mes actual (Ajustado a UTC-6 Guatemala)
+    hoy = datetime.utcnow() - timedelta(hours=6)
     inicio_dia = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
     primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
@@ -960,8 +960,8 @@ def listar_clientes():
     clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
     planes = Plan.query.all()
     routers = ConfigMikroTik.query.all()
-    mes_actual = datetime.now().strftime('%Y-%m')
-    hoy = datetime.now()
+    mes_actual = (datetime.utcnow() - timedelta(hours=6)).strftime('%Y-%m')
+    hoy = datetime.utcnow() - timedelta(hours=6)
     
     # Inyectar propiedades extra (dias vencidos y router)
     routers_dict = {r.id: r.nombre for r in routers}
