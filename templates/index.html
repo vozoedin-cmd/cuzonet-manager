@@ -240,6 +240,15 @@
 
         <!-- Recent Clients Table -->
         <section class="table-section">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2);">
+                <h3 style="margin: 0; color: white; font-size: 1.1rem;"><i class="fas fa-users" style="color: var(--primary);"></i> Clientes Recientes</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" style="background: #10b981; color: white; font-size: 0.85rem; padding: 6px 12px;" onclick="enviarWhatsAppMasivo()" title="Enviar recordatorio a seleccionados">
+                        <i class="fab fa-whatsapp"></i> Recordatorio
+                    </button>
+                    <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;" onclick="window.location.href='/clientes'">Ver Todos</button>
+                </div>
+            </div>
             <div class="table-header">
                 <h2>Clientes Recientes</h2>
                 <div class="table-actions">
@@ -254,6 +263,7 @@
                 <table class="data-table" id="clientesTable" style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
                     <thead>
                         <tr style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <th style="padding: 10px 15px; text-align: left;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
                             <th style="padding: 10px 15px; text-align: left;">Cliente & Teléfono</th>
                             <th style="padding: 10px 15px; text-align: left;">Plan & IP</th>
                             <th style="padding: 10px 15px; text-align: center;">Día Pago</th>
@@ -265,7 +275,20 @@
                     </thead>
                     <tbody style="font-size: 0.95rem;">
                         {% for cliente in clientes[:15] %}
-                        <tr data-id="{{ cliente.id }}" style="background: var(--bg-card); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                        <tr data-id="{{ cliente.id }}" data-estado="{{ cliente.estado }}"
+                            data-nombre="{{ cliente.nombre }}" data-ip="{{ cliente.ip_address }}"
+                            data-plan="{{ cliente.plan }}" data-velocidad="{{ cliente.velocidad_download }}/{{ cliente.velocidad_upload }}"
+                            data-saldo="{{ cliente.saldo_pendiente or 0 }}"
+                            data-proximo="{{ cliente.fecha_proximo_pago.strftime('%Y-%m-%d') if cliente.fecha_proximo_pago else '' }}"
+                            data-ultimo="{{ cliente.fecha_ultimo_pago.strftime('%Y-%m-%d') if cliente.fecha_ultimo_pago else '' }}"
+                            data-corte="{{ cliente.dia_corte or 1 }}"
+                            data-precio="{{ cliente.precio_mensual or 0 }}"
+                            data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}"
+                            data-router-id="{{ cliente.router_id or '' }}"
+                            data-telefono="{{ cliente.telefono or '' }}"
+                            style="background: var(--bg-card); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                            
+                            <td style="padding: 15px; border-radius: 8px 0 0 8px; border: 1px solid var(--border-color); border-right: none;"><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
                             <!-- CLIENTE Y TELEFONO -->
                             <td style="padding: 15px; border-radius: 8px 0 0 8px; border: 1px solid var(--border-color); border-right: none;">
                                 <div style="display: flex; flex-direction: column;">
@@ -318,6 +341,9 @@
                                     <span style="color: #ef4444; font-weight: bold; font-size: 0.95rem;">
                                         <i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> {{ cliente.dias_vencidos }} días vencido
                                     </span>
+                                    <span style="color: #f59e0b; font-size: 0.9rem; font-weight: bold;">
+                                        <i class="fas fa-coins"></i> Q{{ "%.2f"|format(cliente.saldo_pendiente if cliente.saldo_pendiente and cliente.saldo_pendiente > 0 else cliente.precio_mensual) }}
+                                    </span>
                                     {% else %}
                                     <span style="color: #10b981; font-weight: bold; font-size: 0.95rem;">Al día</span>
                                     {% endif %}
@@ -345,7 +371,7 @@
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <button class="btn-icon pay" onclick="abrirPagoRapido({{ cliente.id }}, '{{ cliente.nombre }}', {{ cliente.precio_mensual or 0 }})" title="Registrar Pago">
-                                        <i class="fas fa-dollar-sign"></i>
+                                        <i class="fas fa-file-invoice-dollar"></i>
                                     </button>
                                     
                                     <!-- Dropdown -->
@@ -584,16 +610,19 @@
                 const info = data[ip];
                 if (info) {
                     if (info.online) {
-                        let signalColor = info.signal > -65 ? '#10b981' : (info.signal > -75 ? '#f59e0b' : '#ef4444');
+                        let signalColor = info.signal >= -65 ? '#10b981' : (info.signal >= -75 ? '#f59e0b' : '#ef4444');
                         cell.innerHTML = `
                             <div style="display: flex; flex-direction: column; line-height: 1.4;">
                                 <span style="color: #10b981; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-arrow-down" style="width: 15px;"></i> ${info.rx} Mbps</span>
                                 <span style="color: #3b82f6; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-arrow-up" style="width: 15px;"></i> ${info.tx} Mbps</span>
-                                <span style="color: ${signalColor}; font-size: 0.75rem;"><i class="fas fa-wifi" style="width: 15px;"></i> ${info.signal} dBm</span>
+                                <div style="display: flex; align-items: center; gap: 5px; margin-top: 2px;">
+                                    <i class="fas fa-circle" style="color: ${signalColor}; font-size: 0.6rem;"></i>
+                                    <span style="color: var(--text-muted); font-size: 0.8rem; font-weight: bold;">${info.signal} dBm</span>
+                                </div>
                             </div>
                         `;
                     } else {
-                        cell.innerHTML = `<span style="color: #ef4444; font-size: 0.85rem; font-weight: 500;"><i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> Offline</span>`;
+                        cell.innerHTML = `<span style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 0.75rem; font-weight: bold; padding: 3px 8px; border-radius: 4px; letter-spacing: 1px;"><i class="fas fa-circle" style="font-size: 0.4rem; vertical-align: middle; margin-right: 3px;"></i> OFFLINE</span>`;
                     }
                 }
             });
@@ -634,6 +663,41 @@
         setTimeout(fetchClientLiveStatus, 2000);
         setInterval(fetchClientLiveStatus, 15000);
     });
+
+    function enviarWhatsAppMasivo() {
+        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+        if (checkboxes.length === 0) {
+            typeof showToast !== 'undefined' ? showToast('Selecciona al menos un cliente para enviar recordatorio', 'warning') : alert('Selecciona al menos un cliente');
+            return;
+        }
+        let envios = 0;
+        checkboxes.forEach((cb, index) => {
+            const tr = cb.closest('tr');
+            const tel = tr.getAttribute('data-telefono');
+            const nombre = tr.getAttribute('data-nombre');
+            let deuda = tr.getAttribute('data-saldo');
+            if (!deuda || parseFloat(deuda) <= 0) deuda = tr.getAttribute('data-precio');
+            
+            if (tel && tel.trim() !== '' && tel.trim() !== 'None') {
+                const phoneStr = tel.replace(/\s+/g, '').replace('+', '').replace('-', '');
+                const mensaje = `Hola ${nombre}, te recordamos que tienes un pago pendiente de Q${parseFloat(deuda).toFixed(2)} por tu servicio de internet. Por favor realiza tu pago a la brevedad.`;
+                const url = `https://wa.me/${phoneStr}?text=${encodeURIComponent(mensaje)}`;
+                setTimeout(() => {
+                    window.open(url, '_blank');
+                }, index * 800); // Abre una pestaña cada 800ms
+                envios++;
+            }
+        });
+        if (envios === 0) {
+            typeof showToast !== 'undefined' ? showToast('Ningún cliente seleccionado tiene teléfono registrado', 'warning') : alert('Ningún cliente seleccionado tiene teléfono registrado');
+        } else {
+            typeof showToast !== 'undefined' ? showToast(`Abriendo ${envios} chats de WhatsApp...`, 'success') : alert(`Abriendo ${envios} chats...`);
+        }
+    }
+    function toggleSelectAll() {
+        const checked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+    }
     </script>
 
     <style>
