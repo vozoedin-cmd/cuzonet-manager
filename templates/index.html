@@ -256,6 +256,7 @@
                         <tr style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
                             <th style="padding: 10px 15px; text-align: left;">Cliente & Teléfono</th>
                             <th style="padding: 10px 15px; text-align: left;">Plan & IP</th>
+                            <th style="padding: 10px 15px; text-align: center;">Día Pago</th>
                             <th style="padding: 10px 15px; text-align: left;">Router & Estado</th>
                             <th style="padding: 10px 15px; text-align: left;">Deuda / Últ. Pago</th>
                             <th style="padding: 10px 15px; text-align: left;">Consumo MikroTik</th>
@@ -286,6 +287,13 @@
                                         {{ cliente.plan }}
                                     </span>
                                     <code style="color: var(--text-muted); font-family: monospace; font-size: 0.85rem;">{{ cliente.ip_address }}</code>
+                                </div>
+                            </td>
+                            
+                            <!-- DIA PAGO -->
+                            <td style="padding: 15px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); text-align: center;">
+                                <div style="background: rgba(139, 92, 246, 0.1); color: var(--secondary); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 4px 10px; display: inline-block; font-weight: bold; font-size: 0.9rem;">
+                                    <i class="far fa-calendar-alt"></i> {{ cliente.dia_corte or 1 }}
                                 </div>
                             </td>
                             
