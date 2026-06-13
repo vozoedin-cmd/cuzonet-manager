@@ -1403,15 +1403,14 @@ def ai_chat():
         
     # Inyectar contexto de la base de datos al bot
     try:
-        from models import Cliente
         clientes = Cliente.query.all()
         total_clientes = len(clientes)
         morosos = [c for c in clientes if c.saldo_pendiente > 0]
         lista_morosos = ", ".join([f"{c.nombre} (Debe: Q{c.saldo_pendiente})" for c in morosos])
         
         contexto = f"CONTEXTO ACTUAL DEL SISTEMA:\n- Total de clientes registrados: {total_clientes}\n- Clientes con deudas ({len(morosos)}): {lista_morosos if morosos else 'Ninguno'}.\n\n"
-    except Exception:
-        contexto = ""
+    except Exception as e:
+        contexto = f"Error al cargar contexto: {str(e)}\n\n"
         
     system_prompt = f"Eres CuzoBot, un asistente avanzado de Inteligencia Artificial para el sistema CuzoNet Manager. Tu trabajo es ayudar al administrador de red analizando los datos.\n\n{contexto}Responde de manera profesional, directa y útil. Si te preguntan por morosos o deudores, dales la información basándote en el contexto proporcionado. No uses formato markdown exagerado."
 
