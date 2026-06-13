@@ -204,6 +204,15 @@ class ConfigMikroTik(db.Model):
     address_list_cortados = db.Column(db.String(50), default='MOROSOS')
 
 
+class ConfigIA(db.Model):
+    """Configuración de claves y proveedor de Inteligencia Artificial"""
+    __tablename__ = 'config_ia'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(20), default='openai')  # openai, gemini
+    openai_api_key = db.Column(db.String(200), default='')
+    gemini_api_key = db.Column(db.String(200), default='')
+    activo = db.Column(db.Boolean, default=False)
 class Plan(db.Model):
     """Planes de internet predefinidos"""
     __tablename__ = 'planes'
@@ -1341,7 +1350,8 @@ def configuracion():
     config = ConfigMikroTik.query.first()
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes)
+    config_ia = ConfigIA.query.first()
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia)
 
 
 @app.route('/antenas')
@@ -1351,6 +1361,148 @@ def antenas_view():
     routers = ConfigMikroTik.query.all()
     infraestructuras = Infraestructura.query.all()
     return render_template('antenas.html', routers=routers, infraestructuras=infraestructuras)
+
+# ============== CONFIGURACION IA API ==============
+
+@app.route('/api/config/ia', methods=['POST'])
+@login_required
+@admin_required
+def save_config_ia():
+    """Guardar configuración de IA"""
+    data = request.json
+    config = ConfigIA.query.first()
+    if not config:
+        config = ConfigIA()
+        db.session.add(config)
+    
+    config.provider = data.get('provider', 'openai')
+    config.openai_api_key = data.get('openai_api_key', '')
+    config.gemini_api_key = data.get('gemini_api_key', '')
+    config.activo = data.get('activo', False)
+    
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Configuración de IA guardada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/ai/chat', methods=['POST'])
+@login_required
+def ai_chat():
+    """Endpoint para CuzoBot"""
+    data = request.json
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({'success': False, 'error': 'Mensaje vacío'})
+        
+    config = ConfigIA.query.first()
+    if not config or not config.activo:
+        return jsonify({'success': False, 'error': 'La IA no está habilitada. Configúrala en la sección de Configuración.'})
+        
+    system_prompt = "Eres CuzoBot, un asistente avanzado de Inteligencia Artificial para el sistema CuzoNet Manager, un panel de administración para ISPs WISP basado en MikroTik. Tu trabajo es ayudar al administrador de red. Responde de manera profesional, directa, útil y técnica pero fácil de entender."
+
+    try:
+        if config.provider == 'openai':
+            if not config.openai_api_key:
+                return jsonify({'success': False, 'error': 'Falta la API Key de OpenAI'})
+            import openai
+            client = openai.OpenAI(api_key=config.openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                max_tokens=300
+            )
+            reply = response.choices[0].message.content
+            return jsonify({'success': True, 'reply': reply})
+            
+        elif config.provider == 'gemini':
+            if not config.gemini_api_key:
+                return jsonify({'success': False, 'error': 'Falta la API Key de Gemini'})
+            import google.generativeai as genai
+            genai.configure(api_key=config.gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
+            response = model.generate_content(user_message)
+            return jsonify({'success': True, 'reply': response.text})
+            
+        else:
+            return jsonify({'success': False, 'error': 'Proveedor de IA no soportado'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Error en la API de IA: {str(e)}"})
+
+@app.route('/api/ai/diagnostics', methods=['POST'])
+@login_required
+def ai_diagnostics():
+    """Genera conclusiones sobre el NOC"""
+    data = request.json
+    noc_data = data.get('noc_data', {})
+    
+    config = ConfigIA.query.first()
+    if not config or not config.activo:
+        return jsonify({'success': False, 'error': 'IA no habilitada'})
+        
+    system_prompt = "Eres un Ingeniero de Redes experto en MikroTik. Analiza este resumen de red y dame 2 a 3 viñetas muy breves con conclusiones y recomendaciones directas. Si todo está bien, dilo."
+    user_prompt = f"Datos NOC: {json.dumps(noc_data, indent=2)}"
+    
+    try:
+        if config.provider == 'openai':
+            import openai
+            client = openai.OpenAI(api_key=config.openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                max_tokens=300
+            )
+            return jsonify({'success': True, 'reply': response.choices[0].message.content})
+        elif config.provider == 'gemini':
+            import google.generativeai as genai
+            genai.configure(api_key=config.gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
+            response = model.generate_content(user_prompt)
+            return jsonify({'success': True, 'reply': response.text})
+        return jsonify({'success': False, 'error': 'Proveedor no válido'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/ai/collection_msg', methods=['POST'])
+@login_required
+def ai_collection_msg():
+    """Redacta mensaje de cobro"""
+    data = request.json
+    cliente_id = data.get('cliente_id')
+    cliente = Cliente.query.get(cliente_id)
+    
+    if not cliente: return jsonify({'success': False, 'error': 'Cliente no encontrado'})
+    config = ConfigIA.query.first()
+    if not config or not config.activo: return jsonify({'success': False, 'error': 'IA no habilitada'})
+    
+    system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago."
+    user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan.nombre if cliente.plan else 'Internet'}."
+    
+    try:
+        if config.provider == 'openai':
+            import openai
+            client = openai.OpenAI(api_key=config.openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                max_tokens=150
+            )
+            return jsonify({'success': True, 'reply': response.choices[0].message.content})
+        elif config.provider == 'gemini':
+            import google.generativeai as genai
+            genai.configure(api_key=config.gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
+            response = model.generate_content(user_prompt)
+            return jsonify({'success': True, 'reply': response.text})
+        return jsonify({'success': False, 'error': 'Proveedor no válido'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 # ============== API MIKROTIK STATUS ==============
 

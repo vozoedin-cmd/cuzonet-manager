@@ -175,3 +175,177 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- CuzoBot: Asistente IA Flotante -->
+<div id="cuzobot-container" class="cuzobot-closed">
+    <div id="cuzobot-header" onclick="toggleCuzobot()">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-robot"></i>
+            <span style="font-weight:600;">CuzoBot IA</span>
+        </div>
+        <i class="fas fa-chevron-up" id="cuzobot-icon"></i>
+    </div>
+    <div id="cuzobot-body">
+        <div id="cuzobot-messages">
+            <div class="cuzobot-msg bot-msg">
+                ¡Hola! Soy CuzoBot, tu asistente de red con IA. ¿En qué puedo ayudarte hoy?
+            </div>
+        </div>
+        <div id="cuzobot-input-area">
+            <input type="text" id="cuzobot-input" placeholder="Pregúntame algo..." onkeypress="if(event.key === 'Enter') sendCuzobotMsg()">
+            <button onclick="sendCuzobotMsg()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<style>
+#cuzobot-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 9999;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.cuzobot-closed {
+    height: 50px !important;
+}
+#cuzobot-container:not(.cuzobot-closed) {
+    height: 400px;
+}
+#cuzobot-header {
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: white;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+#cuzobot-body {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 50px);
+}
+#cuzobot-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.cuzobot-msg {
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    max-width: 85%;
+    word-wrap: break-word;
+}
+.bot-msg {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+}
+.user-msg {
+    background: var(--primary);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+}
+#cuzobot-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid var(--border-color);
+    gap: 8px;
+}
+#cuzobot-input {
+    flex: 1;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 20px;
+    padding: 8px 15px;
+    font-size: 0.85rem;
+    outline: none;
+}
+#cuzobot-input:focus { border-color: #8b5cf6; }
+#cuzobot-input-area button {
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+#cuzobot-input-area button:hover { background: #6d28d9; }
+</style>
+
+<script>
+function toggleCuzobot() {
+    const container = document.getElementById('cuzobot-container');
+    const icon = document.getElementById('cuzobot-icon');
+    if (container.classList.contains('cuzobot-closed')) {
+        container.classList.remove('cuzobot-closed');
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+        setTimeout(() => document.getElementById('cuzobot-input').focus(), 300);
+    } else {
+        container.classList.add('cuzobot-closed');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    }
+}
+
+async function sendCuzobotMsg() {
+    const input = document.getElementById('cuzobot-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    
+    // Add user msg
+    const msgsContainer = document.getElementById('cuzobot-messages');
+    msgsContainer.innerHTML += `<div class="cuzobot-msg user-msg">${msg}</div>`;
+    input.value = '';
+    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+    
+    // Loading state
+    const loadingId = 'loading-' + Date.now();
+    msgsContainer.innerHTML += `<div id="${loadingId}" class="cuzobot-msg bot-msg"><i class="fas fa-circle-notch fa-spin"></i> Pensando...</div>`;
+    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+    
+    try {
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg })
+        });
+        const result = await response.json();
+        
+        document.getElementById(loadingId).remove();
+        
+        if (result.success) {
+            msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg">${result.reply.replace(/\\n/g, '<br>')}</div>`;
+        } else {
+            msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error: ${result.error || 'No se pudo conectar con la IA'}</div>`;
+        }
+    } catch (err) {
+        document.getElementById(loadingId).remove();
+        msgsContainer.innerHTML += `<div class="cuzobot-msg bot-msg" style="color:#ef4444;">Error de conexión.</div>`;
+    }
+    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+}
+</script>

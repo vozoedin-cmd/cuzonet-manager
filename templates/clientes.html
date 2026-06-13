@@ -134,9 +134,10 @@
                                 <div style="display: flex; flex-direction: column;">
                                     <strong style="color: white; font-size: 1.05rem;">{{ cliente.nombre }}</strong>
                                     {% if cliente.telefono %}
-                                    <a href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; text-decoration: none; margin-top: 5px; width: max-content;">
-                                        <i class="fab fa-whatsapp"></i> WhatsApp
-                                    </a>
+                                    <button onclick="generarWaMsgIA({{ cliente.id }}, '{{ cliente.telefono|replace(' ', '')|replace('+', '')|replace('-', '') }}', this)" style="display: inline-flex; align-items: center; gap: 5px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; text-decoration: none; margin-top: 5px; width: max-content; cursor:pointer; box-shadow: 0 2px 4px rgba(16,185,129,0.3);">
+                                        <i class="fab fa-whatsapp"></i> Enviar IA
+                                    </button>
+                                    <a href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Directo sin IA</a>
                                     {% else %}
                                     <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">Sin teléfono</span>
                                     {% endif %}

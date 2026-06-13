@@ -169,6 +169,19 @@
             </div>
         </header>
 
+        <!-- Panel de Diagnóstico IA -->
+        <div id="ai-diagnostics-container" style="display: none; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(109, 40, 217, 0.1)); border: 1px solid #8b5cf6; border-radius: var(--radius-lg); margin-bottom: 20px; padding: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <i class="fas fa-brain" style="color: #8b5cf6; font-size: 1.2rem;"></i>
+                <h3 style="margin: 0; color: #8b5cf6; font-size: 1rem;">Conclusión de la Inteligencia Artificial</h3>
+                <span id="ai-diagnostics-status" style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">
+                    <i class="fas fa-spinner fa-spin"></i> Analizando...
+                </span>
+            </div>
+            <div id="ai-diagnostics-content" style="color: var(--text-primary); font-size: 0.9rem; line-height: 1.5;">
+            </div>
+        </div>
+
         <div class="noc-grid">
             <!-- 1. Clientes Offline -->
             <div class="noc-panel">
@@ -268,6 +281,38 @@
         let countdown = 10;
         let refreshInterval = null;
 
+        async function generarDiagnosticoIA(nocData) {
+            const container = document.getElementById('ai-diagnostics-container');
+            const content = document.getElementById('ai-diagnostics-content');
+            const status = document.getElementById('ai-diagnostics-status');
+            
+            container.style.display = 'block';
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando red...';
+            
+            try {
+                const response = await fetch('/api/ai/diagnostics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ noc_data: nocData })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    status.innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;"></i> Actualizado';
+                    content.innerHTML = result.reply.replace(/\n/g, '<br>');
+                } else {
+                    if (result.error.includes('no habilitada')) {
+                        container.style.display = 'none';
+                    } else {
+                        status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Error';
+                        content.innerHTML = result.error;
+                    }
+                }
+            } catch (err) {
+                status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Error de conexión';
+            }
+        }
+
         function renderList(elementId, items, renderItem) {
             const el = document.getElementById(elementId);
             if (!items || items.length === 0) {
@@ -361,6 +406,9 @@
                         </li>
                         `;
                     });
+                    
+                    // Llamar a la IA
+                    generarDiagnosticoIA(data);
                     
                 } else {
                     console.error("Error cargando NOC:", result.error);

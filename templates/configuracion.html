@@ -237,6 +237,55 @@
             </div>
         </section>
 
+        <!-- Configuración de IA -->
+        <section class="config-section" style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2><i class="fas fa-brain" style="color: #8b5cf6;"></i> Inteligencia Artificial</h2>
+            </div>
+            <div style="padding: 1.5rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Configura las llaves (API Keys) de tu proveedor preferido para habilitar el <strong>Asistente Virtual</strong>, <strong>Diagnóstico de Red</strong> y <strong>Mensajería de Cobro Inteligente</strong>.
+                </p>
+
+                <form id="iaConfigForm" class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ia_provider"><i class="fas fa-robot"></i> Proveedor de IA Activo</label>
+                            <select id="ia_provider" class="form-control" style="width: 100%; padding: 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                                <option value="openai" {% if config_ia and config_ia.provider == 'openai' %}selected{% endif %}>OpenAI (ChatGPT)</option>
+                                <option value="gemini" {% if config_ia and config_ia.provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 5px;">
+                            <label style="cursor: pointer; display: flex; align-items: center;">
+                                <div class="toggle-switch" style="margin-right: 10px;">
+                                    <input type="checkbox" id="ia_activo" {% if config_ia and config_ia.activo %}checked{% endif %}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                                <strong>Activar funciones de IA en el panel</strong>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ia_openai_key"><i class="fas fa-key"></i> OpenAI API Key (ChatGPT)</label>
+                        <input type="password" id="ia_openai_key" placeholder="sk-..." value="{{ config_ia.openai_api_key if config_ia else '' }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ia_gemini_key"><i class="fas fa-key"></i> Google Gemini API Key</label>
+                        <input type="password" id="ia_gemini_key" placeholder="AIzaSy..." value="{{ config_ia.gemini_api_key if config_ia else '' }}">
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); border: none;">
+                            <i class="fas fa-save"></i> Guardar Configuración de IA
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
         <!-- WhatsApp Bot -->
         <section class="config-section" style="margin-top: 2rem;">
             <div class="section-header">
@@ -775,6 +824,41 @@
                 showToast('Error de conexión', 'error');
             }
         }
+
+        document.getElementById('iaConfigForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('[type=submit]');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+
+            const formData = {
+                provider: document.getElementById('ia_provider').value,
+                openai_api_key: document.getElementById('ia_openai_key').value,
+                gemini_api_key: document.getElementById('ia_gemini_key').value,
+                activo: document.getElementById('ia_activo').checked
+            };
+
+            try {
+                const response = await fetch('/api/config/ia', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Configuración de IA guardada', 'success');
+                } else {
+                    showToast(result.error || 'Error al guardar configuración IA', 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        });
 
         function descargarBackup() {
             showToast('Descargando base de datos...', 'info');
