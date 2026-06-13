@@ -1222,6 +1222,43 @@
             typeof showToast !== 'undefined' ? showToast(`Abriendo ${envios} chats de WhatsApp...`, 'success') : alert(`Abriendo ${envios} chats...`);
         }
     }
+
+    // GESTION IA WHATSAPP
+    async function generarWaMsgIA(clienteId, telefono, btn) {
+        if (!telefono) {
+            typeof showToast !== 'undefined' ? showToast('El cliente no tiene teléfono válido', 'error') : alert('El cliente no tiene teléfono válido');
+            return;
+        }
+        
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> IA Pensando...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch('/api/ai/collection_msg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cliente_id: clienteId })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                const msg = encodeURIComponent(result.reply);
+                window.open(`https://wa.me/${telefono}?text=${msg}`, '_blank');
+            } else {
+                if(result.error.includes('no habilitada')) {
+                    window.open(`https://wa.me/${telefono}`, '_blank');
+                } else {
+                    typeof showToast !== 'undefined' ? showToast(result.error, 'error') : alert(result.error);
+                }
+            }
+        } catch (e) {
+            typeof showToast !== 'undefined' ? showToast('Error contactando a la IA', 'error') : alert('Error contactando a la IA');
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
     </script>
 </body>
 
