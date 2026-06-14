@@ -69,7 +69,8 @@ class OmadaAPI:
         """
         self.login()
         
-        url = f"{self.base_url}/{self.omadac_id}/api/v2/sites/{self.site_id}/hotspot/vouchers"
+        # En Omada v5.4+ y v6 la ruta es /hotspot/sites/{siteId}
+        url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers"
         
         payload = {
             "amount": cantidad,
@@ -84,7 +85,15 @@ class OmadaAPI:
         data = res.json()
         
         if data.get('errorCode') != 0:
-            raise Exception(f"Error generando fichas: {data.get('msg')}")
+            # Si falla con vouchers, intentamos con voucherGroups (algunos firmwares lo requieren así)
+            if data.get('errorCode') == -1 or "Unsupported" in str(data.get('msg', '')):
+                url_group = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups"
+                res = self.session.post(url_group, json=payload, timeout=15)
+                data = res.json()
+                if data.get('errorCode') != 0:
+                    raise Exception(f"Error generando fichas (Group): {data.get('msg')} | Payload enviado: {payload}")
+            else:
+                raise Exception(f"Error generando fichas: {data.get('msg')} | Payload enviado: {payload}")
             
         # Omada devuelve los vouchers generados en result.data? O tenemos que buscarlos?
         # A veces retorna una lista vacía y hay que consultar. Si no vienen, podemos consultar los últimos
@@ -94,7 +103,7 @@ class OmadaAPI:
         # Consultar los vouchers recién creados si no vienen en la respuesta
         try:
             # Ordenados por creationTime descendente, tomar los primeros N
-            query_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites/{self.site_id}/hotspot/vouchers?currentPage=1&currentPageSize={cantidad}&sort=createTime&order=desc"
+            query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage=1&currentPageSize={cantidad}&sort=createTime&order=desc"
             q_res = self.session.get(query_url, timeout=10)
             q_data = q_res.json()
             if q_data.get('errorCode') == 0:
