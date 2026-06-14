@@ -37,7 +37,7 @@ class OmadaAPI:
         self.session.headers.update({"Csrf-Token": self.token})
         
         # 3. Obtener Site ID
-        sites_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites"
+        sites_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites?currentPage=1&currentPageSize=50"
         res = self.session.get(sites_url, timeout=10)
         sites_data = res.json()
         
