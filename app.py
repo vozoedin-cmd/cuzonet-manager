@@ -933,9 +933,17 @@ def generar_fichas_omada():
         if not config or not config.activo:
             return jsonify({'success': False, 'error': 'Omada no está configurado'})
             
+        # Omada V6 espera el tiempo preferiblemente en minutos
+        if unidad == 0:
+            minutos = tiempo
+        elif unidad == 1:
+            minutos = tiempo * 60
+        else: # dias
+            minutos = tiempo * 1440
+            
         from omada_api import OmadaAPI
         api = OmadaAPI(config.url, config.username, config.password, config.site_id)
-        pines = api.generar_fichas(cantidad, tiempo, unidad)
+        pines = api.generar_fichas(cantidad, minutos, 1) # Pasamos minutos y unidad=1 (minutos en V6)
         
         if not pines:
             return jsonify({'success': False, 'error': 'Se ejecutó el comando pero no se obtuvieron los PINs en la respuesta.'})

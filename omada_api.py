@@ -69,40 +69,45 @@ class OmadaAPI:
         """
         self.login()
         
-        # En Omada v5.4+ y v6 la ruta es /hotspot/sites/{siteId}
-        url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers"
+        # En Omada v6 la ruta para crear grupos de fichas es voucherGroups
+        url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups"
         
+        # En Omada V6 durationType=1 parece ser Minutos
         payload = {
             "amount": cantidad,
-            "expire": tiempo_valor,
-            "expireTimeUnit": tiempo_unidad,
-            "limit": 1,
-            "length": 6,
-            "type": 0 # Time limit only
+            "applyToAllPortals": True,
+            "codeForm": [0], # Numerico
+            "codeLength": 6,
+            "description": "Auto API",
+            "duration": tiempo_valor, # Minutos
+            "durationType": 1,
+            "endTime": "23:59",
+            "logout": True,
+            "maxUsers": 1,
+            "name": f"API_{tiempo_valor}m",
+            "pattern": {"patternType": 0, "position": 0, "ssidNetworkEnable": False, "durationEnable": False, "limitEnable": False},
+            "scheduleTime": 0,
+            "startTime": "00:00",
+            "trafficLimitEnable": False,
+            "upTimeLimitEnable": False,
+            "validityType": 0,
+            "voucherValidityEnable": False,
+            "weeklyEnableDays": {"1": True, "2": True, "3": True, "4": True, "5": True, "6": True, "7": True},
+            "type": 0
         }
         
         res = self.session.post(url, json=payload, timeout=15)
         data = res.json()
         
         if data.get('errorCode') != 0:
-            # Si falla con vouchers, intentamos con voucherGroups (algunos firmwares lo requieren así)
-            if data.get('errorCode') == -1 or "Unsupported" in str(data.get('msg', '')):
-                url_group = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups"
-                res = self.session.post(url_group, json=payload, timeout=15)
-                data = res.json()
-                if data.get('errorCode') != 0:
-                    raise Exception(f"Error generando fichas (Group): {data.get('msg')} | Payload enviado: {payload}")
-            else:
-                raise Exception(f"Error generando fichas: {data.get('msg')} | Payload enviado: {payload}")
+            raise Exception(f"Error generando fichas: {data.get('msg')} | Payload enviado: {payload}")
             
-        # Omada devuelve los vouchers generados en result.data? O tenemos que buscarlos?
-        # A veces retorna una lista vacía y hay que consultar. Si no vienen, podemos consultar los últimos
-        
         vouchers = []
         
         # Consultar los vouchers recién creados si no vienen en la respuesta
         try:
             # Ordenados por creationTime descendente, tomar los primeros N
+            # En V6 los vouchers individuales se listan en /vouchers
             query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage=1&currentPageSize={cantidad}&sort=createTime&order=desc"
             q_res = self.session.get(query_url, timeout=10)
             q_data = q_res.json()
