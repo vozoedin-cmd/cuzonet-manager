@@ -1,32 +1,42 @@
-{% extends "base.html" %}
-
-{% block title %}Historial Omada - CuzoNet Manager{% endblock %}
-
-{% block content %}
-<main class="content p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0" style="color: var(--text-primary); font-weight: 700;">
-                <i class="fas fa-history text-primary"></i> Historial e Inventario Omada
-            </h1>
-            <p style="color: var(--text-muted);">Registro de todas las fichas generadas mediante API</p>
-        </div>
-        
-        {% if current_user.rol == 'admin' %}
-        <form method="GET" class="d-flex align-items-center" style="gap: 10px;">
-            <label style="color: var(--text-primary); font-weight: 600;">Filtrar Vendedor:</label>
-            <select name="vendedor_id" class="form-select" onchange="this.form.submit()" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color);">
-                <option value="">Todos los Vendedores</option>
-                {% for v in vendedores %}
-                <option value="{{ v.id }}" {% if request.args.get('vendedor_id') == v.id|string %}selected{% endif %}>{{ v.nombre }}</option>
-                {% endfor %}
-            </select>
-        </form>
-        {% endif %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial Omada - CuzoNet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-grid"></div>
     </div>
 
-    <div class="card bg-secondary border-0 shadow-sm" style="background-color: var(--bg-secondary) !important;">
-        <div class="card-body p-4">
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <h1>Historial e Inventario Omada</h1>
+                <p class="header-subtitle">Registro de todas las fichas generadas mediante API</p>
+            </div>
+            <div class="header-right">
+                {% if current_user.rol == 'admin' %}
+                <form method="GET" class="d-flex align-items-center" style="gap: 10px;">
+                    <select name="vendedor_id" class="form-select" onchange="this.form.submit()" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color); padding: 10px; border-radius: 5px;">
+                        <option value="">Todos los Vendedores</option>
+                        {% for v in vendedores %}
+                        <option value="{{ v.id }}" {% if request.args.get('vendedor_id') == v.id|string %}selected{% endif %}>{{ v.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% endif %}
+            </div>
+        </header>
+        <div class="card" style="background-color: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px;">
             <div class="table-responsive">
                 <table id="historialTable" class="table table-hover" style="color: var(--text-primary);">
                     <thead>
@@ -77,21 +87,19 @@
             </div>
             {% endif %}
         </div>
-    </div>
-</main>
-{% endblock %}
+    </main>
 
-{% block extra_scripts %}
-<script>
-    $(document).ready(function() {
-        $('#historialTable').DataTable({
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-            order: [[0, 'desc']],
-            pageLength: 25,
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                 '<"row"<"col-sm-12"tr>>' +
-                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#historialTable').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                order: [[0, 'desc']],
+                pageLength: 25
+            });
         });
-    });
-</script>
-{% endblock %}
+    </script>
+</body>
+</html>
