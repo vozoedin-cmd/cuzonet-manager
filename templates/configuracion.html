@@ -283,6 +283,7 @@
 
                     <div style="display: flex; gap: 1rem; align-items: center;">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Configuración</button>
+                        <button type="button" class="btn btn-secondary" onclick="testOmadaConnection()" id="btnTestOmada"><i class="fas fa-plug"></i> Probar Conexión</button>
                     </div>
                 </form>
             </div>
@@ -921,6 +922,28 @@
                     btn.disabled = false;
                 }
             });
+        }
+
+        async function testOmadaConnection() {
+            const btn = document.getElementById('btnTestOmada');
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
+            btn.disabled = true;
+
+            try {
+                const r = await fetch('/api/omada/test', { method: 'POST' });
+                const res = await r.json();
+                if (res.success) {
+                    showToast(res.message, 'success');
+                } else {
+                    showToast(res.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error de red al probar conexión', 'error');
+            } finally {
+                btn.innerHTML = oldText;
+                btn.disabled = false;
+            }
         }
 
         document.getElementById('iaConfigForm').addEventListener('submit', async function (e) {

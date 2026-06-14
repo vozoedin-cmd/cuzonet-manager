@@ -900,6 +900,50 @@ def save_config_omada():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/omada/test', methods=['POST'])
+@login_required
+@admin_required
+def test_omada_route():
+    try:
+        config = ConfigOmada.query.first()
+        if not config or not config.activo:
+            return jsonify({'success': False, 'error': 'La integración de Omada no está activa'})
+            
+        from omada_api import OmadaAPI
+        api = OmadaAPI(config.url, config.username, config.password, config.site_id)
+        success, msg = api.test_connection()
+        if success:
+            return jsonify({'success': True, 'message': msg})
+        else:
+            return jsonify({'success': False, 'error': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/generar', methods=['POST'])
+@login_required
+@admin_required
+def generar_fichas_omada():
+    try:
+        data = request.json
+        cantidad = int(data.get('cantidad', 10))
+        tiempo = int(data.get('tiempo', 3))
+        unidad = int(data.get('unidad', 1)) # 0=min, 1=hora, 2=dia
+        
+        config = ConfigOmada.query.first()
+        if not config or not config.activo:
+            return jsonify({'success': False, 'error': 'Omada no está configurado'})
+            
+        from omada_api import OmadaAPI
+        api = OmadaAPI(config.url, config.username, config.password, config.site_id)
+        pines = api.generar_fichas(cantidad, tiempo, unidad)
+        
+        if not pines:
+            return jsonify({'success': False, 'error': 'Se ejecutó el comando pero no se obtuvieron los PINs en la respuesta.'})
+            
+        return jsonify({'success': True, 'pines': pines})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 # ============== BOT DE INTELIGENCIA ARTIFICIAL ==============
 
 # ============== VISTAS PRINCIPALES ==============
