@@ -225,6 +225,21 @@ class ConfigOmada(db.Model):
     site_id = db.Column(db.String(100), default='Default')
     activo = db.Column(db.Boolean, default=False)
 
+class OmadaVoucher(db.Model):
+    """Historial de Vouchers generados en Omada"""
+    __tablename__ = 'omada_vouchers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(50), nullable=False, unique=True)
+    duracion_valor = db.Column(db.Integer, nullable=False)
+    duracion_unidad = db.Column(db.Integer, nullable=False) # 0=min, 1=hora, 2=dia
+    precio = db.Column(db.Float, nullable=False, default=0.0)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True) # Nullable para los antiguos o admin
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    estado = db.Column(db.String(20), default='activo') # activo, usado
+    
+    vendedor = db.relationship('Usuario', backref=db.backref('omada_vouchers', lazy=True))
+
 class Plan(db.Model):
     """Planes de internet predefinidos"""
     __tablename__ = 'planes'
@@ -928,6 +943,13 @@ def generar_fichas_omada():
         cantidad = int(data.get('cantidad', 10))
         tiempo = int(data.get('tiempo', 3))
         unidad = int(data.get('unidad', 1)) # 0=min, 1=hora, 2=dia
+        precio = float(data.get('precio', 0.0))
+        vendedor_id = data.get('vendedor_id')
+        if vendedor_id:
+            try:
+                vendedor_id = int(vendedor_id)
+            except ValueError:
+                vendedor_id = None
         
         config = ConfigOmada.query.first()
         if not config or not config.activo:
@@ -947,6 +969,21 @@ def generar_fichas_omada():
         
         if not pines:
             return jsonify({'success': False, 'error': 'Se ejecutó el comando pero no se obtuvieron los PINs en la respuesta.'})
+            
+        # Guardar en base de datos
+        nuevos_vouchers = []
+        for pin in pines:
+            v = OmadaVoucher(
+                codigo=pin,
+                duracion_valor=tiempo,
+                duracion_unidad=unidad,
+                precio=precio,
+                vendedor_id=vendedor_id
+            )
+            db.session.add(v)
+            nuevos_vouchers.append(v)
+        
+        db.session.commit()
             
         return jsonify({'success': True, 'pines': pines})
     except Exception as e:
@@ -4292,7 +4329,23 @@ def hotspot_fichas():
 @login_required
 @admin_required
 def hotspot_omada_print():
-    return render_template('cuzonet_print_studio.html')
+    vendedores = Usuario.query.filter_by(rol='vendedor').all()
+    return render_template('cuzonet_print_studio.html', vendedores=vendedores)
+@app.route('/admin/hotspot/omada-historial')
+@login_required
+def hotspot_omada_historial():
+    # Si es vendedor, solo ver las suyas
+    if current_user.rol == 'vendedor':
+        vouchers = OmadaVoucher.query.filter_by(vendedor_id=current_user.id).order_by(OmadaVoucher.fecha_creacion.desc()).all()
+    else:
+        vendedor_id = request.args.get('vendedor_id')
+        if vendedor_id:
+            vouchers = OmadaVoucher.query.filter_by(vendedor_id=vendedor_id).order_by(OmadaVoucher.fecha_creacion.desc()).all()
+        else:
+            vouchers = OmadaVoucher.query.order_by(OmadaVoucher.fecha_creacion.desc()).all()
+            
+    vendedores = Usuario.query.filter_by(rol='vendedor').all()
+    return render_template('omada_historial.html', vouchers=vouchers, vendedores=vendedores)
 
 @app.route('/admin/hotspot/fichas/generar_masivo', methods=['POST'])
 @login_required

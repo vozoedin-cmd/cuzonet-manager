@@ -69,7 +69,7 @@
                     <p style="color: var(--text-muted); font-size: 0.95rem;">Pega los códigos generados en tu controlador Omada para imprimirlos con este diseño.</p>
                 </div>
                 <div style="background: rgba(3,167,134,0.1); border: 1px solid var(--brand-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-ticket-alt"></i> Cantidad de Fichas</label>
                             <input type="number" id="genAmount" value="50" min="1" max="500">
@@ -86,7 +86,22 @@
                                 <option value="2">Días</option>
                             </select>
                         </div>
-                        <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1; padding: 12px;" onclick="autoGenerateVouchers()">
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <div class="input-group" style="flex: 1;">
+                            <label><i class="fas fa-user-tag"></i> Vendedor Asignado</label>
+                            <select id="genVendedor" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
+                                <option value="">Sin Asignar (Solo generar)</option>
+                                {% for v in vendedores %}
+                                <option value="{{ v.id }}">{{ v.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex: 1;">
+                            <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
+                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0">
+                        </div>
+                        <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1; padding: 12px; margin-top: 24px;" onclick="autoGenerateVouchers()">
                             GENERAR CON API <i class="fas fa-bolt"></i>
                         </button>
                     </div>
@@ -130,11 +145,13 @@
                 const cantidad = document.getElementById('genAmount').value;
                 const tiempo = document.getElementById('genTimeVal').value;
                 const unidad = document.getElementById('genTimeUnidad').value;
+                const vendedor_id = document.getElementById('genVendedor').value;
+                const precio = document.getElementById('genPrecio').value;
                 
                 const r = await fetch('/api/omada/generar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ cantidad, tiempo, unidad })
+                    body: JSON.stringify({ cantidad, tiempo, unidad, vendedor_id, precio })
                 });
                 const res = await r.json();
                 

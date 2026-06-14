@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Historial Omada - CuzoNet Manager{% endblock %}
+
+{% block content %}
+<main class="content p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0" style="color: var(--text-primary); font-weight: 700;">
+                <i class="fas fa-history text-primary"></i> Historial e Inventario Omada
+            </h1>
+            <p style="color: var(--text-muted);">Registro de todas las fichas generadas mediante API</p>
+        </div>
+        
+        {% if current_user.rol == 'admin' %}
+        <form method="GET" class="d-flex align-items-center" style="gap: 10px;">
+            <label style="color: var(--text-primary); font-weight: 600;">Filtrar Vendedor:</label>
+            <select name="vendedor_id" class="form-select" onchange="this.form.submit()" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color);">
+                <option value="">Todos los Vendedores</option>
+                {% for v in vendedores %}
+                <option value="{{ v.id }}" {% if request.args.get('vendedor_id') == v.id|string %}selected{% endif %}>{{ v.nombre }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="card bg-secondary border-0 shadow-sm" style="background-color: var(--bg-secondary) !important;">
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table id="historialTable" class="table table-hover" style="color: var(--text-primary);">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Tiempo</th>
+                            <th>Precio</th>
+                            <th>Vendedor</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in vouchers %}
+                        <tr>
+                            <td>{{ v.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td style="font-weight: bold; color: var(--brand-color);">{{ v.codigo }}</td>
+                            <td>
+                                {{ v.duracion_valor }} 
+                                {% if v.duracion_unidad == 0 %}Minutos{% elif v.duracion_unidad == 1 %}Horas{% else %}Días{% endif %}
+                            </td>
+                            <td>Q {{ "%.2f"|format(v.precio) }}</td>
+                            <td>
+                                {% if v.vendedor %}
+                                    <span class="badge bg-primary"><i class="fas fa-user"></i> {{ v.vendedor.nombre }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Sin asignar</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if v.estado == 'activo' %}
+                                    <span class="badge bg-success">Generada</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Usada</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if current_user.rol == 'admin' and request.args.get('vendedor_id') %}
+            <div class="mt-4 p-3 rounded" style="background: rgba(3,167,134,0.1); border: 1px solid var(--brand-color);">
+                <h4 style="color: var(--text-primary);"><i class="fas fa-money-check-alt"></i> Resumen de Cuenta</h4>
+                <p style="color: var(--text-muted); margin-bottom: 0;">Total de Fichas Asignadas: <strong>{{ vouchers|length }}</strong></p>
+                <p style="color: var(--text-muted); margin-bottom: 0;">Valor Total Inventario: <strong>Q {{ "%.2f"|format(vouchers|sum(attribute='precio')) }}</strong></p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    $(document).ready(function() {
+        $('#historialTable').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            order: [[0, 'desc']],
+            pageLength: 25,
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+        });
+    });
+</script>
+{% endblock %}
