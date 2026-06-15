@@ -4369,13 +4369,17 @@ def hotspot_omada_historial():
             changed = False
             for v_local in all_vouchers_local:
                 if v_local.codigo in status_map:
-                    omada_status = status_map[v_local.codigo]
+                    try:
+                        omada_status = int(status_map[v_local.codigo])
+                    except ValueError:
+                        omada_status = 0
+                        
                     nuevo_estado = 'activo'
                     if omada_status == 1:
                         nuevo_estado = 'usado'
                         if not v_local.fecha_uso:
                             v_local.fecha_uso = datetime.utcnow()
-                    elif omada_status == 2:
+                    elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
                         nuevo_estado = 'vencido'
                         
                     if v_local.estado != nuevo_estado:

@@ -142,8 +142,9 @@ class OmadaAPI:
         # 1 = In Use (o Used)
         # 2 = Expired
         for v in lista:
-            code = v.get('code')
+            code = str(v.get('code'))
             status = v.get('status')
             status_map[code] = status
             
+        print(f"[OMADA SYNC] Descargados {len(lista)} vouchers. Ejemplo status: {list(status_map.items())[:5]}")
         return status_map
