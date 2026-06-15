@@ -118,3 +118,32 @@ class OmadaAPI:
             pass
             
         return vouchers
+
+    def get_all_vouchers_status(self):
+        """
+        Descarga todos los vouchers desde Omada y devuelve un diccionario
+        con el código como clave y el estado como valor:
+        0: unused (Activo), 1: used, 2: expired
+        """
+        self.login()
+        
+        query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage=1&currentPageSize=10000"
+        res = self.session.get(query_url, timeout=15)
+        data = res.json()
+        
+        if data.get('errorCode') != 0:
+            raise Exception(f"Error obteniendo estado de fichas: {data.get('msg')}")
+            
+        lista = data.get('result', {}).get('data', [])
+        
+        status_map = {}
+        # status codes in Omada (generalmente):
+        # 0 = Unused
+        # 1 = In Use (o Used)
+        # 2 = Expired
+        for v in lista:
+            code = v.get('code')
+            status = v.get('status')
+            status_map[code] = status
+            
+        return status_map

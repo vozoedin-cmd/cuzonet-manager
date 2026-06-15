@@ -4354,6 +4354,39 @@ def hotspot_omada_print():
 @app.route('/admin/hotspot/omada-historial')
 @login_required
 def hotspot_omada_historial():
+    from datetime import datetime, timedelta
+    
+    # Sincronización en tiempo real con Omada OC200
+    try:
+        config = ConfigOmada.query.first()
+        if config and config.activo:
+            from omada_api import OmadaAPI
+            omada = OmadaAPI(config.url, config.username, config.password)
+            status_map = omada.get_all_vouchers_status()
+            
+            # Actualizar DB local con los estados de Omada
+            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
+            changed = False
+            for v_local in all_vouchers_local:
+                if v_local.codigo in status_map:
+                    omada_status = status_map[v_local.codigo]
+                    nuevo_estado = 'activo'
+                    if omada_status == 1:
+                        nuevo_estado = 'usado'
+                        if not v_local.fecha_uso:
+                            v_local.fecha_uso = datetime.utcnow()
+                    elif omada_status == 2:
+                        nuevo_estado = 'vencido'
+                        
+                    if v_local.estado != nuevo_estado:
+                        v_local.estado = nuevo_estado
+                        changed = True
+            
+            if changed:
+                db.session.commit()
+    except Exception as e:
+        print(f"Error sincronizando en tiempo real con Omada: {e}")
+
     # Si es vendedor, solo ver las suyas
     if current_user.rol == 'vendedor':
         vouchers = OmadaVoucher.query.filter_by(vendedor_id=current_user.id).order_by(OmadaVoucher.fecha_creacion.desc()).all()
