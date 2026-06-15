@@ -3189,7 +3189,25 @@ def migrate_db():
                                     print(f"[MIGRATION] Error al asignar router por defecto: {inner_e}")
                         except Exception as e:
                             print(f"[MIGRATION] Error agregando '{col_name}': {e}")
-            
+            # Verificar si la tabla omada_vouchers existe
+            if 'omada_vouchers' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('omada_vouchers')]
+                
+                columns_to_add = {
+                    'cliente_nombre': 'VARCHAR(100)',
+                    'fecha_uso': datetime_type,
+                }
+                
+                for col_name, col_type in columns_to_add.items():
+                    if col_name not in existing_columns:
+                        try:
+                            with db.engine.connect() as conn:
+                                conn.execute(text(f'ALTER TABLE omada_vouchers ADD COLUMN {col_name} {col_type}'))
+                                conn.commit()
+                            print(f"[MIGRATION] Columna '{col_name}' agregada a omada_vouchers")
+                        except Exception as e:
+                            print(f"[MIGRATION] Error agregando '{col_name}' a omada_vouchers: {e}")
+
             # Verificar si la tabla config_mikrotik existe
             if 'config_mikrotik' in inspector.get_table_names():
                 existing_columns = [col['name'] for col in inspector.get_columns('config_mikrotik')]
