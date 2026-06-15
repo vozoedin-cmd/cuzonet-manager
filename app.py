@@ -4388,8 +4388,11 @@ def hotspot_omada_historial():
             
             if changed:
                 db.session.commit()
+                flash("Sincronización con Omada exitosa. Se actualizaron los estados.", "success")
     except Exception as e:
-        print(f"Error sincronizando en tiempo real con Omada: {e}")
+        error_msg = f"Error de Sincronización Omada: {str(e)}"
+        print(error_msg)
+        flash(error_msg, "danger")
 
     # Si es vendedor, solo ver las suyas
     if current_user.rol == 'vendedor':
@@ -4444,6 +4447,22 @@ def hotspot_omada_historial():
         labels_grafico=labels_grafico,
         datos_grafico=datos_grafico
     )
+
+@app.route('/admin/hotspot/omada-debug')
+@login_required
+def hotspot_omada_debug():
+    try:
+        config = ConfigOmada.query.first()
+        if not config or not config.activo:
+            return "Omada no configurado"
+        from omada_api import OmadaAPI
+        omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+        omada.login()
+        query_url = f"{omada.base_url}/{omada.omadac_id}/api/v2/hotspot/sites/{omada.site_id}/vouchers?currentPage=1&currentPageSize=10"
+        res = omada.session.get(query_url, timeout=15)
+        return res.json()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @app.route('/api/omada/voucher/<int:id>/estado', methods=['POST'])
 @login_required
