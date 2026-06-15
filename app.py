@@ -4361,7 +4361,7 @@ def hotspot_omada_historial():
         config = ConfigOmada.query.first()
         if config and config.activo:
             from omada_api import OmadaAPI
-            omada = OmadaAPI(config.url, config.username, config.password)
+            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
             status_map = omada.get_all_vouchers_status()
             
             # Actualizar DB local con los estados de Omada
