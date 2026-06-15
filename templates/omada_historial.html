@@ -7,7 +7,96 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap5.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .summary-cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-right: 20px;
+            color: var(--brand-color);
+        }
+        .stat-details h3 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-details p {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+        
+        .omada-inventory-card {
+            background: linear-gradient(135deg, rgba(3,167,134,0.1) 0%, rgba(3,167,134,0.05) 100%);
+            border: 1px solid var(--brand-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .inventory-item {
+            text-align: center;
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        .inventory-item h4 { margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted); }
+        .inventory-item span { font-size: 1.5rem; font-weight: bold; }
+        
+        .btn-custom {
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .btn-primary-custom { background: var(--brand-color); color: white; }
+        .btn-primary-custom:hover { background: #02856a; color: white; }
+        .btn-danger-custom { background: #dc3545; color: white; }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 992px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="bg-animation">
@@ -21,12 +110,12 @@
         <header class="header">
             <div class="header-left">
                 <h1>Historial e Inventario Omada</h1>
-                <p class="header-subtitle">Registro de todas las fichas generadas mediante API</p>
+                <p class="header-subtitle">Control total sobre las fichas generadas y su estado</p>
             </div>
-            <div class="header-right">
+            <div class="header-right d-flex gap-2">
                 {% if current_user.rol == 'admin' %}
-                <form method="GET" class="d-flex align-items-center" style="gap: 10px;">
-                    <select name="vendedor_id" class="form-select" onchange="this.form.submit()" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color); padding: 10px; border-radius: 5px;">
+                <form method="GET" class="d-flex align-items-center">
+                    <select name="vendedor_id" class="form-select" onchange="this.form.submit()" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color);">
                         <option value="">Todos los Vendedores</option>
                         {% for v in vendedores %}
                         <option value="{{ v.id }}" {% if request.args.get('vendedor_id') == v.id|string %}selected{% endif %}>{{ v.nombre }}</option>
@@ -36,70 +125,328 @@
                 {% endif %}
             </div>
         </header>
-        <div class="card" style="background-color: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px;">
-            <div class="table-responsive">
-                <table id="historialTable" class="table table-hover" style="color: var(--text-primary);">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Código</th>
-                            <th>Tiempo</th>
-                            <th>Precio</th>
-                            <th>Vendedor</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for v in vouchers %}
-                        <tr>
-                            <td>{{ v.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
-                            <td style="font-weight: bold; color: var(--brand-color);">{{ v.codigo }}</td>
-                            <td>
-                                {{ v.duracion_valor }} 
-                                {% if v.duracion_unidad == 0 %}Minutos{% elif v.duracion_unidad == 1 %}Horas{% else %}Días{% endif %}
-                            </td>
-                            <td>Q {{ "%.2f"|format(v.precio) }}</td>
-                            <td>
-                                {% if v.vendedor %}
-                                    <span class="badge bg-primary"><i class="fas fa-user"></i> {{ v.vendedor.nombre }}</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Sin asignar</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if v.estado == 'activo' %}
-                                    <span class="badge bg-success">Generada</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Usada</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+        <!-- Tarjetas Resumen -->
+        <div class="summary-cards-container">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
+                <div class="stat-details">
+                    <h3>Generadas Hoy</h3>
+                    <p>{{ fichas_hoy }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #28a745;"><i class="fas fa-hand-holding-usd"></i></div>
+                <div class="stat-details">
+                    <h3>Ingresos Hoy</h3>
+                    <p>Q {{ "%.2f"|format(ingresos_hoy) }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #ffc107;"><i class="fas fa-bolt"></i></div>
+                <div class="stat-details">
+                    <h3>Fichas Activas</h3>
+                    <p>{{ estado_counts.get('activo', 0) }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #dc3545;"><i class="fas fa-clock"></i></div>
+                <div class="stat-details">
+                    <h3>Vencidas</h3>
+                    <p>{{ estado_counts.get('vencido', 0) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="main-table-area">
+                <!-- Inventario Omada -->
+                <div class="omada-inventory-card">
+                    <h3 style="color: var(--text-primary); margin: 0;"><i class="fas fa-box-open"></i> Inventario Global Omada</h3>
+                    <div class="inventory-grid">
+                        <div class="inventory-item">
+                            <h4>Disponibles</h4>
+                            <span style="color: #28a745;">{{ estado_counts.get('activo', 0) }}</span>
+                        </div>
+                        <div class="inventory-item">
+                            <h4>Usadas</h4>
+                            <span style="color: #ffc107;">{{ estado_counts.get('usado', 0) }}</span>
+                        </div>
+                        <div class="inventory-item">
+                            <h4>Vencidas</h4>
+                            <span style="color: #dc3545;">{{ estado_counts.get('vencido', 0) }}</span>
+                        </div>
+                        <div class="inventory-item">
+                            <h4>Suspendidas</h4>
+                            <span style="color: #6c757d;">{{ estado_counts.get('eliminado', 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Fichas -->
+                <div class="card" style="background-color: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px;">
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <h4 style="color: var(--text-primary); margin: 0;">Detalle de Fichas</h4>
+                        <div class="action-buttons" id="table-actions">
+                            <a href="{{ url_for('hotspot_dashboard') }}" class="btn btn-primary-custom"><i class="fas fa-plus"></i> Generar Fichas</a>
+                            <button class="btn btn-danger-custom btn-sm ms-2" onclick="limpiarHistorial()"><i class="fas fa-trash-alt"></i> Limpiar Historial</button>
+                            <!-- Botones DataTables irán aquí -->
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table id="historialTable" class="table table-hover" style="color: var(--text-primary); width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Código</th>
+                                    <th>Duración</th>
+                                    <th>Precio</th>
+                                    <th>Vendedor</th>
+                                    <th>Estado</th>
+                                    <th>Cliente</th>
+                                    <th>Uso</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in vouchers %}
+                                <tr>
+                                    <td>{{ v.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td style="font-weight: bold; color: var(--brand-color);">
+                                        <span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 3px 6px; border-radius: 4px;">{{ v.codigo }}</span>
+                                    </td>
+                                    <td>
+                                        {{ v.duracion_valor }} 
+                                        {% if v.duracion_unidad == 0 %}Minutos{% elif v.duracion_unidad == 1 %}Horas{% else %}Días{% endif %}
+                                    </td>
+                                    <td>Q {{ "%.2f"|format(v.precio) }}</td>
+                                    <td>
+                                        {% if v.vendedor %}
+                                            <span>{{ v.vendedor.nombre }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Sin asignar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if v.estado == 'activo' %}
+                                            <span class="badge" style="background-color: #28a745;">Activa</span>
+                                        {% elif v.estado == 'usado' %}
+                                            <span class="badge" style="background-color: #ffc107; color: #000;">Sin usar</span>
+                                        {% elif v.estado == 'vencido' %}
+                                            <span class="badge" style="background-color: #dc3545;">Vencida</span>
+                                        {% else %}
+                                            <span class="badge" style="background-color: #6c757d;">Eliminada</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ v.cliente_nombre if v.cliente_nombre else '-' }}
+                                    </td>
+                                    <td>
+                                        {{ v.fecha_uso.strftime('%d/%m/%Y %H:%M') if v.fecha_uso else '-' }}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info" onclick="editVoucher({{ v.id }}, '{{ v.estado }}', '{{ v.cliente_nombre or '' }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteVoucher({{ v.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             
-            {% if current_user.rol == 'admin' and request.args.get('vendedor_id') %}
-            <div class="mt-4 p-3 rounded" style="background: rgba(3,167,134,0.1); border: 1px solid var(--brand-color);">
-                <h4 style="color: var(--text-primary);"><i class="fas fa-money-check-alt"></i> Resumen de Cuenta</h4>
-                <p style="color: var(--text-muted); margin-bottom: 0;">Total de Fichas Asignadas: <strong>{{ vouchers|length }}</strong></p>
-                <p style="color: var(--text-muted); margin-bottom: 0;">Valor Total Inventario: <strong>Q {{ "%.2f"|format(vouchers|sum(attribute='precio')) }}</strong></p>
+            <div class="side-area">
+                <!-- Gráfico Lateral -->
+                <div class="card" style="background-color: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; position: sticky; top: 20px;">
+                    <h4 style="color: var(--text-primary); margin-bottom: 20px; font-size: 1.1rem;">Ventas Últimos 7 Días</h4>
+                    <canvas id="ventasChart" height="250"></canvas>
+                </div>
             </div>
-            {% endif %}
         </div>
     </main>
+
+    <!-- Modal Editar Ficha -->
+    <div class="modal fade" id="editVoucherModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background-color: var(--bg-card); color: var(--text-primary);">
+                <div class="modal-header" style="border-bottom-color: var(--border-color);">
+                    <h5 class="modal-title">Editar Ficha</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editVoucherId">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <input type="text" class="form-control" id="editVoucherCliente" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color);">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="editVoucherEstado" style="background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-color);">
+                            <option value="activo">Activa</option>
+                            <option value="usado">Sin usar (Marcada usada)</option>
+                            <option value="vencido">Vencida</option>
+                            <option value="eliminado">Eliminada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top-color: var(--border-color);">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary-custom" onclick="saveVoucherEdit()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- DataTables Buttons -->
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Bootstrap bundle for Modals -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
+        // Variables desde Flask
+        const chartLabels = {{ labels_grafico | tojson | safe }};
+        const chartData = {{ datos_grafico | tojson | safe }};
+        
         $(document).ready(function() {
-            $('#historialTable').DataTable({
+            var table = $('#historialTable').DataTable({
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
                 order: [[0, 'desc']],
-                pageLength: 25
+                pageLength: 25,
+                dom: '<"d-flex justify-content-between align-items-center mb-3"lBf>rtip',
+                buttons: [
+                    {
+                        extend: 'pdf',
+                        className: 'btn btn-sm btn-danger-custom',
+                        text: '<i class="fas fa-file-pdf"></i> Exportar PDF',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'excel',
+                        className: 'btn btn-sm btn-success',
+                        text: '<i class="fas fa-file-excel"></i> Exportar Excel',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    }
+                ]
+            });
+            
+            // Move buttons to the custom container we made
+            table.buttons().container().appendTo('#table-actions');
+
+            // Initialize Chart
+            var ctx = document.getElementById('ventasChart').getContext('2d');
+            var ventasChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Ingresos (Q)',
+                        data: chartData,
+                        backgroundColor: 'rgba(3, 167, 134, 0.5)',
+                        borderColor: 'rgba(3, 167, 134, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: { color: '#a0a0a0' }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: { color: '#a0a0a0' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
             });
         });
+
+        const editModal = new bootstrap.Modal(document.getElementById('editVoucherModal'));
+
+        function editVoucher(id, estado, cliente) {
+            document.getElementById('editVoucherId').value = id;
+            document.getElementById('editVoucherEstado').value = estado;
+            document.getElementById('editVoucherCliente').value = cliente;
+            editModal.show();
+        }
+
+        function saveVoucherEdit() {
+            const id = document.getElementById('editVoucherId').value;
+            const estado = document.getElementById('editVoucherEstado').value;
+            const cliente = document.getElementById('editVoucherCliente').value;
+            
+            fetch('/api/omada/voucher/' + id + '/estado', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    estado: estado,
+                    cliente_nombre: cliente
+                })
+            }).then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+
+        function deleteVoucher(id) {
+            if(confirm('¿Estás seguro de eliminar esta ficha? No se podrá recuperar.')) {
+                fetch('/api/omada/voucher/' + id + '/estado', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'eliminado' })
+                }).then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function limpiarHistorial() {
+            if(confirm('ATENCIÓN: ¿Estás seguro de que quieres eliminar todo el historial? Esta acción marcará todas las fichas como eliminadas y no se puede deshacer.')) {
+                // Here we would typically call a backend endpoint to clear all, 
+                // but since we only have individual status updates, we can either
+                // implement the backend or alert the user.
+                alert('Funcionalidad de limpieza masiva pendiente de implementar en el backend.');
+            }
+        }
     </script>
 </body>
 </html>

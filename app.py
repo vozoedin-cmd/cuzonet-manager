@@ -236,7 +236,9 @@ class OmadaVoucher(db.Model):
     precio = db.Column(db.Float, nullable=False, default=0.0)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True) # Nullable para los antiguos o admin
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    estado = db.Column(db.String(20), default='activo') # activo, usado
+    estado = db.Column(db.String(20), default='activo') # activo, usado, vencido, eliminado
+    cliente_nombre = db.Column(db.String(100), nullable=True)
+    fecha_uso = db.Column(db.DateTime, nullable=True)
     
     vendedor = db.relationship('Usuario', backref=db.backref('omada_vouchers', lazy=True))
 
@@ -4344,8 +4346,73 @@ def hotspot_omada_historial():
         else:
             vouchers = OmadaVoucher.query.order_by(OmadaVoucher.fecha_creacion.desc()).all()
             
+    from datetime import datetime, timedelta
+    
+    hoy = datetime.utcnow().date()
+    fichas_hoy = 0
+    ingresos_hoy = 0.0
+    estado_counts = {'activo': 0, 'usado': 0, 'vencido': 0, 'eliminado': 0}
+    
+    for v in vouchers:
+        # Contar estados
+        if v.estado in estado_counts:
+            estado_counts[v.estado] += 1
+            
+        # Calcular hoy
+        if v.fecha_creacion.date() == hoy:
+            fichas_hoy += 1
+            ingresos_hoy += v.precio
+
+    # Datos para gráfico: ventas de los últimos 7 días
+    ventas_7_dias = {}
+    for i in range(7):
+        d = hoy - timedelta(days=i)
+        ventas_7_dias[d.strftime('%d/%m')] = 0
+        
+    for v in vouchers:
+        fecha_str = v.fecha_creacion.strftime('%d/%m')
+        if fecha_str in ventas_7_dias and v.estado != 'eliminado':
+            ventas_7_dias[fecha_str] += v.precio
+            
+    # Ordenar chronológicamente para el gráfico
+    labels_grafico = list(reversed(list(ventas_7_dias.keys())))
+    datos_grafico = list(reversed(list(ventas_7_dias.values())))
+
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
-    return render_template('omada_historial.html', vouchers=vouchers, vendedores=vendedores)
+    return render_template(
+        'omada_historial.html', 
+        vouchers=vouchers, 
+        vendedores=vendedores,
+        fichas_hoy=fichas_hoy,
+        ingresos_hoy=ingresos_hoy,
+        estado_counts=estado_counts,
+        labels_grafico=labels_grafico,
+        datos_grafico=datos_grafico
+    )
+
+@app.route('/api/omada/voucher/<int:id>/estado', methods=['POST'])
+@login_required
+def update_omada_voucher(id):
+    voucher = OmadaVoucher.query.get_or_404(id)
+    
+    # Validar permisos
+    if current_user.rol != 'admin' and voucher.vendedor_id != current_user.id:
+        return jsonify({'success': False, 'error': 'No tienes permisos para editar esta ficha.'}), 403
+        
+    data = request.json
+    nuevo_estado = data.get('estado')
+    cliente_nombre = data.get('cliente_nombre')
+    
+    if nuevo_estado in ['activo', 'usado', 'vencido', 'eliminado']:
+        voucher.estado = nuevo_estado
+        if nuevo_estado == 'usado' and not voucher.fecha_uso:
+            voucher.fecha_uso = datetime.utcnow()
+            
+    if cliente_nombre is not None:
+        voucher.cliente_nombre = cliente_nombre
+        
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/admin/hotspot/fichas/generar_masivo', methods=['POST'])
 @login_required
