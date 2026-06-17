@@ -992,6 +992,21 @@ def get_omada_sites():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/omada/<int:id>/sites', methods=['GET'])
+@login_required
+@admin_required
+def get_omada_sites_by_id(id):
+    try:
+        config = ConfigOmada.query.get_or_404(id)
+        if not config.activo:
+            return jsonify({'success': False, 'error': 'Controlador inactivo'})
+        from omada_api import OmadaAPI
+        api = OmadaAPI(config.url, config.username, config.password)
+        sites = api.get_all_sites()
+        return jsonify({'success': True, 'sites': sites})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/omada/generar', methods=['POST'])
 @login_required
 @admin_required
@@ -1024,8 +1039,11 @@ def generar_fichas_omada():
         else: # dias
             minutos = tiempo * 1440
             
+        site_name_override = data.get('site_name')
+        final_site_name = site_name_override if site_name_override else config.site_id
+            
         from omada_api import OmadaAPI
-        api = OmadaAPI(config.url, config.username, config.password, config.site_id)
+        api = OmadaAPI(config.url, config.username, config.password, final_site_name)
         pines = api.generar_fichas(cantidad, minutos, 1) # Pasamos minutos y unidad=1 (minutos en V6)
         
         if not pines:

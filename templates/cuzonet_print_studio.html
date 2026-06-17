@@ -72,12 +72,18 @@
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div class="input-group" style="flex: 1; min-width: 200px;">
                             <label><i class="fas fa-wifi"></i> Controlador Omada</label>
-                            <select id="genOmada" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
+                            <select id="genOmada" onchange="cargarSitiosPrint()" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
                                 {% for om in omadas %}
-                                <option value="{{ om.id }}">{{ om.nombre }} ({{ om.site_id }})</option>
+                                <option value="{{ om.id }}" data-default-site="{{ om.site_id }}">{{ om.nombre }} ({{ om.site_id }})</option>
                                 {% else %}
                                 <option value="">No hay Omadas configurados</option>
                                 {% endfor %}
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex: 1; min-width: 200px;">
+                            <label><i class="fas fa-sitemap"></i> Seleccionar Sitio</label>
+                            <select id="genOmadaSite" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
+                                <option value="">-- Automático (Sitio por Defecto) --</option>
                             </select>
                         </div>
                     </div>
@@ -147,6 +153,49 @@
     </main>
 
     <script>
+        async function cargarSitiosPrint() {
+            const omadaSelect = document.getElementById('genOmada');
+            const siteSelect = document.getElementById('genOmadaSite');
+            const omada_id = omadaSelect.value;
+            
+            siteSelect.innerHTML = '<option value="">-- Automático (Sitio por Defecto) --</option>';
+            if (!omada_id) return;
+            
+            // Mostrar estado de carga
+            siteSelect.innerHTML = '<option value="">Cargando sitios...</option>';
+            siteSelect.disabled = true;
+            
+            try {
+                const r = await fetch('/api/omada/' + omada_id + '/sites');
+                const res = await r.json();
+                
+                siteSelect.innerHTML = '<option value="">-- Automático (Sitio por Defecto) --</option>';
+                if (res.success && res.sites.length > 0) {
+                    const defaultSite = omadaSelect.options[omadaSelect.selectedIndex].getAttribute('data-default-site');
+                    res.sites.forEach(site => {
+                        const opt = document.createElement('option');
+                        opt.value = site.name;
+                        opt.textContent = `${site.name} (ID: ${site.id})`;
+                        if (site.name === defaultSite) opt.selected = true;
+                        siteSelect.appendChild(opt);
+                    });
+                } else if (res.error) {
+                    typeof showToast !== 'undefined' ? showToast(res.error, 'error') : console.error(res.error);
+                }
+            } catch (e) {
+                siteSelect.innerHTML = '<option value="">-- Error al cargar --</option>';
+            } finally {
+                siteSelect.disabled = false;
+            }
+        }
+        
+        // Cargar sitios al iniciar la página si ya hay un Omada seleccionado
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('genOmada').value) {
+                cargarSitiosPrint();
+            }
+        });
+
         async function autoGenerateVouchers() {
             const btn = document.getElementById('btnAutoGenerate');
             const oldHtml = btn.innerHTML;
@@ -164,11 +213,12 @@
                 const unidad = document.getElementById('genTimeUnidad').value;
                 const vendedor_id = document.getElementById('genVendedor').value;
                 const precio = document.getElementById('genPrecio').value;
+                const site_name = document.getElementById('genOmadaSite').value;
                 
                 const r = await fetch('/api/omada/generar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ omada_id, cantidad, tiempo, unidad, vendedor_id, precio })
+                    body: JSON.stringify({ omada_id, site_name, cantidad, tiempo, unidad, vendedor_id, precio })
                 });
                 const res = await r.json();
                 
