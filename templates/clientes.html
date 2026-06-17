@@ -1253,7 +1253,8 @@
                 }
             }
         } catch (e) {
-            typeof showToast !== 'undefined' ? showToast('Error contactando a la IA', 'error') : alert('Error contactando a la IA');
+            console.error(e);
+            typeof showToast !== 'undefined' ? showToast('Error contactando a la IA: ' + e.message, 'error') : alert('Error contactando a la IA: ' + e.message);
         } finally {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
