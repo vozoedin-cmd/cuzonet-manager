@@ -1836,28 +1836,37 @@ def crear_cliente():
         api = get_mikrotik_api(router_id)
         
         if api:
-            success, result = api.create_simple_queue(
-                name=queue_name,
-                target=data['ip_address'],
-                max_limit_download=vel_download,
-                max_limit_upload=vel_upload,
-                comment=f"Cliente: {data['nombre']}"
-            )
+            # PRIMERO BUSCAR si ya existe el queue por IP
+            found, existing_queue_id = api.find_queue_by_target(data['ip_address'])
             
-            if success:
-                mikrotik_id = result
-            else:
-                # El queue puede ya existir en MikroTik — buscarlo y actualizarlo
-                found, existing_queue_id = api.find_queue_by_target(data['ip_address'])
-                if found and existing_queue_id:
-                    api.update_simple_queue(
-                        existing_queue_id,
-                        name=queue_name,
-                        max_limit_download=vel_download,
-                        max_limit_upload=vel_upload,
-                        comment=f"Cliente: {data['nombre']}"
-                    )
+            if found and existing_queue_id:
+                # Actualizar el existente
+                success, result = api.update_simple_queue(
+                    existing_queue_id,
+                    name=queue_name,
+                    max_limit_download=vel_download,
+                    max_limit_upload=vel_upload,
+                    comment=f"Cliente: {data['nombre']}"
+                )
+                if success:
                     mikrotik_id = existing_queue_id
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Error al actualizar queue existente en MikroTik: {result}'
+                    }), 500
+            else:
+                # No existe, crearlo
+                success, result = api.create_simple_queue(
+                    name=queue_name,
+                    target=data['ip_address'],
+                    max_limit_download=vel_download,
+                    max_limit_upload=vel_upload,
+                    comment=f"Cliente: {data['nombre']}"
+                )
+                
+                if success:
+                    mikrotik_id = result
                 else:
                     return jsonify({
                         'success': False,
@@ -2527,18 +2536,36 @@ def importar_clientes():
                         api = get_mikrotik_api(active_router_id)
                         
                         if api:
-                            success, result = api.create_simple_queue(
-                                name=queue_name,
-                                target=str(ip),
-                                max_limit_download=str(vel_down) if vel_down else '10M',
-                                max_limit_upload=str(vel_up) if vel_up else '5M',
-                                comment=f"Cliente: {nombre}"
-                            )
+                            # PRIMERO BUSCAR si ya existe el queue por IP
+                            found, existing_queue_id = api.find_queue_by_target(str(ip))
                             
-                            if success:
-                                mikrotik_id = result
+                            if found and existing_queue_id:
+                                # Actualizar el existente
+                                success, result = api.update_simple_queue(
+                                    existing_queue_id,
+                                    name=queue_name,
+                                    max_limit_download=str(vel_down) if vel_down else '10M',
+                                    max_limit_upload=str(vel_up) if vel_up else '5M',
+                                    comment=f"Cliente: {nombre}"
+                                )
+                                if success:
+                                    mikrotik_id = existing_queue_id
+                                else:
+                                    errores.append(f"Fila {row_num}: Error al actualizar queue existente - {result}")
                             else:
-                                errores.append(f"Fila {row_num}: Queue no creado - {result}")
+                                # No existe, crearlo
+                                success, result = api.create_simple_queue(
+                                    name=queue_name,
+                                    target=str(ip),
+                                    max_limit_download=str(vel_down) if vel_down else '10M',
+                                    max_limit_upload=str(vel_up) if vel_up else '5M',
+                                    comment=f"Cliente: {nombre}"
+                                )
+                                
+                                if success:
+                                    mikrotik_id = result
+                                else:
+                                    errores.append(f"Fila {row_num}: Queue no creado - {result}")
                         
                         cliente = Cliente(
                             nombre=str(nombre),
@@ -4356,6 +4383,9 @@ def hotspot_omada_print():
 def hotspot_omada_historial():
     from datetime import datetime, timedelta
     
+    sync_info = None
+    sync_error = None
+    
     # Sincronización en tiempo real con Omada OC200
     try:
         config = ConfigOmada.query.first()
@@ -4388,11 +4418,10 @@ def hotspot_omada_historial():
             
             if changed:
                 db.session.commit()
-                flash("Sincronización con Omada exitosa. Se actualizaron los estados.", "success")
+            sync_info = f"Sincronización OK. Descargados {len(status_map)} vouchers desde Omada."
     except Exception as e:
-        error_msg = f"Error de Sincronización Omada: {str(e)}"
-        print(error_msg)
-        flash(error_msg, "danger")
+        sync_error = f"Error conectando a Omada: {str(e)}"
+        print(sync_error)
 
     # Si es vendedor, solo ver las suyas
     if current_user.rol == 'vendedor':
