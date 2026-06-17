@@ -219,6 +219,7 @@ class ConfigOmada(db.Model):
     __tablename__ = 'config_omada'
     
     id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), default='Omada Principal')
     url = db.Column(db.String(200), nullable=False, default='https://127.0.0.1:8043')
     username = db.Column(db.String(100), nullable=False, default='admin')
     password = db.Column(db.String(255), nullable=False, default='')
@@ -239,8 +240,10 @@ class OmadaVoucher(db.Model):
     estado = db.Column(db.String(20), default='activo') # activo, usado, vencido, eliminado
     cliente_nombre = db.Column(db.String(100), nullable=True)
     fecha_uso = db.Column(db.DateTime, nullable=True)
+    omada_id = db.Column(db.Integer, db.ForeignKey('config_omada.id'), nullable=True)
     
     vendedor = db.relationship('Usuario', backref=db.backref('omada_vouchers', lazy=True))
+    omada = db.relationship('ConfigOmada', backref=db.backref('vouchers', lazy=True))
 
 class Plan(db.Model):
     """Planes de internet predefinidos"""
@@ -894,12 +897,17 @@ def save_config_omada():
     """Guardar configuración de Omada"""
     try:
         data = request.json
-        config = ConfigOmada.query.first()
+        omada_id = data.get('id')
         
-        if not config:
+        if omada_id:
+            config = ConfigOmada.query.get(omada_id)
+            if not config:
+                return jsonify({'success': False, 'error': 'Controlador Omada no encontrado'})
+        else:
             config = ConfigOmada()
             db.session.add(config)
             
+        config.nombre = data.get('nombre', 'Omada Principal').strip()
         config.url = data.get('url', '').strip()
         config.username = data.get('username', '').strip()
         
@@ -917,17 +925,52 @@ def save_config_omada():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/config/omada/<int:id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_config_omada(id):
+    """Eliminar un controlador Omada"""
+    try:
+        config = ConfigOmada.query.get_or_404(id)
+        # Opcional: verificar si tiene vouchers
+        db.session.delete(config)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Controlador eliminado exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/omada/test', methods=['POST'])
 @login_required
 @admin_required
 def test_omada_route():
     try:
-        config = ConfigOmada.query.first()
+        data = request.json
+        omada_id = data.get('omada_id')
+        
+        if omada_id:
+            config = ConfigOmada.query.get(omada_id)
+        else:
+            # Si prueban la conexion sin haber guardado aun, usan los datos enviados
+            return test_omada_temp(data)
+            
         if not config or not config.activo:
             return jsonify({'success': False, 'error': 'La integración de Omada no está activa'})
             
         from omada_api import OmadaAPI
         api = OmadaAPI(config.url, config.username, config.password, config.site_id)
+        success, msg = api.test_connection()
+        if success:
+            return jsonify({'success': True, 'message': msg})
+        else:
+            return jsonify({'success': False, 'error': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+def test_omada_temp(data):
+    try:
+        from omada_api import OmadaAPI
+        api = OmadaAPI(data.get('url'), data.get('username'), data.get('password'), data.get('site_id'))
         success, msg = api.test_connection()
         if success:
             return jsonify({'success': True, 'message': msg})
@@ -952,10 +995,13 @@ def generar_fichas_omada():
                 vendedor_id = int(vendedor_id)
             except ValueError:
                 vendedor_id = None
-        
-        config = ConfigOmada.query.first()
+        omada_id = data.get('omada_id')
+        if not omada_id:
+            return jsonify({'success': False, 'error': 'Debe seleccionar un controlador Omada'})
+            
+        config = ConfigOmada.query.get(omada_id)
         if not config or not config.activo:
-            return jsonify({'success': False, 'error': 'Omada no está configurado'})
+            return jsonify({'success': False, 'error': 'Controlador Omada no encontrado o inactivo'})
             
         # Omada V6 espera el tiempo preferiblemente en minutos
         if unidad == 0:
@@ -980,7 +1026,8 @@ def generar_fichas_omada():
                 duracion_valor=tiempo,
                 duracion_unidad=unidad,
                 precio=precio,
-                vendedor_id=vendedor_id
+                vendedor_id=vendedor_id,
+                omada_id=omada_id
             )
             db.session.add(v)
             nuevos_vouchers.append(v)
@@ -1488,8 +1535,8 @@ def configuracion():
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
     config_ia = ConfigIA.query.first()
-    config_omada = ConfigOmada.query.first()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia, config_omada=config_omada)
+    omadas = ConfigOmada.query.all()
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia, omadas=omadas)
 
 
 @app.route('/antenas')
@@ -3223,6 +3270,7 @@ def migrate_db():
                 columns_to_add = {
                     'cliente_nombre': 'VARCHAR(100)',
                     'fecha_uso': datetime_type,
+                    'omada_id': 'INTEGER',
                 }
                 
                 for col_name, col_type in columns_to_add.items():
@@ -3234,6 +3282,28 @@ def migrate_db():
                             print(f"[MIGRATION] Columna '{col_name}' agregada a omada_vouchers")
                         except Exception as e:
                             print(f"[MIGRATION] Error agregando '{col_name}' a omada_vouchers: {e}")
+
+            # Verificar si la tabla config_omada existe
+            if 'config_omada' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('config_omada')]
+                if 'nombre' not in existing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(text("ALTER TABLE config_omada ADD COLUMN nombre VARCHAR(100) DEFAULT 'Omada Principal'"))
+                            conn.commit()
+                        print("[MIGRATION] Columna 'nombre' agregada a config_omada")
+                    except Exception as e:
+                        print(f"[MIGRATION] Error al agregar nombre a config_omada: {e}")
+
+            # Asignar los vouchers existentes al primer omada por defecto
+            try:
+                first_o = ConfigOmada.query.first()
+                if first_o:
+                    with db.engine.connect() as conn:
+                        conn.execute(text(f'UPDATE omada_vouchers SET omada_id = {first_o.id} WHERE omada_id IS NULL'))
+                        conn.commit()
+            except Exception as e:
+                print(f"[MIGRATION] Error al asignar omada_id por defecto a los vouchers: {e}")
 
             # Verificar si la tabla config_mikrotik existe
             if 'config_mikrotik' in inspector.get_table_names():
@@ -4377,7 +4447,8 @@ def hotspot_fichas():
 @admin_required
 def hotspot_omada_print():
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
-    return render_template('cuzonet_print_studio.html', vendedores=vendedores)
+    omadas = ConfigOmada.query.filter_by(activo=True).all()
+    return render_template('cuzonet_print_studio.html', vendedores=vendedores, omadas=omadas)
 @app.route('/admin/hotspot/omada-historial')
 @login_required
 def hotspot_omada_historial():
@@ -4386,42 +4457,52 @@ def hotspot_omada_historial():
     sync_info = None
     sync_error = None
     
-    # Sincronización en tiempo real con Omada OC200
-    try:
-        config = ConfigOmada.query.first()
-        if config and config.activo:
-            from omada_api import OmadaAPI
-            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
-            status_map = omada.get_all_vouchers_status()
+    # Sincronización en tiempo real con Múltiples Omadas
+    omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
+    total_sync = 0
+    errores_sync = []
+    
+    if omadas_configs:
+        changed = False
+        from omada_api import OmadaAPI
+        
+        for config in omadas_configs:
+            try:
+                omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+                status_map = omada.get_all_vouchers_status()
+                total_sync += len(status_map)
+                
+                # Actualizar DB local con los estados de este Omada
+                all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', OmadaVoucher.omada_id == config.id).all()
+                for v_local in all_vouchers_local:
+                    if v_local.codigo in status_map:
+                        try:
+                            omada_status = int(status_map[v_local.codigo])
+                        except ValueError:
+                            omada_status = 0
+                            
+                        nuevo_estado = 'activo'
+                        if omada_status == 1:
+                            nuevo_estado = 'usado'
+                            if not v_local.fecha_uso:
+                                v_local.fecha_uso = datetime.utcnow()
+                        elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
+                            nuevo_estado = 'vencido'
+                            
+                        if v_local.estado != nuevo_estado:
+                            v_local.estado = nuevo_estado
+                            changed = True
+            except Exception as e:
+                errores_sync.append(f"Error en {config.nombre}: {str(e)}")
+                
+        if changed:
+            db.session.commit()
             
-            # Actualizar DB local con los estados de Omada
-            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
-            changed = False
-            for v_local in all_vouchers_local:
-                if v_local.codigo in status_map:
-                    try:
-                        omada_status = int(status_map[v_local.codigo])
-                    except ValueError:
-                        omada_status = 0
-                        
-                    nuevo_estado = 'activo'
-                    if omada_status == 1:
-                        nuevo_estado = 'usado'
-                        if not v_local.fecha_uso:
-                            v_local.fecha_uso = datetime.utcnow()
-                    elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
-                        nuevo_estado = 'vencido'
-                        
-                    if v_local.estado != nuevo_estado:
-                        v_local.estado = nuevo_estado
-                        changed = True
-            
-            if changed:
-                db.session.commit()
-            sync_info = f"Sincronización OK. Descargados {len(status_map)} vouchers desde Omada."
-    except Exception as e:
-        sync_error = f"Error conectando a Omada: {str(e)}"
-        print(sync_error)
+        if errores_sync:
+            sync_error = " | ".join(errores_sync)
+        else:
+            sync_info = f"Sincronización OK. Descargados {total_sync} vouchers desde todos los controladores."
+
 
     # Si es vendedor, solo ver las suyas
     if current_user.rol == 'vendedor':

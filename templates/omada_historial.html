@@ -214,9 +214,9 @@
                     <div class="table-responsive">
                         <table id="historialTable" class="table table-hover" style="color: var(--text-primary); width:100%;">
                             <thead>
-                                <tr>
                                     <th>Fecha</th>
                                     <th>Código</th>
+                                    <th>Controlador</th>
                                     <th>Duración</th>
                                     <th>Precio</th>
                                     <th>Vendedor</th>
@@ -232,6 +232,13 @@
                                     <td>{{ v.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
                                     <td style="font-weight: bold; color: var(--brand-color);">
                                         <span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 3px 6px; border-radius: 4px;">{{ v.codigo }}</span>
+                                    </td>
+                                    <td>
+                                        {% if v.omada %}
+                                            <span class="badge" style="background-color: var(--bg-darker); border: 1px solid var(--border-color);"><i class="fas fa-wifi"></i> {{ v.omada.nombre }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Desconocido</span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {{ v.duracion_valor }} 

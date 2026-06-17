@@ -70,6 +70,18 @@
                 </div>
                 <div style="background: rgba(3,167,134,0.1); border: 1px solid var(--brand-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+                        <div class="input-group" style="flex: 1; min-width: 200px;">
+                            <label><i class="fas fa-wifi"></i> Controlador Omada</label>
+                            <select id="genOmada" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'Inter'; font-weight: 600;">
+                                {% for om in omadas %}
+                                <option value="{{ om.id }}">{{ om.nombre }} ({{ om.site_id }})</option>
+                                {% else %}
+                                <option value="">No hay Omadas configurados</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-ticket-alt"></i> Cantidad de Fichas</label>
                             <input type="number" id="genAmount" value="50" min="1" max="500">
@@ -142,6 +154,11 @@
             btn.disabled = true;
             
             try {
+                const omada_id = document.getElementById('genOmada').value;
+                if(!omada_id) {
+                    typeof showToast !== 'undefined' ? showToast('Debes configurar y seleccionar un Controlador Omada', 'error') : alert('Falta Omada');
+                    return;
+                }
                 const cantidad = document.getElementById('genAmount').value;
                 const tiempo = document.getElementById('genTimeVal').value;
                 const unidad = document.getElementById('genTimeUnidad').value;
@@ -151,7 +168,7 @@
                 const r = await fetch('/api/omada/generar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ cantidad, tiempo, unidad, vendedor_id, precio })
+                    body: JSON.stringify({ omada_id, cantidad, tiempo, unidad, vendedor_id, precio })
                 });
                 const res = await r.json();
                 

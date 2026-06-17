@@ -240,52 +240,56 @@
         <!-- Configuración de Omada -->
         <section class="config-section" style="margin-top: 2rem;">
             <div class="section-header">
-                <h2><i class="fas fa-wifi" style="color: #03a786;"></i> Integración API de Omada</h2>
+                <h2><i class="fas fa-wifi" style="color: #03a786;"></i> Controladores Omada</h2>
+                <button class="btn btn-primary btn-sm" onclick="openOmadaModal()">
+                    <i class="fas fa-plus"></i> Nuevo Controlador
+                </button>
             </div>
             <div style="padding: 1.5rem;">
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    Configura las credenciales de acceso directo a tu Controlador Omada para generar y descargar fichas automáticamente.
+                    Configura tus controladores Omada para generar y descargar fichas automáticamente.
                 </p>
 
-                <form id="omadaConfigForm" class="config-form">
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label>Estado de Integración</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label class="switch">
-                                <input type="checkbox" id="omada_activo" {% if config_omada and config_omada.activo %}checked{% endif %}>
-                                <span class="slider round"></span>
-                            </label>
-                            <span id="omada_status_text">{% if config_omada and config_omada.activo %}Activado{% else %}Desactivado{% endif %}</span>
+                <div class="plans-grid" id="omadas-grid">
+                    {% for om in omadas %}
+                    <div class="plan-card">
+                        <div class="plan-header">
+                            <h3>{{ om.nombre }}</h3>
+                            <div class="plan-actions">
+                                <button class="btn-icon" onclick="editarOmada({{ om.id }}, '{{ om.nombre }}', '{{ om.url }}', '{{ om.username }}', '{{ om.site_id }}', {{ 'true' if om.activo else 'false' }})" title="Editar Controlador">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon danger" onclick="eliminarOmada({{ om.id }})" title="Eliminar Controlador">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="plan-speeds">
+                            <div class="speed-item">
+                                <i class="fas fa-link"></i>
+                                <span>{{ om.url }}</span>
+                            </div>
+                            <div class="speed-item">
+                                <i class="fas fa-sitemap"></i>
+                                <span>Sitio: {{ om.site_id }}</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span class="badge {% if om.activo %}badge-success{% else %}badge-danger{% endif %}">
+                                {% if om.activo %}Activo{% else %}Inactivo{% endif %}
+                            </span>
+                            <button class="btn btn-sm btn-secondary" onclick="testOmadaConnectionId({{ om.id }})">
+                                <i class="fas fa-plug"></i> Probar
+                            </button>
                         </div>
                     </div>
-
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label>URL o IP del Controlador (Incluir puerto)</label>
-                        <input type="text" id="omada_url" class="form-control" placeholder="https://192.168.0.2:8043 o https://tu-ddns.net:443" value="{{ config_omada.url if config_omada else '' }}" required>
+                    {% else %}
+                    <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+                        <i class="fas fa-wifi" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                        <p style="color: var(--text-secondary);">No hay controladores Omada configurados.</p>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                        <div class="form-group">
-                            <label>Usuario Local</label>
-                            <input type="text" id="omada_username" class="form-control" placeholder="admin" value="{{ config_omada.username if config_omada else '' }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Contraseña</label>
-                            <input type="password" id="omada_password" class="form-control" placeholder="Dejar en blanco si no se cambia">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label>ID o Nombre del Sitio (Site ID)</label>
-                        <input type="text" id="omada_site_id" class="form-control" placeholder="Default" value="{{ config_omada.site_id if config_omada else 'Default' }}" required>
-                        <small style="color: var(--text-muted); display: block; margin-top: 5px;">Asegúrate de escribir el nombre del sitio exactamente igual (ej. Default).</small>
-                    </div>
-
-                    <div style="display: flex; gap: 1rem; align-items: center;">
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Configuración</button>
-                        <button type="button" class="btn btn-secondary" onclick="testOmadaConnection()" id="btnTestOmada"><i class="fas fa-plug"></i> Probar Conexión</button>
-                    </div>
-                </form>
+                    {% endfor %}
+                </div>
             </div>
         </section>
 
@@ -595,12 +599,75 @@
                     <input type="number" id="edit_plan_precio" name="precio" step="0.01" placeholder="0.00">
                 </div>
 
-                <div class="form-actions">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('editPlanModal')">
                         Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Omada Controller -->
+    <div class="modal-overlay" id="omadaModal">
+        <div class="modal modal-md">
+            <div class="modal-header">
+                <h2 id="omadaModalTitle"><i class="fas fa-wifi"></i> Controlador Omada</h2>
+                <button class="modal-close" onclick="closeModal('omadaModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="omadaForm" class="modal-form">
+                <input type="hidden" id="omada_id" name="id">
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label>Estado de Integración</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label class="switch">
+                            <input type="checkbox" id="omada_activo_modal" name="activo" checked>
+                            <span class="slider round"></span>
+                        </label>
+                        <span id="omada_status_text_modal">Activado</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre Identificador *</label>
+                    <input type="text" id="omada_nombre_modal" name="nombre" class="form-control" required placeholder="Ej: Omada Centralizada">
+                </div>
+
+                <div class="form-group">
+                    <label>URL o IP del Controlador (Incluir puerto) *</label>
+                    <input type="text" id="omada_url_modal" name="url" class="form-control" required placeholder="https://192.168.0.2:8043">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Usuario Local *</label>
+                        <input type="text" id="omada_username_modal" name="username" class="form-control" required placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="omada_password_modal" name="password" class="form-control" placeholder="Dejar en blanco si no cambia">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ID o Nombre del Sitio (Site ID) *</label>
+                    <input type="text" id="omada_site_id_modal" name="site_id" class="form-control" required placeholder="Default">
+                    <small style="color: var(--text-muted); display: block; margin-top: 5px;">Asegúrate de escribir el nombre del sitio exactamente igual (ej. Default).</small>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('omadaModal')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar
                     </button>
                 </div>
             </form>
@@ -879,59 +946,99 @@
 
         // Omada Config Logic
         const omadaForm = document.getElementById('omadaConfigForm');
-        if (omadaForm) {
-            const omadaActivoCheckbox = document.getElementById('omada_activo');
-            const omadaStatusText = document.getElementById('omada_status_text');
-            
-            if(omadaActivoCheckbox) {
-                omadaActivoCheckbox.addEventListener('change', function() {
-                    if(omadaStatusText) omadaStatusText.textContent = this.checked ? 'Activado' : 'Desactivado';
-                });
-            }
-
-            omadaForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const btn = this.querySelector('button[type="submit"]');
-                const oldText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-                btn.disabled = true;
-
-                try {
-                    const r = await fetch('/api/config/omada', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            url: document.getElementById('omada_url').value,
-                            username: document.getElementById('omada_username').value,
-                            password: document.getElementById('omada_password').value,
-                            site_id: document.getElementById('omada_site_id').value,
-                            activo: document.getElementById('omada_activo').checked
-                        })
-                    });
-                    const res = await r.json();
-                    if (res.success) {
-                        showToast(res.message, 'success');
-                        document.getElementById('omada_password').value = '';
-                    } else {
-                        showToast(res.error, 'error');
-                    }
-                } catch (e) {
-                    showToast('Error de red al guardar la configuración', 'error');
-                } finally {
-                    btn.innerHTML = oldText;
-                    btn.disabled = false;
-                }
-            });
+        function openOmadaModal() {
+            document.getElementById('omadaForm').reset();
+            document.getElementById('omada_id').value = '';
+            document.getElementById('omadaModalTitle').innerHTML = '<i class="fas fa-wifi"></i> Nuevo Controlador Omada';
+            document.getElementById('omada_activo_modal').checked = true;
+            document.getElementById('omada_status_text_modal').textContent = 'Activado';
+            openModal('omadaModal');
         }
 
-        async function testOmadaConnection() {
-            const btn = document.getElementById('btnTestOmada');
+        function editarOmada(id, nombre, url, username, site_id, activo) {
+            document.getElementById('omada_id').value = id;
+            document.getElementById('omada_nombre_modal').value = nombre;
+            document.getElementById('omada_url_modal').value = url;
+            document.getElementById('omada_username_modal').value = username;
+            document.getElementById('omada_password_modal').value = '';
+            document.getElementById('omada_site_id_modal').value = site_id;
+            
+            const checkbox = document.getElementById('omada_activo_modal');
+            checkbox.checked = activo;
+            document.getElementById('omada_status_text_modal').textContent = activo ? 'Activado' : 'Desactivado';
+            
+            document.getElementById('omadaModalTitle').innerHTML = '<i class="fas fa-edit"></i> Editar Controlador Omada';
+            openModal('omadaModal');
+        }
+
+        async function eliminarOmada(id) {
+            if(!confirm('¿Estás seguro de eliminar este controlador Omada? Las fichas generadas perderán la sincronización.')) return;
+            try {
+                const r = await fetch('/api/config/omada/' + id, { method: 'DELETE' });
+                const res = await r.json();
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showToast(res.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error al eliminar', 'error');
+            }
+        }
+
+        document.getElementById('omada_activo_modal').addEventListener('change', function() {
+            document.getElementById('omada_status_text_modal').textContent = this.checked ? 'Activado' : 'Desactivado';
+        });
+
+        document.getElementById('omadaForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+
+            try {
+                const r = await fetch('/api/config/omada', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: document.getElementById('omada_id').value,
+                        nombre: document.getElementById('omada_nombre_modal').value,
+                        url: document.getElementById('omada_url_modal').value,
+                        username: document.getElementById('omada_username_modal').value,
+                        password: document.getElementById('omada_password_modal').value,
+                        site_id: document.getElementById('omada_site_id_modal').value,
+                        activo: document.getElementById('omada_activo_modal').checked
+                    })
+                });
+                const res = await r.json();
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showToast(res.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error de red al guardar la configuración', 'error');
+            } finally {
+                btn.innerHTML = oldText;
+                btn.disabled = false;
+            }
+        });
+
+        async function testOmadaConnectionId(id) {
+            const btn = event.currentTarget;
             const oldText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
             btn.disabled = true;
 
             try {
-                const r = await fetch('/api/omada/test', { method: 'POST' });
+                const r = await fetch('/api/omada/test', { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ omada_id: id })
+                });
                 const res = await r.json();
                 if (res.success) {
                     showToast(res.message, 'success');
