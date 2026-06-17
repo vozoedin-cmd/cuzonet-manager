@@ -250,7 +250,7 @@
                     Configura tus controladores Omada para generar y descargar fichas automáticamente.
                 </p>
 
-                <div class="plans-grid" id="omadas-grid">
+                <div class="plans-grid" id="omadas-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
                     {% for om in omadas %}
                     <div class="plan-card">
                         <div class="plan-header">
@@ -658,8 +658,15 @@
 
                 <div class="form-group">
                     <label>ID o Nombre del Sitio (Site ID) *</label>
-                    <input type="text" id="omada_site_id_modal" name="site_id" class="form-control" required placeholder="Default">
-                    <small style="color: var(--text-muted); display: block; margin-top: 5px;">Asegúrate de escribir el nombre del sitio exactamente igual (ej. Default).</small>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="omada_site_id_modal" name="site_id" class="form-control" required style="flex: 1;">
+                            <option value="">-- Carga los sitios primero --</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary" onclick="fetchOmadaSites()" id="btnFetchSites">
+                            <i class="fas fa-sync-alt"></i> Cargar
+                        </button>
+                    </div>
+                    <small style="color: var(--text-muted); display: block; margin-top: 5px;">Presiona Cargar para obtener la lista de sitios de este controlador.</small>
                 </div>
                 
                 <div class="modal-footer">
@@ -952,6 +959,10 @@
             document.getElementById('omadaModalTitle').innerHTML = '<i class="fas fa-wifi"></i> Nuevo Controlador Omada';
             document.getElementById('omada_activo_modal').checked = true;
             document.getElementById('omada_status_text_modal').textContent = 'Activado';
+            
+            const siteSelect = document.getElementById('omada_site_id_modal');
+            siteSelect.innerHTML = '<option value="">-- Carga los sitios primero --</option>';
+            
             openModal('omadaModal');
         }
 
@@ -961,7 +972,9 @@
             document.getElementById('omada_url_modal').value = url;
             document.getElementById('omada_username_modal').value = username;
             document.getElementById('omada_password_modal').value = '';
-            document.getElementById('omada_site_id_modal').value = site_id;
+            
+            const siteSelect = document.getElementById('omada_site_id_modal');
+            siteSelect.innerHTML = `<option value="${site_id}" selected>${site_id}</option>`;
             
             const checkbox = document.getElementById('omada_activo_modal');
             checkbox.checked = activo;
@@ -969,6 +982,56 @@
             
             document.getElementById('omadaModalTitle').innerHTML = '<i class="fas fa-edit"></i> Editar Controlador Omada';
             openModal('omadaModal');
+        }
+
+        async function fetchOmadaSites() {
+            const btn = document.getElementById('btnFetchSites');
+            const url = document.getElementById('omada_url_modal').value;
+            const username = document.getElementById('omada_username_modal').value;
+            const password = document.getElementById('omada_password_modal').value;
+            
+            if(!url || !username) {
+                showToast('Ingresa la URL y el Usuario Local primero', 'error');
+                return;
+            }
+            
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+            
+            try {
+                const r = await fetch('/api/omada/sites', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url, username, password })
+                });
+                const res = await r.json();
+                
+                if (res.success) {
+                    const select = document.getElementById('omada_site_id_modal');
+                    const currentValue = select.value;
+                    select.innerHTML = '';
+                    if (res.sites.length === 0) {
+                        select.innerHTML = '<option value="">No hay sitios disponibles</option>';
+                    } else {
+                        res.sites.forEach(site => {
+                            const opt = document.createElement('option');
+                            opt.value = site.name;
+                            opt.textContent = `${site.name} (ID: ${site.id})`;
+                            if (site.name === currentValue) opt.selected = true;
+                            select.appendChild(opt);
+                        });
+                        showToast('Sitios cargados correctamente', 'success');
+                    }
+                } else {
+                    showToast(res.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error al conectar con Omada', 'error');
+            } finally {
+                btn.innerHTML = oldHtml;
+                btn.disabled = false;
+            }
         }
 
         async function eliminarOmada(id) {

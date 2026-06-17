@@ -51,10 +51,41 @@ class OmadaAPI:
                 break
                 
         if not self.site_id:
-            sitios_disp = ", ".join([s.get('name') for s in sites])
-            raise Exception(f"Sitio '{self.site_name}' no encontrado. Sitios disponibles: {sitios_disp}")
+            raise Exception(f"Sitio '{self.site_name}' no encontrado en Omada.")
+
+    def get_all_sites(self):
+        # 1. Obtener OmadacId si no se tiene
+        if not self.omadac_id:
+            res = self.session.get(f"{self.base_url}/api/info", timeout=10)
+            res.raise_for_status()
+            info = res.json()
+            self.omadac_id = info.get('result', {}).get('omadacId')
             
-        return True
+            if not self.omadac_id:
+                raise Exception("No se pudo obtener OmadacId.")
+
+        # 2. Login si no hay token
+        if not self.token:
+            login_url = f"{self.base_url}/{self.omadac_id}/api/v2/login"
+            res = self.session.post(login_url, json={"username": self.username, "password": self.password}, timeout=10)
+            res_data = res.json()
+            
+            if res_data.get('errorCode') != 0:
+                raise Exception(f"Login fallido: {res_data.get('msg', 'Credenciales inválidas')}")
+                
+            self.token = res_data.get('result', {}).get('token')
+            self.session.headers.update({"Csrf-Token": self.token})
+
+        # 3. Obtener Sitios
+        sites_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites?currentPage=1&currentPageSize=50"
+        res = self.session.get(sites_url, timeout=10)
+        sites_data = res.json()
+        
+        if sites_data.get('errorCode') != 0:
+            raise Exception("No se pudieron cargar los sitios.")
+            
+        sites = sites_data.get('result', {}).get('data', [])
+        return [{'name': s.get('name'), 'id': s.get('id')} for s in sites]
 
     def test_connection(self):
         try:

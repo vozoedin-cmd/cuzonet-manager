@@ -979,6 +979,19 @@ def test_omada_temp(data):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/omada/sites', methods=['POST'])
+@login_required
+@admin_required
+def get_omada_sites():
+    try:
+        data = request.json
+        from omada_api import OmadaAPI
+        api = OmadaAPI(data.get('url'), data.get('username'), data.get('password'))
+        sites = api.get_all_sites()
+        return jsonify({'success': True, 'sites': sites})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/omada/generar', methods=['POST'])
 @login_required
 @admin_required
