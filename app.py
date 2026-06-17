@@ -985,8 +985,16 @@ def test_omada_temp(data):
 def get_omada_sites():
     try:
         data = request.json
+        password = data.get('password', '')
+        omada_id = data.get('omada_id')
+        
+        if not password and omada_id:
+            config = ConfigOmada.query.get(omada_id)
+            if config:
+                password = config.password
+
         from omada_api import OmadaAPI
-        api = OmadaAPI(data.get('url'), data.get('username'), data.get('password'))
+        api = OmadaAPI(data.get('url'), data.get('username'), password)
         sites = api.get_all_sites()
         return jsonify({'success': True, 'sites': sites})
     except Exception as e:

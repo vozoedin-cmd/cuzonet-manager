@@ -989,6 +989,7 @@
             const url = document.getElementById('omada_url_modal').value;
             const username = document.getElementById('omada_username_modal').value;
             const password = document.getElementById('omada_password_modal').value;
+            const omada_id = document.getElementById('omada_id').value;
             
             if(!url || !username) {
                 showToast('Ingresa la URL y el Usuario Local primero', 'error');
@@ -999,11 +1000,16 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
             
+            const select = document.getElementById('omada_site_id_modal');
+            const originalSelectHtml = select.innerHTML;
+            select.innerHTML = '<option value="">Cargando sitios...</option>';
+            select.disabled = true;
+            
             try {
                 const r = await fetch('/api/omada/sites', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url, username, password })
+                    body: JSON.stringify({ url, username, password, omada_id })
                 });
                 const res = await r.json();
                 
@@ -1025,12 +1031,16 @@
                     }
                 } else {
                     showToast(res.error, 'error');
+                    select.innerHTML = originalSelectHtml;
                 }
             } catch (e) {
                 showToast('Error al conectar con Omada', 'error');
+                const select = document.getElementById('omada_site_id_modal');
+                select.innerHTML = originalSelectHtml;
             } finally {
                 btn.innerHTML = oldHtml;
                 btn.disabled = false;
+                document.getElementById('omada_site_id_modal').disabled = false;
             }
         }
 
