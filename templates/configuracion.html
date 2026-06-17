@@ -304,16 +304,16 @@
                 </p>
 
                 <form id="iaConfigForm" class="config-form">
-                    <div class="form-row">
-                        <div class="form-group">
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label for="ia_provider"><i class="fas fa-robot"></i> Proveedor de IA Activo</label>
                             <select id="ia_provider" class="form-control" style="width: 100%; padding: 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
                                 <option value="openai" {% if config_ia and config_ia.provider == 'openai' %}selected{% endif %}>OpenAI (ChatGPT)</option>
                                 <option value="gemini" {% if config_ia and config_ia.provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
                             </select>
                         </div>
-                        <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 5px;">
-                            <label style="cursor: pointer; display: flex; align-items: center;">
+                        <div class="form-group" style="margin-bottom: 0; padding-bottom: 10px;">
+                            <label style="cursor: pointer; display: flex; align-items: center; margin: 0;">
                                 <div class="toggle-switch" style="margin-right: 10px;">
                                     <input type="checkbox" id="ia_activo" {% if config_ia and config_ia.activo %}checked{% endif %}>
                                     <span class="toggle-slider"></span>
@@ -323,14 +323,16 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="ia_openai_key"><i class="fas fa-key"></i> OpenAI API Key (ChatGPT)</label>
-                        <input type="password" id="ia_openai_key" placeholder="sk-..." value="{{ config_ia.openai_api_key if config_ia else '' }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ia_gemini_key"><i class="fas fa-key"></i> Google Gemini API Key</label>
-                        <input type="password" id="ia_gemini_key" placeholder="AIzaSy..." value="{{ config_ia.gemini_api_key if config_ia else '' }}">
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ia_openai_key"><i class="fas fa-key"></i> OpenAI API Key (ChatGPT)</label>
+                            <input type="password" id="ia_openai_key" class="form-control" placeholder="sk-..." value="{{ config_ia.openai_api_key if config_ia else '' }}" style="width: 100%; padding: 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ia_gemini_key"><i class="fas fa-key"></i> Google Gemini API Key</label>
+                            <input type="password" id="ia_gemini_key" class="form-control" placeholder="AIzaSy..." value="{{ config_ia.gemini_api_key if config_ia else '' }}" style="width: 100%; padding: 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                        </div>
                     </div>
 
                     <div class="form-actions" style="margin-top: 1.5rem;">
