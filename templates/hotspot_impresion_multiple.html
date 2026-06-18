@@ -236,11 +236,64 @@
             }
         }
 
-        document.getElementById('formGenerador').addEventListener('submit', function() {
+        document.getElementById('formGenerador').addEventListener('submit', async function(e) {
+            e.preventDefault(); // Stop normal form submission
+            
             const btn = document.getElementById('btnSubmit');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando en MikroTik...';
+            const originalHtml = btn.innerHTML;
             btn.style.opacity = '0.7';
             btn.style.pointerEvents = 'none';
+            
+            const formData = new FormData(this);
+            const cantidadTotal = parseInt(formData.get('cantidad'));
+            const batchSize = 10;
+            let successTotal = 0;
+            let errorTotal = 0;
+            let hasError = false;
+            
+            for (let i = 0; i < cantidadTotal; i += batchSize) {
+                const procesar = Math.min(batchSize, cantidadTotal - i);
+                formData.set('cantidad', procesar); // Solo procesar este lote
+                
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generando ${i + procesar} de ${cantidadTotal}...`;
+                
+                try {
+                    const response = await fetch('/admin/hotspot/fichas/generar_masivo_ajax', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        alert(`Se detuvo el proceso por un error:\n${data.error}`);
+                        hasError = true;
+                        break;
+                    }
+                    
+                    successTotal += data.exitos || 0;
+                    errorTotal += data.errores || 0;
+                    
+                } catch (err) {
+                    console.error(err);
+                    alert('Ocurrió un error de red durante la generación.');
+                    hasError = true;
+                    break;
+                }
+            }
+            
+            btn.innerHTML = originalHtml;
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+            
+            if (successTotal > 0 || errorTotal > 0) {
+                let msg = `¡Proceso Finalizado!\n\nSe generaron: ${successTotal} fichas con éxito.`;
+                if (errorTotal > 0) {
+                    msg += `\nHubo ${errorTotal} errores (posibles duplicados).`;
+                }
+                alert(msg);
+                window.location.href = '/admin/hotspot/fichas'; // Redirigir a la lista de fichas
+            }
         });
     </script>
 </body>

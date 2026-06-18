@@ -4921,6 +4921,112 @@ def hotspot_generar_masivo():
         
     return redirect(url_for('hotspot_fichas'))
 
+@app.route('/admin/hotspot/fichas/generar_masivo_ajax', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_generar_masivo_ajax():
+    import random
+    import string
+    
+    router_id = request.form.get('router_id')
+    cantidad = int(request.form.get('cantidad', 1))
+    modo = request.form.get('modo', 'pin')
+    longitud = int(request.form.get('longitud', 5))
+    prefijo = request.form.get('prefijo', '').strip()
+    caracteres = request.form.get('caracteres', 'alphanum_lower')
+    perfil_nombre = request.form.get('perfil_nombre')
+    precio_venta = float(request.form.get('precio_venta', 0))
+    limit_uptime = request.form.get('limit_uptime', '').strip()
+    limit_bytes = request.form.get('limit_bytes', '').strip()
+    comentario = request.form.get('comentario', '').strip()
+    
+    if not limit_uptime: limit_uptime = None
+    if not limit_bytes: limit_bytes = None
+    if not comentario: comentario = f"Gen {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    
+    plan = PlanHotspot.query.filter_by(perfil_hotspot=perfil_nombre).first()
+    if not plan:
+        plan = PlanHotspot(nombre=perfil_nombre, precio=precio_venta, perfil_hotspot=perfil_nombre)
+        db.session.add(plan)
+        db.session.commit()
+    elif plan.precio != precio_venta:
+        plan.precio = precio_venta
+        db.session.commit()
+        
+    router = ConfigMikroTik.query.get(router_id)
+    if not router:
+        return jsonify({'error': 'Router no encontrado'})
+    
+    api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+    conectado, msg = api.test_connection()
+    if not conectado:
+        return jsonify({'error': f'Error de conexión con MikroTik: {msg}'})
+        
+    es_v6 = "v6 API" in msg
+    v6_api = None
+    v6_connection = None
+    if es_v6:
+        try:
+            import routeros_api
+            v6_connection = routeros_api.RouterOsApiPool(router.host, username=router.username, password=router.password, port=router.port, plaintext_login=True)
+            v6_api = v6_connection.get_api().get_resource('/ip/hotspot/user')
+        except Exception as e:
+            return jsonify({'error': f'Error estableciendo sesión v6: {str(e)}'})
+            
+    def generate_random_string(length, char_type):
+        if char_type == 'lower': chars = string.ascii_lowercase
+        elif char_type == 'upper': chars = string.ascii_uppercase
+        elif char_type == 'numeric': chars = string.digits
+        elif char_type == 'alphanum_lower': chars = string.ascii_lowercase + string.digits
+        elif char_type == 'alphanum_upper': chars = string.ascii_uppercase + string.digits
+        else: chars = string.ascii_lowercase + string.digits
+        return ''.join(random.choice(chars) for _ in range(length))
+        
+    exitos = 0
+    errores = 0
+    
+    for _ in range(cantidad):
+        max_intentos = 10
+        creado = False
+        for _ in range(max_intentos):
+            codigo = prefijo + generate_random_string(longitud, caracteres)
+            username = codigo
+            password = codigo if modo == 'pin' else generate_random_string(longitud, caracteres)
+            
+            if es_v6:
+                try:
+                    data = {"name": username, "password": password, "profile": plan.perfil_hotspot, "comment": comentario}
+                    if limit_uptime: data["limit-uptime"] = limit_uptime
+                    if limit_bytes: data["limit-bytes-total"] = limit_bytes
+                    v6_api.add(**data)
+                    success = True
+                    msg_or_id = "v6_gen"
+                except Exception as e:
+                    success = False
+                    msg_or_id = str(e)
+            else:
+                success, msg_or_id = api.create_hotspot_user(
+                    name=username, password=password, profile=plan.perfil_hotspot,
+                    comment=comentario, limit_uptime=limit_uptime, limit_bytes_total=limit_bytes
+                )
+            
+            if success:
+                creado = True
+                v = Voucher(codigo=username, contrasena=password, precio=plan.precio, plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, estado='activo', mikrotik_id=msg_or_id)
+                db.session.add(v)
+                exitos += 1
+                break
+                
+        if not creado:
+            errores += 1
+            
+    if v6_connection:
+        try: v6_connection.disconnect()
+        except: pass
+            
+    db.session.commit()
+    return jsonify({'exitos': exitos, 'errores': errores, 'success': True})
+
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
 @login_required
 @admin_required
