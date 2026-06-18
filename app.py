@@ -42,6 +42,34 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
+@app.route('/api/fix_db')
+def api_fix_db():
+    from sqlalchemy import text
+    msg = ""
+    try:
+        db.session.execute(text('ALTER TABLE config_mikrotik ADD COLUMN estado_online BOOLEAN DEFAULT TRUE;'))
+        db.session.commit()
+        msg += "estado_online agregado. "
+    except Exception as e:
+        db.session.rollback()
+        msg += "estado_online ya existe. "
+        
+    try:
+        db.session.execute(text('ALTER TABLE config_mikrotik ADD COLUMN ultima_caida TIMESTAMP;'))
+        db.session.commit()
+        msg += "ultima_caida agregado. "
+    except Exception as e:
+        db.session.rollback()
+        msg += "ultima_caida ya existe. "
+        
+    try:
+        db.create_all()
+        msg += "Tablas nuevas creadas."
+    except Exception as e:
+        msg += str(e)
+        
+    return "DB FIX COMPLETO: " + msg
+
 # ============== LOGIN MANAGER ==============
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
