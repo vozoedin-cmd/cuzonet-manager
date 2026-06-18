@@ -1238,9 +1238,19 @@
             const response = await fetch('/api/ai/collection_msg', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ cliente_id: clienteId })
             });
-            const result = await response.json();
+            
+            const textResponse = await response.text();
+            let result;
+            try {
+                result = JSON.parse(textResponse);
+            } catch (jsonError) {
+                console.error("Respuesta no es JSON:", textResponse);
+                throw new Error("El servidor devolvió una página HTML en lugar de JSON. " + 
+                              (textResponse.includes('login') ? "Parece que tu sesión caducó." : "Revisa la consola negra (CMD) del servidor."));
+            }
             
             if (result.success) {
                 const msg = encodeURIComponent(result.reply);
