@@ -750,10 +750,10 @@ class MikroTikAPI:
             return False, str(e)
             
     def get_hotspot_profiles(self):
-        """Obtiene la lista de perfiles de Hotspot del MikroTik"""
+        """Obtiene la lista de perfiles de usuario (planes) del MikroTik"""
         try:
             # Try REST API (v7)
-            response = self.session.get(f"{self.base_url}/ip/hotspot/profile", timeout=5)
+            response = self.session.get(f"{self.base_url}/ip/hotspot/user/profile", timeout=5)
             if response.status_code == 200:
                 profiles = response.json()
                 return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
@@ -773,7 +773,7 @@ class MikroTikAPI:
                 plaintext_login=True
             )
             api = connection.get_api()
-            profiles = api.get_resource('/ip/hotspot/profile').get()
+            profiles = api.get_resource('/ip/hotspot/user/profile').get()
             connection.disconnect()
             return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
         except Exception as e:
