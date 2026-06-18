@@ -743,11 +743,41 @@ class MikroTikAPI:
         try:
             response = self.session.delete(
                 f"{self.base_url}/ip/hotspot/user/{user_id}",
-                timeout=15
+                timeout=10
             )
-            return response.status_code in [200, 204], response.text
+            return response.status_code in [200, 204], "Eliminado" if response.status_code in [200, 204] else f"Error {response.status_code}"
         except Exception as e:
             return False, str(e)
+            
+    def get_hotspot_profiles(self):
+        """Obtiene la lista de perfiles de Hotspot del MikroTik"""
+        try:
+            # Try REST API (v7)
+            response = self.session.get(f"{self.base_url}/ip/hotspot/profile", timeout=5)
+            if response.status_code == 200:
+                profiles = response.json()
+                return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
+            elif response.status_code == 404:
+                raise Exception("REST API not found, try v6 fallback")
+        except Exception:
+            pass
+            
+        # Fallback to Classic API (v6)
+        try:
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(
+                self.host, 
+                username=self.username, 
+                password=self.password, 
+                port=self.port, 
+                plaintext_login=True
+            )
+            api = connection.get_api()
+            profiles = api.get_resource('/ip/hotspot/profile').get()
+            connection.disconnect()
+            return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
+        except Exception as e:
+            return False, f"Error obteniendo perfiles: {str(e)}"
 
 
 def get_mikrotik_api(router_id=None):
@@ -4543,9 +4573,31 @@ def hotspot_vendedor_nuevo():
 @login_required
 @admin_required
 def hotspot_fichas():
-    planes = PlanHotspot.query.filter_by(activo=True).all()
-    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
-    return render_template('hotspot_impresion_multiple.html', planes=planes, routers=routers)
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
+    return render_template('hotspot_impresion_multiple.html', routers=routers)
+
+@app.route('/api/hotspot/get_profiles')
+@login_required
+@admin_required
+def api_hotspot_get_profiles():
+    router_id = request.args.get('router_id')
+    if not router_id:
+        return jsonify({'error': 'Falta router_id'}), 400
+        
+    router = ConfigMikroTik.query.get(router_id)
+    if not router:
+        return jsonify({'error': 'Router no encontrado'}), 404
+        
+    api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+    conectado, _ = api.test_connection()
+    if not conectado:
+        return jsonify({'error': 'No se pudo conectar al router'}), 500
+        
+    success, result = api.get_hotspot_profiles()
+    if success:
+        return jsonify({'profiles': result})
+    else:
+        return jsonify({'error': result}), 500
 
 @app.route('/admin/hotspot/omada_print')
 @login_required
@@ -4742,7 +4794,8 @@ def hotspot_generar_masivo():
     longitud = int(request.form.get('longitud', 5))
     prefijo = request.form.get('prefijo', '').strip()
     caracteres = request.form.get('caracteres', 'alphanum_lower')
-    plan_id = request.form.get('plan_id')
+    perfil_nombre = request.form.get('perfil_nombre')
+    precio_venta = float(request.form.get('precio_venta', 0))
     limit_uptime = request.form.get('limit_uptime', '').strip()
     limit_bytes = request.form.get('limit_bytes', '').strip()
     comentario = request.form.get('comentario', '').strip()
@@ -4751,11 +4804,21 @@ def hotspot_generar_masivo():
     if not limit_bytes: limit_bytes = None
     if not comentario: comentario = f"Gen {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     
-    plan = PlanHotspot.query.get_or_404(plan_id)
+    # Auto-crear o buscar el Plan internamente para mantener la integridad de la Base de Datos
+    plan = PlanHotspot.query.filter_by(perfil_hotspot=perfil_nombre).first()
+    if not plan:
+        plan = PlanHotspot(nombre=perfil_nombre, precio=precio_venta, perfil_hotspot=perfil_nombre)
+        db.session.add(plan)
+        db.session.commit()
+    elif plan.precio != precio_venta:
+        # Actualizar precio si cambió
+        plan.precio = precio_venta
+        db.session.commit()
+        
     router = ConfigMikroTik.query.get_or_404(router_id)
     
     api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
-    conectado, _ = api.connect()
+    conectado, _ = api.test_connection()
     if not conectado:
         flash(f'Error de conexión con el MikroTik {router.nombre}. Revisa las credenciales.', 'error')
         return redirect(url_for('hotspot_fichas'))

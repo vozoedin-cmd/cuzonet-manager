@@ -116,9 +116,9 @@
             <form action="/admin/hotspot/fichas/generar_masivo" method="POST" id="formGenerador">
                 <div class="grid-form">
                     
-                    <div class="form-group" style="grid-column: span 2;">
+                    <div class="form-group">
                         <label>Router / Server <span style="color: #ef4444;">*</span></label>
-                        <select name="router_id" class="form-control" required>
+                        <select name="router_id" id="routerSelect" class="form-control" required onchange="cargarPerfiles()">
                             <option value="">Selecciona el MikroTik destino</option>
                             {% for r in routers %}
                                 <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
@@ -168,12 +168,15 @@
 
                     <div class="form-group">
                         <label>Perfil (Plan) <span style="color: #ef4444;">*</span></label>
-                        <select name="plan_id" class="form-control" required>
-                            <option value="">Seleccione el perfil</option>
-                            {% for p in planes %}
-                                <option value="{{ p.id }}">{{ p.nombre }} ({{ p.perfil_hotspot }}) - Q{{ p.precio }}</option>
-                            {% endfor %}
+                        <select name="perfil_nombre" id="perfilSelect" class="form-control" required>
+                            <option value="">Primero selecciona un Router...</option>
                         </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Precio de Venta (Q) <span style="color: #ef4444;">*</span></label>
+                        <input type="number" name="precio_venta" class="form-control" placeholder="Ej. 5" step="0.01" min="0" required>
+                        <small style="color:var(--text-muted); font-size:12px;">Para registro de ganancias en CuzoNet</small>
                     </div>
 
                     <div class="form-group">
@@ -204,6 +207,35 @@
     </main>
 
     <script>
+        async function cargarPerfiles() {
+            const routerId = document.getElementById('routerSelect').value;
+            const perfilSelect = document.getElementById('perfilSelect');
+            
+            if (!routerId) {
+                perfilSelect.innerHTML = '<option value="">Primero selecciona un Router...</option>';
+                return;
+            }
+            
+            perfilSelect.innerHTML = '<option value="">Cargando perfiles desde MikroTik...</option>';
+            
+            try {
+                const response = await fetch(`/api/hotspot/get_profiles?router_id=${routerId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    perfilSelect.innerHTML = `<option value="">Error: ${data.error}</option>`;
+                    alert('Error cargando perfiles: ' + data.error);
+                } else {
+                    perfilSelect.innerHTML = '<option value="">Selecciona un perfil...</option>';
+                    data.profiles.forEach(p => {
+                        perfilSelect.innerHTML += `<option value="${p}">${p}</option>`;
+                    });
+                }
+            } catch (e) {
+                perfilSelect.innerHTML = '<option value="">Error de red</option>';
+            }
+        }
+
         document.getElementById('formGenerador').addEventListener('submit', function() {
             const btn = document.getElementById('btnSubmit');
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando en MikroTik...';
