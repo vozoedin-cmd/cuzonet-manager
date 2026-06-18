@@ -1734,8 +1734,17 @@ def ai_collection_msg():
         config = ConfigIA.query.first()
         if not config or not config.activo: return jsonify({'success': False, 'error': 'IA no habilitada'})
         
-        system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago."
-        user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan or 'Internet'}."
+        from datetime import datetime
+        hoy = datetime.utcnow()
+        dias_vencidos = 0
+        if cliente.fecha_proximo_pago and cliente.fecha_proximo_pago < hoy:
+            dias_vencidos = (hoy.date() - cliente.fecha_proximo_pago.date()).days
+            
+        saldo_real = cliente.saldo_pendiente if (cliente.saldo_pendiente and cliente.saldo_pendiente > 0) else cliente.precio_mensual
+        estado_texto = f"Vencido por {dias_vencidos} días" if dias_vencidos > 0 else "Al día"
+        
+        system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago. Si está vencido, menciónalo."
+        user_prompt = f"Cliente: {cliente.nombre}\nSaldo a Pagar: Q{saldo_real}\nEstado: {estado_texto}\nPlan: {cliente.plan or 'Internet'}"
         
         if config.provider == 'openai':
             import openai
