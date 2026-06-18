@@ -1735,7 +1735,7 @@ def ai_collection_msg():
         if not config or not config.activo: return jsonify({'success': False, 'error': 'IA no habilitada'})
         
         system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago."
-        user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan.nombre if getattr(cliente, 'plan', None) else 'Internet'}."
+        user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan or 'Internet'}."
         
         if config.provider == 'openai':
             import openai
