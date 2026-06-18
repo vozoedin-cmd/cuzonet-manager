@@ -788,6 +788,48 @@ class MikroTikAPI:
             'logs': [], 'error': None
         }
         
+        # 1. Intentar con REST API (v7)
+        try:
+            res_resource = self.session.get(f"{self.base_url}/system/resource", timeout=5)
+            if res_resource.status_code == 200:
+                res = res_resource.json()
+                data['cpu'] = int(res.get('cpu-load', 0))
+                data['mem_libre'] = f"{round(int(res.get('free-memory', 0)) / 1048576, 1)} MB"
+                data['hdd_libre'] = f"{round(int(res.get('free-hdd-space', 0)) / 1048576, 1)} MB"
+                data['uptime'] = res.get('uptime', '')
+                data['version'] = res.get('version', '')
+                data['board'] = res.get('board-name', '')
+                
+                # Active users
+                res_active = self.session.get(f"{self.base_url}/ip/hotspot/active", timeout=5)
+                if res_active.status_code == 200:
+                    data['active_users'] = len(res_active.json())
+                    
+                # Total users
+                res_users = self.session.get(f"{self.base_url}/ip/hotspot/user", timeout=5)
+                if res_users.status_code == 200:
+                    # 'default' is usually a profile, but the user list might include a default user. We just count all.
+                    data['total_users'] = len(res_users.json())
+                    
+                # Logs
+                res_logs = self.session.get(f"{self.base_url}/log?topics=hotspot", timeout=5)
+                if res_logs.status_code == 200:
+                    logs = res_logs.json()
+                    # Filter for hotspot topics if query param didn't work perfectly
+                    hotspot_logs = [l for l in logs if 'hotspot' in l.get('topics', '')]
+                    hotspot_logs = hotspot_logs[-15:]
+                    hotspot_logs.reverse()
+                    for l in hotspot_logs:
+                        data['logs'].append({
+                            'time': l.get('time', ''),
+                            'message': l.get('message', '')
+                        })
+                
+                return data
+        except Exception:
+            pass
+            
+        # 2. Fallback a Classic API (v6)
         try:
             import routeros_api
             connection = routeros_api.RouterOsApiPool(
@@ -796,7 +838,7 @@ class MikroTikAPI:
             )
             api = connection.get_api()
             
-            # 1. System Resources
+            # System Resources
             resource = api.get_resource('/system/resource').get()[0]
             data['cpu'] = int(resource.get('cpu-load', 0))
             data['mem_libre'] = f"{round(int(resource.get('free-memory', 0)) / 1048576, 1)} MB"
@@ -805,17 +847,15 @@ class MikroTikAPI:
             data['version'] = resource.get('version', '')
             data['board'] = resource.get('board-name', '')
             
-            # 2. Hotspot Users
+            # Hotspot Users
             data['active_users'] = len(api.get_resource('/ip/hotspot/active').get())
             data['total_users'] = len(api.get_resource('/ip/hotspot/user').get())
             
-            # 3. Logs (últimos 15 del hotspot)
+            # Logs
             logs = api.get_resource('/log').get()
             hotspot_logs = [l for l in logs if 'hotspot' in l.get('topics', '')]
-            # Extraer solo lo más reciente
             hotspot_logs = hotspot_logs[-15:]
-            hotspot_logs.reverse() # Mostrar más reciente primero
-            
+            hotspot_logs.reverse()
             for l in hotspot_logs:
                 data['logs'].append({
                     'time': l.get('time', ''),

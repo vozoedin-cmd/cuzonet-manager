@@ -270,6 +270,9 @@
                 .then(data => {
                     if (data.error) {
                         console.error("Error Live:", data.error);
+                        document.getElementById('liveBoard').innerHTML = `<span style="color:red; font-size:12px;">Error: ${data.error}</span>`;
+                        document.getElementById('liveLoadingIndicator').style.display = 'none';
+                        document.getElementById('liveDashboardContent').style.display = 'block';
                         return;
                     }
                     
