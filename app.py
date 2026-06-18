@@ -4818,11 +4818,23 @@ def hotspot_generar_masivo():
     router = ConfigMikroTik.query.get_or_404(router_id)
     
     api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
-    conectado, _ = api.test_connection()
+    conectado, msg = api.test_connection()
     if not conectado:
         flash(f'Error de conexión con el MikroTik {router.nombre}. Revisa las credenciales.', 'error')
         return redirect(url_for('hotspot_fichas'))
         
+    es_v6 = "v6 API" in msg
+    v6_api = None
+    v6_connection = None
+    if es_v6:
+        try:
+            import routeros_api
+            v6_connection = routeros_api.RouterOsApiPool(router.host, username=router.username, password=router.password, port=router.port, plaintext_login=True)
+            v6_api = v6_connection.get_api().get_resource('/ip/hotspot/user')
+        except Exception as e:
+            flash(f'Error estableciendo sesión v6 masiva: {str(e)}', 'error')
+            return redirect(url_for('hotspot_fichas'))
+            
     def generate_random_string(length, char_type):
         if char_type == 'lower':
             chars = string.ascii_lowercase
@@ -4840,7 +4852,6 @@ def hotspot_generar_masivo():
         
     exitos = 0
     errores = 0
-    nuevos_vouchers = []
     
     for _ in range(cantidad):
         max_intentos = 10
@@ -4851,15 +4862,31 @@ def hotspot_generar_masivo():
             username = codigo
             password = codigo if modo == 'pin' else generate_random_string(longitud, caracteres)
             
-            # Intentar crear en MikroTik
-            success, msg_or_id = api.create_hotspot_user(
-                name=username,
-                password=password,
-                profile=plan.perfil_hotspot,
-                comment=comentario,
-                limit_uptime=limit_uptime,
-                limit_bytes_total=limit_bytes
-            )
+            if es_v6:
+                try:
+                    data = {
+                        "name": username, 
+                        "password": password, 
+                        "profile": plan.perfil_hotspot, 
+                        "comment": comentario
+                    }
+                    if limit_uptime: data["limit-uptime"] = limit_uptime
+                    if limit_bytes: data["limit-bytes-total"] = limit_bytes
+                    v6_api.add(**data)
+                    success = True
+                    msg_or_id = "v6_gen"
+                except Exception as e:
+                    success = False
+                    msg_or_id = str(e)
+            else:
+                success, msg_or_id = api.create_hotspot_user(
+                    name=username,
+                    password=password,
+                    profile=plan.perfil_hotspot,
+                    comment=comentario,
+                    limit_uptime=limit_uptime,
+                    limit_bytes_total=limit_bytes
+                )
             
             if success:
                 creado = True
@@ -4880,6 +4907,10 @@ def hotspot_generar_masivo():
                 
         if not creado:
             errores += 1
+            
+    if v6_connection:
+        try: v6_connection.disconnect()
+        except: pass
             
     db.session.commit()
     
