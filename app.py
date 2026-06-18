@@ -202,6 +202,20 @@ class ConfigMikroTik(db.Model):
     tipo = db.Column(db.String(20), default='residential')  # residential, hotspot
     # Nombre del address list para clientes cortados
     address_list_cortados = db.Column(db.String(50), default='MOROSOS')
+    
+    # Monitoreo
+    estado_online = db.Column(db.Boolean, default=True)
+    ultima_caida = db.Column(db.DateTime, nullable=True)
+
+class ConfigAlertas(db.Model):
+    """Configuración de Alertas por TextMeBot"""
+    __tablename__ = 'config_alertas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    activo = db.Column(db.Boolean, default=False)
+    api_key = db.Column(db.String(200), default='')
+    telefono_destino = db.Column(db.String(50), default='')
+    intervalo_minutos = db.Column(db.Integer, default=2)
 
 
 class ConfigIA(db.Model):
@@ -1574,8 +1588,9 @@ def configuracion():
     routers = ConfigMikroTik.query.all()
     planes = Plan.query.all()
     config_ia = ConfigIA.query.first()
+    config_alertas = ConfigAlertas.query.first()
     omadas = ConfigOmada.query.all()
-    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia, omadas=omadas)
+    return render_template('configuracion.html', config=config, routers=routers, planes=planes, config_ia=config_ia, omadas=omadas, config_alertas=config_alertas)
 
 
 @app.route('/antenas')
@@ -4650,6 +4665,32 @@ def update_omada_voucher(id):
     db.session.commit()
     return jsonify({'success': True})
 
+@app.route('/api/config/alertas', methods=['POST'])
+@login_required
+@admin_required
+def save_config_alertas():
+    """Guardar configuración de Alertas TextMeBot"""
+    data = request.json
+    config = ConfigAlertas.query.first()
+    if not config:
+        config = ConfigAlertas()
+        db.session.add(config)
+    
+    config.activo = data.get('activo', False)
+    config.api_key = data.get('api_key', '')
+    config.telefono_destino = data.get('telefono_destino', '')
+    config.intervalo_minutos = int(data.get('intervalo_minutos', 2))
+    
+    db.session.commit()
+    
+    # Reiniciar el scheduler si está ejecutándose para aplicar cambios de intervalo
+    try:
+        iniciar_scheduler()
+    except Exception as e:
+        print("No se pudo reiniciar el scheduler:", e)
+        
+    return jsonify({'success': True})
+
 @app.route('/admin/hotspot/fichas/generar_masivo', methods=['POST'])
 @login_required
 @admin_required
@@ -4984,7 +5025,6 @@ def noc_stats():
     trafico_up = random.randint(50, 150)
     ping = random.randint(1, 8)
     ups = random.randint(95, 100)
-    
     return jsonify({
         'clientes_online': clientes_online,
         'trafico_down': trafico_down,
@@ -4994,9 +5034,82 @@ def noc_stats():
         'starlink': 'Online'
     })
 
+def enviar_alerta_textmebot(mensaje):
+    import requests
+    with app.app_context():
+        config_alertas = ConfigAlertas.query.first()
+        if not config_alertas or not config_alertas.activo or not config_alertas.api_key or not config_alertas.telefono_destino:
+            return
+            
+        url = "http://api.textmebot.com/send.php"
+        params = {
+            "recipient": config_alertas.telefono_destino,
+            "apikey": config_alertas.api_key,
+            "text": mensaje
+        }
+        try:
+            requests.get(url, params=params, timeout=10)
+        except Exception as e:
+            print("Error enviando alerta TextMeBot:", e)
+
+def monitorear_routers():
+    from datetime import datetime
+    with app.app_context():
+        config_alertas = ConfigAlertas.query.first()
+        if not config_alertas or not config_alertas.activo:
+            return
+            
+        nodos = ConfigMikroTik.query.filter_by(activo=True).all()
+        for nodo in nodos:
+            api = get_mikrotik_api(nodo.id)
+            try:
+                conectado, _ = api.conectar()
+            except:
+                conectado = False
+                
+            ahora = datetime.utcnow()
+            
+            if conectado:
+                if not getattr(nodo, 'estado_online', True):
+                    nodo.estado_online = True
+                    tiempo_caido = ""
+                    if getattr(nodo, 'ultima_caida', None):
+                        minutos = int((ahora - nodo.ultima_caida).total_seconds() / 60)
+                        tiempo_caido = f" (Estuvo offline por {minutos} min)"
+                    
+                    mensaje = f"✅ RECUPERADO: El router '{nodo.nombre}' ({nodo.host}) está nuevamente en línea.{tiempo_caido}"
+                    enviar_alerta_textmebot(mensaje)
+            else:
+                if getattr(nodo, 'estado_online', True):
+                    nodo.estado_online = False
+                    nodo.ultima_caida = ahora
+                    mensaje = f"🚨 ALERTA CUZONET: El router '{nodo.nombre}' ({nodo.host}) se ha desconectado. Por favor, verifica la red."
+                    enviar_alerta_textmebot(mensaje)
+                    
+        db.session.commit()
+
+def iniciar_scheduler():
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        scheduler = BackgroundScheduler()
+        
+        # Intervalo dinámico si existe en config
+        intervalo = 2
+        with app.app_context():
+            config = ConfigAlertas.query.first()
+            if config and config.intervalo_minutos:
+                intervalo = config.intervalo_minutos
+                
+        scheduler.add_job(func=monitorear_routers, trigger="interval", minutes=intervalo, id='monitoreo_mikrotik', replace_existing=True)
+        scheduler.start()
+        print("Scheduler de monitoreo iniciado.")
+    except ImportError:
+        print("ADVERTENCIA: APScheduler no está instalado. No se ejecutarán las alertas.")
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
+    # Evitar iniciar el scheduler dos veces por el reloader de Flask
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not debug:
+        iniciar_scheduler()
     app.run(host='0.0.0.0', port=port, debug=debug)
-
