@@ -4866,11 +4866,13 @@ def hotspot_generar_masivo():
                 # Guardar en base de datos local
                 v = Voucher(
                     codigo=username,
-                    password=password,
+                    contrasena=password,
+                    precio=plan.precio,
                     plan_id=plan.id,
                     router_id=router.id,
-                    estado='disponible',
-                    precio=plan.precio
+                    vendedor_id=current_user.id,
+                    estado='activo',
+                    mikrotik_id=msg_or_id
                 )
                 db.session.add(v)
                 exitos += 1
