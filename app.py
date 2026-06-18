@@ -4658,6 +4658,24 @@ def hotspot_vendedor_nuevo():
     routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
     return render_template('hotspot_vendedor_crear.html', routers=routers)
 
+@app.route('/api/hotspot/live/dashboard', methods=['GET'])
+@login_required
+@admin_required
+def hotspot_live_dashboard_api():
+    """Endpoint que retorna los datos en vivo del router seleccionado"""
+    router_id = request.args.get('router_id')
+    if not router_id:
+        return jsonify({'error': 'Router ID requerido'})
+        
+    router = ConfigMikroTik.query.get(router_id)
+    if not router:
+        return jsonify({'error': 'Router no encontrado'})
+        
+    api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+    data = api.get_live_dashboard_data()
+    
+    return jsonify(data)
+
 @app.route('/admin/hotspot/fichas')
 @login_required
 @admin_required
