@@ -489,12 +489,30 @@ class MikroTikAPI:
     def test_connection(self):
         """Prueba la conexión al router"""
         try:
-            response = self.session.get(f"{self.base_url}/system/identity", timeout=10)
+            # Try REST API (v7)
+            response = self.session.get(f"{self.base_url}/system/identity", timeout=5)
             if response.status_code == 200:
-                return True, response.json().get('name', 'MikroTik')
-            return False, f"Error: {response.status_code}"
+                return True, response.json().get('name', 'MikroTik (v7 REST)')
+        except Exception:
+            pass
+            
+        try:
+            # Fallback to Classic API (v6)
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(
+                self.host, 
+                username=self.username, 
+                password=self.password, 
+                port=self.port, 
+                plaintext_login=True
+            )
+            api = connection.get_api()
+            identity = api.get_resource('/system/identity').get()
+            name = identity[0].get('name', 'MikroTik') if identity else 'MikroTik'
+            connection.disconnect()
+            return True, f"{name} (v6 API)"
         except Exception as e:
-            return False, str(e)
+            return False, f"Error REST/v6: {str(e)}"
     
     def create_simple_queue(self, name, target, max_limit_download, max_limit_upload, comment=""):
         """Crea un Simple Queue en MikroTik"""
@@ -675,33 +693,50 @@ class MikroTikAPI:
     
     def create_hotspot_user(self, name, password, profile, comment="", limit_uptime=None, limit_bytes_total=None):
         """Crea un usuario de Hotspot en MikroTik"""
+        nombre_limpio = limpiar_texto_mikrotik(name)
+        data = {
+            "name": nombre_limpio,
+            "password": password,
+            "profile": profile,
+            "comment": limpiar_texto_mikrotik(comment)
+        }
+        if limit_uptime:
+            data["limit-uptime"] = limit_uptime
+        if limit_bytes_total:
+            data["limit-bytes-total"] = limit_bytes_total
+            
         try:
-            nombre_limpio = limpiar_texto_mikrotik(name)
-            data = {
-                "name": nombre_limpio,
-                "password": password,
-                "profile": profile,
-                "comment": limpiar_texto_mikrotik(comment)
-            }
-            if limit_uptime:
-                data["limit-uptime"] = limit_uptime
-            if limit_bytes_total:
-                data["limit-bytes-total"] = limit_bytes_total
-                
+            # Try REST API (v7)
             response = self.session.put(
                 f"{self.base_url}/ip/hotspot/user",
                 json=data,
-                timeout=15
+                timeout=5
             )
             
             if response.status_code in [200, 201]:
                 result = response.json()
                 return True, result.get('.id', '')
-            else:
-                return False, f"Error {response.status_code}: {response.text}"
-                
+            elif response.status_code == 404:
+                raise Exception("REST API not found, try v6 fallback")
+        except Exception:
+            pass
+            
+        # Fallback to Classic API (v6)
+        try:
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(
+                self.host, 
+                username=self.username, 
+                password=self.password, 
+                port=self.port, 
+                plaintext_login=True
+            )
+            api = connection.get_api()
+            api.get_resource('/ip/hotspot/user').add(**data)
+            connection.disconnect()
+            return True, "Created via v6 API"
         except Exception as e:
-            return False, str(e)
+            return False, f"Error v6: {str(e)}"
 
     def delete_hotspot_user(self, user_id):
         """Elimina un usuario de Hotspot en MikroTik por su ID (.id)"""
