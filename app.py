@@ -5106,10 +5106,14 @@ def iniciar_scheduler():
     except ImportError:
         print("ADVERTENCIA: APScheduler no está instalado. No se ejecutarán las alertas.")
 
+# Inicializar scheduler al cargar la app (para Gunicorn)
+try:
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.getenv('FLASK_ENV', 'production') != 'development':
+        iniciar_scheduler()
+except Exception as e:
+    print("Error iniciando scheduler:", e)
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
-    # Evitar iniciar el scheduler dos veces por el reloader de Flask
-    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not debug:
-        iniciar_scheduler()
     app.run(host='0.0.0.0', port=port, debug=debug)
