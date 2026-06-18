@@ -1248,8 +1248,20 @@
                 result = JSON.parse(textResponse);
             } catch (jsonError) {
                 console.error("Respuesta no es JSON:", textResponse);
-                throw new Error("El servidor devolvió una página HTML en lugar de JSON. " + 
-                              (textResponse.includes('login') ? "Parece que tu sesión caducó." : "Revisa la consola negra (CMD) del servidor."));
+                
+                // Intentar extraer el título de la página HTML para saber qué es
+                let htmlTitle = "Desconocido";
+                const titleMatch = textResponse.match(/<title>(.*?)<\/title>/i);
+                if (titleMatch && titleMatch[1]) {
+                    htmlTitle = titleMatch[1];
+                }
+                
+                // Si el título indica Login
+                if (textResponse.includes('login') && !htmlTitle.includes('500') && !htmlTitle.includes('502')) {
+                    throw new Error("Página de Login (" + htmlTitle + "). Tu sesión caducó o el navegador bloqueó la cookie.");
+                } else {
+                    throw new Error("Página HTML devuelta. Título: " + htmlTitle);
+                }
             }
             
             if (result.success) {
