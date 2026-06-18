@@ -1723,21 +1723,20 @@ def ai_diagnostics():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/ai/collection_msg', methods=['POST'])
-@login_required
 def ai_collection_msg():
     """Redacta mensaje de cobro"""
-    data = request.json
-    cliente_id = data.get('cliente_id')
-    cliente = Cliente.query.get(cliente_id)
-    
-    if not cliente: return jsonify({'success': False, 'error': 'Cliente no encontrado'})
-    config = ConfigIA.query.first()
-    if not config or not config.activo: return jsonify({'success': False, 'error': 'IA no habilitada'})
-    
-    system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago."
-    user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan.nombre if cliente.plan else 'Internet'}."
-    
     try:
+        data = request.json
+        cliente_id = data.get('cliente_id')
+        cliente = Cliente.query.get(cliente_id)
+        
+        if not cliente: return jsonify({'success': False, 'error': 'Cliente no encontrado'})
+        config = ConfigIA.query.first()
+        if not config or not config.activo: return jsonify({'success': False, 'error': 'IA no habilitada'})
+        
+        system_prompt = "Eres un especialista en cobros amigables por WhatsApp para CuzoNet (proveedor de Internet). Redacta un solo mensaje corto, sin saludos largos, directo y cordial pidiendo el pago."
+        user_prompt = f"Cliente: {cliente.nombre}, Saldo Pendiente: Q{cliente.saldo_pendiente}, Plan: {cliente.plan.nombre if getattr(cliente, 'plan', None) else 'Internet'}."
+        
         if config.provider == 'openai':
             import openai
             client = openai.OpenAI(api_key=config.openai_api_key)
@@ -1755,7 +1754,9 @@ def ai_collection_msg():
             return jsonify({'success': True, 'reply': response.text})
         return jsonify({'success': False, 'error': 'Proveedor no válido'})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        import traceback
+        trace = traceback.format_exc()
+        return jsonify({'success': False, 'error': str(e), 'trace': trace})
 
 # ============== API MIKROTIK STATUS ==============
 
