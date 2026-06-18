@@ -779,6 +779,55 @@ class MikroTikAPI:
         except Exception as e:
             return False, f"Error obteniendo perfiles: {str(e)}"
 
+    def get_live_dashboard_data(self):
+        """Obtiene datos en vivo para el Dashboard de Hotspot (Estilo Mikhmon)"""
+        data = {
+            'cpu': 0, 'mem_libre': '0 MB', 'hdd_libre': '0 MB',
+            'uptime': '0s', 'version': '', 'board': '',
+            'active_users': 0, 'total_users': 0,
+            'logs': [], 'error': None
+        }
+        
+        try:
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(
+                self.host, username=self.username, password=self.password, 
+                port=self.port, plaintext_login=True
+            )
+            api = connection.get_api()
+            
+            # 1. System Resources
+            resource = api.get_resource('/system/resource').get()[0]
+            data['cpu'] = int(resource.get('cpu-load', 0))
+            data['mem_libre'] = f"{round(int(resource.get('free-memory', 0)) / 1048576, 1)} MB"
+            data['hdd_libre'] = f"{round(int(resource.get('free-hdd-space', 0)) / 1048576, 1)} MB"
+            data['uptime'] = resource.get('uptime', '')
+            data['version'] = resource.get('version', '')
+            data['board'] = resource.get('board-name', '')
+            
+            # 2. Hotspot Users
+            data['active_users'] = len(api.get_resource('/ip/hotspot/active').get())
+            data['total_users'] = len(api.get_resource('/ip/hotspot/user').get())
+            
+            # 3. Logs (últimos 15 del hotspot)
+            logs = api.get_resource('/log').get()
+            hotspot_logs = [l for l in logs if 'hotspot' in l.get('topics', '')]
+            # Extraer solo lo más reciente
+            hotspot_logs = hotspot_logs[-15:]
+            hotspot_logs.reverse() # Mostrar más reciente primero
+            
+            for l in hotspot_logs:
+                data['logs'].append({
+                    'time': l.get('time', ''),
+                    'message': l.get('message', '')
+                })
+                
+            connection.disconnect()
+        except Exception as e:
+            data['error'] = str(e)
+            
+        return data
+
 
 def get_mikrotik_api(router_id=None):
     """Obtiene instancia de la API de MikroTik con la configuración activa o por ID"""

@@ -50,6 +50,95 @@
         {% endif %}
         {% endwith %}
 
+        <!-- Selector de Router en Vivo -->
+        <div class="table-section" style="margin-bottom: 24px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                <h2 style="margin: 0;"><i class="fas fa-satellite-dish"></i> Router Live Dashboard</h2>
+                <select id="liveRouterSelect" class="form-control" style="width: 300px; max-width: 100%;" onchange="startLiveMonitoring()">
+                    <option value="">-- Seleccione un MikroTik --</option>
+                    {% for r in routers %}
+                        <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Panel Oculto Inicialmente -->
+            <div id="liveDashboardContent" style="display: none;">
+                <!-- Fila 1: Info del Board -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);">
+                        <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 5px;">Board Name</div>
+                        <div style="font-weight: 600; font-size: 16px;" id="liveBoard">--</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                        <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 5px;">RouterOS Version</div>
+                        <div style="font-weight: 600; font-size: 16px;" id="liveVersion">--</div>
+                    </div>
+                    <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 5px;">Uptime</div>
+                        <div style="font-weight: 600; font-size: 16px;" id="liveUptime">--</div>
+                    </div>
+                </div>
+
+                <!-- Fila 2: Recursos y Contadores Mikhmon -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    
+                    <!-- Stats CPU/MEM -->
+                    <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;"><i class="fas fa-microchip"></i> System Resources</h4>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span>CPU Load:</span> <span id="liveCpu" style="font-weight: 600; color: #10b981;">0%</span>
+                        </div>
+                        <div style="width: 100%; background: var(--bg-card); border-radius: 4px; height: 8px; margin-bottom: 15px;">
+                            <div id="liveCpuBar" style="height: 100%; border-radius: 4px; background: #10b981; width: 0%; transition: width 0.5s;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span>Free Memory:</span> <span id="liveMem" style="font-weight: 600;">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Free HDD:</span> <span id="liveHdd" style="font-weight: 600;">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Hotspot Users -->
+                    <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 10px;">
+                        <div style="background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: white; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 15px rgba(14,165,233,0.3);">
+                            <div style="font-size: 2.5rem; opacity: 0.8;"><i class="fas fa-users"></i></div>
+                            <div>
+                                <div style="font-size: 1.8rem; font-weight: 700; line-height: 1;" id="liveActiveUsers">0</div>
+                                <div style="font-size: 0.9rem; opacity: 0.9; margin-top: 5px;">Usuarios en Línea (Active)</div>
+                            </div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                            <div style="font-size: 2.5rem; opacity: 0.8;"><i class="fas fa-ticket-alt"></i></div>
+                            <div>
+                                <div style="font-size: 1.8rem; font-weight: 700; line-height: 1;" id="liveTotalUsers">0</div>
+                                <div style="font-size: 0.9rem; opacity: 0.9; margin-top: 5px;">Usuarios Hotspot Total</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hotspot Log -->
+                    <div style="background: #1e293b; padding: 0; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="background: rgba(0,0,0,0.2); padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h4 style="margin: 0; color: #fff;"><i class="fas fa-list-alt"></i> Hotspot Log (En Vivo)</h4>
+                        </div>
+                        <div style="padding: 10px 20px; flex: 1; overflow-y: auto; max-height: 180px; font-family: monospace; font-size: 12px; color: #cbd5e1; line-height: 1.5;" id="liveLogs">
+                            Esperando datos...
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: right; color: var(--text-muted); font-size: 12px;" id="liveLastUpdate">
+                    Actualizado: Nunca
+                </div>
+            </div>
+            <div id="liveLoadingIndicator" style="display:none; text-align:center; padding: 40px; color: var(--primary);">
+                <i class="fas fa-circle-notch fa-spin fa-3x"></i>
+                <p style="margin-top: 15px;">Conectando al Router...</p>
+            </div>
+        </div>
+
         <!-- Estadísticas Principales -->
         <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
             <div class="stat-card">
@@ -169,5 +258,85 @@
             
         </div>
     </main>
+    <script>
+        let liveTimer = null;
+
+        function updateLiveDashboard() {
+            const routerId = document.getElementById('liveRouterSelect').value;
+            if (!routerId) return;
+
+            fetch(`/api/hotspot/live/dashboard?router_id=${routerId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error("Error Live:", data.error);
+                        return;
+                    }
+                    
+                    document.getElementById('liveBoard').innerText = data.board || '--';
+                    document.getElementById('liveVersion').innerText = data.version || '--';
+                    document.getElementById('liveUptime').innerText = data.uptime || '--';
+                    
+                    const cpu = data.cpu || 0;
+                    document.getElementById('liveCpu').innerText = `${cpu}%`;
+                    const cpuBar = document.getElementById('liveCpuBar');
+                    cpuBar.style.width = `${cpu}%`;
+                    cpuBar.style.background = cpu > 80 ? '#ef4444' : (cpu > 50 ? '#f59e0b' : '#10b981');
+                    document.getElementById('liveCpu').style.color = cpuBar.style.background;
+                    
+                    document.getElementById('liveMem').innerText = data.mem_libre || '--';
+                    document.getElementById('liveHdd').innerText = data.hdd_libre || '--';
+                    
+                    document.getElementById('liveActiveUsers').innerText = data.active_users || '0';
+                    document.getElementById('liveTotalUsers').innerText = data.total_users || '0';
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        const logsHtml = data.logs.map(l => {
+                            let color = '#cbd5e1'; // gris claro
+                            if (l.message.includes('logged out')) color = '#ef4444'; // rojo
+                            if (l.message.includes('logged in')) color = '#10b981'; // verde
+                            if (l.message.includes('failed')) color = '#f59e0b'; // naranja
+                            return `<div style="margin-bottom:4px;"><span style="color:#64748b; margin-right:8px;">[${l.time}]</span><span style="color:${color}">${l.message}</span></div>`;
+                        }).join('');
+                        document.getElementById('liveLogs').innerHTML = logsHtml;
+                    } else {
+                        document.getElementById('liveLogs').innerHTML = 'No hay logs recientes.';
+                    }
+                    
+                    const now = new Date();
+                    document.getElementById('liveLastUpdate').innerText = `Actualizado: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+                })
+                .catch(err => console.error("Error fetching live data", err));
+        }
+
+        function startLiveMonitoring() {
+            const routerId = document.getElementById('liveRouterSelect').value;
+            const content = document.getElementById('liveDashboardContent');
+            const loading = document.getElementById('liveLoadingIndicator');
+            
+            if (liveTimer) clearInterval(liveTimer);
+            
+            if (!routerId) {
+                content.style.display = 'none';
+                loading.style.display = 'none';
+                return;
+            }
+            
+            content.style.display = 'none';
+            loading.style.display = 'block';
+            
+            // Primer carga inmediata
+            updateLiveDashboard();
+            
+            // Mostrar después de 1 segundo de "carga"
+            setTimeout(() => {
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            }, 1000);
+            
+            // Refrescar cada 5 segundos
+            liveTimer = setInterval(updateLiveDashboard, 5000);
+        }
+    </script>
 </body>
 </html>
