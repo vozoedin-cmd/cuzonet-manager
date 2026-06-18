@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Impresión Múltiple - CuzoNet</title>
+    <title>Generador Avanzado Hotspot - CuzoNet</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -15,25 +14,75 @@
             border-radius: var(--radius-lg);
             border: 1px solid var(--border-color);
             padding: 32px;
-            max-width: 800px;
+            max-width: 900px;
             margin: 40px auto;
             box-shadow: var(--shadow-lg);
         }
         .pro-header {
-            background: linear-gradient(135deg, #e63946 0%, #b71c1c 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             padding: 24px 32px;
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             margin: -32px -32px 32px -32px;
             display: flex;
             align-items: center;
-            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.2);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+            color: white;
         }
-        .pro-header h2 { margin: 0; color: white; font-size: 1.4rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+        .pro-header h2 { margin: 0; color: white; font-size: 1.4rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        
+        .grid-form {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .form-control {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            width: 100%;
+            color: var(--text-primary);
+        }
+        .form-control:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .btn-generate {
+            padding: 16px 40px;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4);
+        }
     </style>
 </head>
-
 <body>
-    <!-- Fondo animado -->
     <div class="bg-animation">
         <div class="bg-gradient"></div>
         <div class="bg-grid"></div>
@@ -46,10 +95,9 @@
     {% include 'sidebar.html' %}
 
     <main class="main-content">
-        
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="flash-messages" style="margin-bottom: 24px; max-width: 800px; margin: 0 auto 24px auto;">
+        <div class="flash-messages" style="margin-bottom: 24px; max-width: 900px; margin: 0 auto 24px auto;">
             {% for category, message in messages %}
             <div class="alert alert-{{ category }}" style="padding: 16px; border-radius: 10px; background: rgba(0, 212, 255, 0.1); border-left: 4px solid var(--primary); color: white; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
                 <i class="fas fa-info-circle" style="color: var(--primary);"></i>
@@ -62,38 +110,106 @@
 
         <div class="pro-form-container">
             <div class="pro-header">
-                <h2><i class="fas fa-print"></i> Impresión Múltiple</h2>
+                <h2><i class="fas fa-bolt"></i> Generador Avanzado Hotspot</h2>
             </div>
             
-            <form action="/admin/hotspot/fichas/generar_masivo" method="POST" style="margin-top: 40px; padding-bottom: 20px;">
-                <div class="form-row" style="align-items: center; justify-content: center; display: flex; flex-direction: column; gap: 30px;">
-                    <div class="form-group" style="width: 100%; max-width: 500px;">
-                        <label style="font-weight: 600; font-size: 1.05rem; color: var(--text-primary);">
-                            Plan <span style="color: #e63946;">*</span>
-                        </label>
-                        <select name="plan_id" class="form-control" style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 14px; font-size: 1rem; border-radius: 8px;" required>
-                            <option value="">Seleccione el plan</option>
-                            {% for p in planes %}
-                                <option value="{{ p.id }}">{{ p.nombre }}</option>
+            <form action="/admin/hotspot/fichas/generar_masivo" method="POST" id="formGenerador">
+                <div class="grid-form">
+                    
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Router / Server <span style="color: #ef4444;">*</span></label>
+                        <select name="router_id" class="form-control" required>
+                            <option value="">Selecciona el MikroTik destino</option>
+                            {% for r in routers %}
+                                <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div class="form-group" style="width: 100%; max-width: 500px;">
-                        <label style="font-weight: 600; font-size: 1.05rem; color: var(--text-primary);">
-                            Cantidad Fichas a Crear <span style="color: #e63946;">*</span>
-                        </label>
-                        <input type="number" name="cantidad" class="form-control" style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 14px; font-size: 1rem; border-radius: 8px;" min="1" max="500" required>
+                    <div class="form-group">
+                        <label>Cantidad de Fichas <span style="color: #ef4444;">*</span></label>
+                        <input type="number" name="cantidad" class="form-control" min="1" max="500" value="1" required>
                     </div>
-                    
-                    <div class="form-group" style="width: 100%; max-width: 500px; margin-top: 20px; text-align: center;">
-                        <button type="submit" class="btn" style="padding: 16px 40px; font-size: 1.2rem; background: #2e7d32; color: white; border-radius: 8px; width: 100%; font-weight: 600; transition: transform 0.2s, background 0.2s; cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);" onmouseover="this.style.background='#1b5e20'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#2e7d32'; this.style.transform='translateY(0)'">
-                            Generar
+
+                    <div class="form-group">
+                        <label>Modo Usuarios <span style="color: #ef4444;">*</span></label>
+                        <select name="modo" class="form-control" required>
+                            <option value="up">Usuario y Contraseña (UP)</option>
+                            <option value="pin" selected>Solo PIN (Usuario = Contraseña)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Longitud del Código <span style="color: #ef4444;">*</span></label>
+                        <select name="longitud" class="form-control" required>
+                            <option value="4">4 caracteres</option>
+                            <option value="5" selected>5 caracteres</option>
+                            <option value="6">6 caracteres</option>
+                            <option value="7">7 caracteres</option>
+                            <option value="8">8 caracteres</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prefijo (Opcional)</label>
+                        <input type="text" name="prefijo" class="form-control" placeholder="Ej. VIP-">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Caracteres <span style="color: #ef4444;">*</span></label>
+                        <select name="caracteres" class="form-control" required>
+                            <option value="lower">Letras minúsculas (abcd)</option>
+                            <option value="upper">Letras mayúsculas (ABCD)</option>
+                            <option value="numeric">Solo Números (1234)</option>
+                            <option value="alphanum_lower" selected>Alfanumérico minúsculas (a1b2)</option>
+                            <option value="alphanum_upper">Alfanumérico mayúsculas (A1B2)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Perfil (Plan) <span style="color: #ef4444;">*</span></label>
+                        <select name="plan_id" class="form-control" required>
+                            <option value="">Seleccione el perfil</option>
+                            {% for p in planes %}
+                                <option value="{{ p.id }}">{{ p.nombre }} ({{ p.perfil_hotspot }}) - Q{{ p.precio }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Límite de Tiempo (Uptime) <span style="text-muted; font-weight:normal;">Opcional</span></label>
+                        <input type="text" name="limit_uptime" class="form-control" placeholder="Ej. 12h, 30d, 1w">
+                        <small style="color:var(--text-muted); font-size:12px;">Formatos: w, d, h, m, s</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Límite de Datos (Bytes) <span style="text-muted; font-weight:normal;">Opcional</span></label>
+                        <input type="text" name="limit_bytes" class="form-control" placeholder="Ej. 500M, 1G">
+                        <small style="color:var(--text-muted); font-size:12px;">Formatos: K, M, G</small>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Comentario <span style="text-muted; font-weight:normal;">Opcional</span></label>
+                        <input type="text" name="comentario" class="form-control" placeholder="Ej. Fichas Generadas MIKHMON CuzoNet">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
+                        <button type="submit" class="btn-generate" id="btnSubmit">
+                            <i class="fas fa-magic"></i> Generar Fichas
                         </button>
                     </div>
                 </div>
             </form>
         </div>
     </main>
+
+    <script>
+        document.getElementById('formGenerador').addEventListener('submit', function() {
+            const btn = document.getElementById('btnSubmit');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando en MikroTik...';
+            btn.style.opacity = '0.7';
+            btn.style.pointerEvents = 'none';
+        });
+    </script>
 </body>
 </html>

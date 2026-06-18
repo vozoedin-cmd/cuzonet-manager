@@ -673,7 +673,7 @@ class MikroTikAPI:
 
     # ============== HOTSPOT METHODS ==============
     
-    def create_hotspot_user(self, name, password, profile, comment="", limit_uptime=None):
+    def create_hotspot_user(self, name, password, profile, comment="", limit_uptime=None, limit_bytes_total=None):
         """Crea un usuario de Hotspot en MikroTik"""
         try:
             nombre_limpio = limpiar_texto_mikrotik(name)
@@ -685,6 +685,8 @@ class MikroTikAPI:
             }
             if limit_uptime:
                 data["limit-uptime"] = limit_uptime
+            if limit_bytes_total:
+                data["limit-bytes-total"] = limit_bytes_total
                 
             response = self.session.put(
                 f"{self.base_url}/ip/hotspot/user",
@@ -4507,7 +4509,8 @@ def hotspot_vendedor_nuevo():
 @admin_required
 def hotspot_fichas():
     planes = PlanHotspot.query.filter_by(activo=True).all()
-    return render_template('hotspot_impresion_multiple.html', planes=planes)
+    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    return render_template('hotspot_impresion_multiple.html', planes=planes, routers=routers)
 
 @app.route('/admin/hotspot/omada_print')
 @login_required
@@ -4695,11 +4698,96 @@ def save_config_alertas():
 @login_required
 @admin_required
 def hotspot_generar_masivo():
-    plan_id = request.form.get('plan_id')
-    cantidad = int(request.form.get('cantidad', 1))
+    import random
+    import string
     
-    # Pendiente: Lógica de MikroTik para creación en lote real
-    flash(f'Lote de {cantidad} fichas en proceso de generación (Función en desarrollo)', 'info')
+    router_id = request.form.get('router_id')
+    cantidad = int(request.form.get('cantidad', 1))
+    modo = request.form.get('modo', 'pin')
+    longitud = int(request.form.get('longitud', 5))
+    prefijo = request.form.get('prefijo', '').strip()
+    caracteres = request.form.get('caracteres', 'alphanum_lower')
+    plan_id = request.form.get('plan_id')
+    limit_uptime = request.form.get('limit_uptime', '').strip()
+    limit_bytes = request.form.get('limit_bytes', '').strip()
+    comentario = request.form.get('comentario', '').strip()
+    
+    if not limit_uptime: limit_uptime = None
+    if not limit_bytes: limit_bytes = None
+    if not comentario: comentario = f"Gen {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    
+    plan = PlanHotspot.query.get_or_404(plan_id)
+    router = ConfigMikroTik.query.get_or_404(router_id)
+    
+    api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+    conectado, _ = api.connect()
+    if not conectado:
+        flash(f'Error de conexión con el MikroTik {router.nombre}. Revisa las credenciales.', 'error')
+        return redirect(url_for('hotspot_fichas'))
+        
+    def generate_random_string(length, char_type):
+        if char_type == 'lower':
+            chars = string.ascii_lowercase
+        elif char_type == 'upper':
+            chars = string.ascii_uppercase
+        elif char_type == 'numeric':
+            chars = string.digits
+        elif char_type == 'alphanum_lower':
+            chars = string.ascii_lowercase + string.digits
+        elif char_type == 'alphanum_upper':
+            chars = string.ascii_uppercase + string.digits
+        else:
+            chars = string.ascii_lowercase + string.digits
+        return ''.join(random.choice(chars) for _ in range(length))
+        
+    exitos = 0
+    errores = 0
+    nuevos_vouchers = []
+    
+    for _ in range(cantidad):
+        max_intentos = 10
+        creado = False
+        
+        for _ in range(max_intentos):
+            codigo = prefijo + generate_random_string(longitud, caracteres)
+            username = codigo
+            password = codigo if modo == 'pin' else generate_random_string(longitud, caracteres)
+            
+            # Intentar crear en MikroTik
+            success, msg_or_id = api.create_hotspot_user(
+                name=username,
+                password=password,
+                profile=plan.perfil_hotspot,
+                comment=comentario,
+                limit_uptime=limit_uptime,
+                limit_bytes_total=limit_bytes
+            )
+            
+            if success:
+                creado = True
+                # Guardar en base de datos local
+                v = Voucher(
+                    codigo=username,
+                    password=password,
+                    plan_id=plan.id,
+                    router_id=router.id,
+                    estado='disponible',
+                    precio=plan.precio
+                )
+                db.session.add(v)
+                exitos += 1
+                break
+                
+        if not creado:
+            errores += 1
+            
+    db.session.commit()
+    
+    if errores == 0:
+        flash(f'¡Éxito! Se generaron {exitos} fichas correctamente en {router.nombre}.', 'success')
+    else:
+        flash(f'Se generaron {exitos} fichas, pero hubo {errores} errores (posiblemente códigos duplicados o error de conexión).', 'warning')
+        
     return redirect(url_for('hotspot_fichas'))
 
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
