@@ -717,9 +717,10 @@ class MikroTikAPI:
         try:
             # REST API (v7)
             url = f"{self.base_url}/ip/hotspot/user"
+            params = {}
             if profile:
-                url += f"?profile={profile}"
-            response = self.session.get(url, timeout=10)
+                params['profile'] = profile
+            response = self.session.get(url, params=params, timeout=15)
             
             if response.status_code == 200:
                 users = response.json()
@@ -4918,10 +4919,10 @@ def hotspot_mikhmon_users():
         router = ConfigMikroTik.query.get(selected_router_id)
         if router:
             api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
-            # Obtenemos perfiles para el filtro
-            suc_p, res_p = api.get_hotspot_profiles_with_counts()
+            # Obtenemos perfiles para el filtro (usamos la version ligera sin conteos para no hacer lenta la pagina)
+            suc_p, res_p = api.get_hotspot_profiles()
             if suc_p:
-                profiles = [p['name'] for p in res_p]
+                profiles = res_p
             
             # Obtenemos usuarios
             success, result = api.get_hotspot_users(profile=profile_filter if profile_filter != 'all' else None)
