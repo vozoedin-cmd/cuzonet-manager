@@ -153,12 +153,18 @@
     <main class="main-content">
         
         <!-- Toolbar Superior -->
-        <div class="mikhmon-toolbar">
-            <a href="#"><i class="fas fa-users"></i> Usuarios</a> |
-            <a href="/admin/hotspot/fichas"><i class="fas fa-user-plus"></i> Añadir Usuarios</a> |
-            <a href="/admin/hotspot/fichas"><i class="fas fa-ticket-alt"></i> Generar cupón</a> |
-            <a href="#"><i class="fas fa-download"></i> Guion</a> |
-            <a href="#"><i class="fas fa-file-csv"></i> CSV</a>
+        <div class="mikhmon-toolbar" style="justify-content: space-between;">
+            <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                <a href="#"><i class="fas fa-users"></i> Usuarios</a> |
+                <a href="/admin/hotspot/fichas"><i class="fas fa-user-plus"></i> Añadir Usuarios</a> |
+                <a href="/admin/hotspot/fichas"><i class="fas fa-ticket-alt"></i> Generar cupón</a> |
+                <a href="#"><i class="fas fa-download"></i> Guion</a> |
+                <a href="#"><i class="fas fa-file-csv"></i> CSV</a>
+            </div>
+            
+            <button id="btnSync" onclick="syncUsers()" class="mikhmon-btn" style="background: #28a745;">
+                <i class="fas fa-sync-alt" id="syncIcon"></i> Sincronizar con MikroTik
+            </button>
         </div>
 
         <!-- Filtros y Buscador -->
@@ -264,6 +270,42 @@
                 $('#usersTable').DataTable().search(this.value).draw();
             });
         });
+
+        function syncUsers() {
+            var routerId = '{{ selected_router_id }}';
+            if (!routerId) return alert('No hay router seleccionado');
+            
+            var btn = $('#btnSync');
+            var icon = $('#syncIcon');
+            
+            btn.prop('disabled', true);
+            icon.addClass('fa-spin');
+            btn.html('<i class="fas fa-sync-alt fa-spin"></i> Sincronizando (puede tomar unos segundos)...');
+            
+            $.ajax({
+                url: '/api/hotspot/sync_users',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({router_id: routerId}),
+                success: function(res) {
+                    if(res.success) {
+                        alert(res.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + res.error);
+                        btn.prop('disabled', false);
+                        icon.removeClass('fa-spin');
+                        btn.html('<i class="fas fa-sync-alt"></i> Sincronizar con MikroTik');
+                    }
+                },
+                error: function(err) {
+                    alert('Error de conexión');
+                    btn.prop('disabled', false);
+                    icon.removeClass('fa-spin');
+                    btn.html('<i class="fas fa-sync-alt"></i> Sincronizar con MikroTik');
+                }
+            });
+        }
     </script>
 </body>
 </html>

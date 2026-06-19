@@ -375,8 +375,26 @@ class Voucher(db.Model):
             'router_nombre': self.router.nombre if self.router else None,
             'vendedor_nombre': self.vendedor.nombre if self.vendedor else None,
             'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M') if self.fecha_creacion else None,
-            'estado': self.estado
+            'estado': self.estado,
+            'perfil': self.plan.nombre_mikrotik if self.plan else 'default'
         }
+
+class HotspotUserSync(db.Model):
+    """Copia sincronizada de los usuarios Hotspot de MikroTik para máxima velocidad de lectura"""
+    __tablename__ = 'hotspot_user_sync'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=False)
+    mikrotik_id = db.Column(db.String(50))
+    server = db.Column(db.String(50))
+    name = db.Column(db.String(100), index=True)
+    password = db.Column(db.String(100))
+    profile = db.Column(db.String(100), index=True)
+    uptime = db.Column(db.String(50))
+    bytes_in = db.Column(db.String(50))
+    bytes_out = db.Column(db.String(50))
+    comment = db.Column(db.String(255), index=True)
+    last_sync = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class TransaccionVendedor(db.Model):
@@ -4910,24 +4928,40 @@ def hotspot_mikhmon_users():
         router = ConfigMikroTik.query.get(selected_router_id)
         if router:
             api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
-            # Obtenemos perfiles para el filtro (usamos la version ligera sin conteos para no hacer lenta la pagina)
-            suc_p, res_p = api.get_hotspot_profiles()
-            if suc_p:
-                profiles = res_p
+            # Usar la base de datos local (Sincronizada) en lugar de la API en vivo
+            query = HotspotUserSync.query.filter_by(router_id=router.id)
             
-            # Obtenemos usuarios
-            success, result = api.get_hotspot_users(profile=profile_filter if profile_filter != 'all' else None)
-            if success:
-                users = result
-                # Extraer comentarios unicos para el filtro de comentarios
-                comments = list(set([u.get('comment') for u in users if u.get('comment')]))
-                comments.sort()
+            if profile_filter and profile_filter != 'all':
+                query = query.filter_by(profile=profile_filter)
                 
-                # Filtrar la lista de usuarios si hay un filtro de comentario activo
-                if comment_filter:
-                    users = [u for u in users if u.get('comment') == comment_filter]
-            else:
-                error = result
+            if comment_filter:
+                query = query.filter_by(comment=comment_filter)
+                
+            users_db = query.all()
+            
+            # Formatear a diccionario como lo esperaba la plantilla
+            for u in users_db:
+                users.append({
+                    'name': u.name,
+                    'profile': u.profile,
+                    'server': u.server,
+                    'uptime': u.uptime,
+                    'bytes-in': u.bytes_in,
+                    'bytes-out': u.bytes_out,
+                    'comment': u.comment
+                })
+                
+            # Extraer comentarios únicos (de este router) para el filtro
+            all_users_for_comments = HotspotUserSync.query.filter_by(router_id=router.id).all()
+            comments = list(set([u.comment for u in all_users_for_comments if u.comment]))
+            comments.sort()
+            
+            # Obtener perfiles para el filtro (sin conteos por ahora, o hacer query en la DB)
+            profiles = list(set([u.profile for u in all_users_for_comments if u.profile]))
+            profiles.sort()
+            
+            if not users_db and not all_users_for_comments:
+                error = "Base de datos local vacía. Por favor haz clic en 'Sincronizar con MikroTik'."
                 
     return render_template('hotspot_mikhmon_users.html', 
                            routers=routers, 
@@ -4939,6 +4973,60 @@ def hotspot_mikhmon_users():
                            selected_comment=comment_filter,
                            router=router,
                            error=error)
+
+@app.route('/api/hotspot/sync_users', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_sync_users():
+    """Descarga todos los usuarios del MikroTik y actualiza la DB local para lectura ultrarrápida"""
+    data = request.get_json() or {}
+    router_id = data.get('router_id')
+    
+    if not router_id:
+        return jsonify({'success': False, 'error': 'No router specified'})
+        
+    router = ConfigMikroTik.query.get(router_id)
+    if not router:
+        return jsonify({'success': False, 'error': 'Router not found'})
+        
+    api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+    
+    success, result = api.get_hotspot_users(profile=None)
+    
+    if not success:
+        return jsonify({'success': False, 'error': result})
+        
+    try:
+        # 1. Borrar tabla actual para este router
+        HotspotUserSync.query.filter_by(router_id=router.id).delete()
+        
+        # 2. Insertar masivamente (bulk_save_objects)
+        objects = []
+        for u in result:
+            obj = HotspotUserSync(
+                router_id=router.id,
+                mikrotik_id=u.get('.id'),
+                server=u.get('server', 'all'),
+                name=u.get('name', ''),
+                password=u.get('password', ''),
+                profile=u.get('profile', ''),
+                uptime=u.get('uptime', '00:00:00'),
+                bytes_in=u.get('bytes-in', '0'),
+                bytes_out=u.get('bytes-out', '0'),
+                comment=u.get('comment', '')
+            )
+            objects.append(obj)
+            
+        db.session.bulk_save_objects(objects)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'{len(objects)} usuarios sincronizados exitosamente.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/hotspot/live/dashboard', methods=['GET'])
 @login_required
