@@ -250,7 +250,8 @@
             formData.append('lote_uuid', loteUuid);
             formData.append('cantidad_total', cantidadTotal);
             
-            const batchSize = 10;
+            // Generador Ráfaga: Procesamos hasta 1000 de golpe gracias al nuevo backend de scripts
+            const batchSize = 1000;
             let successTotal = 0;
             let errorTotal = 0;
             let hasError = false;

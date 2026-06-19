@@ -712,6 +712,60 @@ class MikroTikAPI:
 
     # ============== HOTSPOT METHODS ==============
     
+    def create_hotspot_users_batch(self, users_data):
+        """
+        Crea múltiples usuarios de forma ultra-rápida (Ráfaga) mediante un script en MikroTik.
+        users_data es una lista de diccionarios con las llaves: name, password, profile, limit_uptime, limit_bytes_total, comment
+        Retorna (True, 'ok') o (False, 'error').
+        """
+        import random
+        if not users_data:
+            return True, "No hay usuarios"
+            
+        # Generar el script de RouterOS
+        script_lines = ["/ip hotspot user"]
+        for u in users_data:
+            line = f"add name=\"{u['name']}\" password=\"{u['password']}\" profile=\"{u['profile']}\""
+            if u.get('comment'):
+                line += f" comment=\"{u['comment']}\""
+            if u.get('limit_uptime'):
+                line += f" limit-uptime=\"{u['limit_uptime']}\""
+            if u.get('limit_bytes_total'):
+                line += f" limit-bytes-total=\"{u['limit_bytes_total']}\""
+            script_lines.append(line)
+            
+        script_content = "\n".join(script_lines)
+        script_name = f"cuzonet_batch_{random.randint(1000, 9999)}"
+        
+        # 1. Crear el script en system/script
+        url_add = f"{self.base_url}/system/script"
+        script_data = {
+            "name": script_name,
+            "source": script_content,
+            "policy": "read,write,policy,test"
+        }
+        
+        try:
+            # Crear script usando REST API v7 (usamos put o post via requests)
+            import requests
+            res_add = requests.put(url_add, json=script_data, auth=(self.username, self.password), verify=False, timeout=15)
+            if res_add.status_code not in [200, 201]:
+                return False, f"Error creando script: {res_add.text}"
+                
+            script_id = res_add.json().get('.id', script_name)
+            
+            # 2. Ejecutar script
+            url_run = f"{self.base_url}/system/script/run"
+            requests.post(url_run, json={".id": script_id}, auth=(self.username, self.password), verify=False, timeout=10)
+            
+            # 3. Eliminar script para no dejar basura
+            url_del = f"{self.base_url}/system/script/{script_id}"
+            requests.delete(url_del, auth=(self.username, self.password), verify=False, timeout=5)
+            
+            return True, "Batch completado"
+        except Exception as e:
+            return False, str(e)
+
     def create_hotspot_user(self, name, password, profile, comment="", limit_uptime=None, limit_bytes_total=None):
         """Crea un usuario de Hotspot en MikroTik"""
         nombre_limpio = limpiar_texto_mikrotik(name)
@@ -5193,52 +5247,65 @@ def hotspot_generar_masivo_ajax():
         
     exitos = 0
     errores = 0
+    vouchers_to_save = []
+    users_batch_v7 = []
     
-    for _ in range(cantidad):
-        max_intentos = 10
-        creado = False
-        for _ in range(max_intentos):
-            codigo = prefijo + generate_random_string(longitud, caracteres)
-            username = codigo
-            password = codigo if modo == 'pin' else generate_random_string(longitud, caracteres)
-            
-            if es_v6:
-                try:
-                    data = {"name": username, "password": password, "profile": plan.perfil_hotspot, "comment": comentario}
-                    if limit_uptime: data["limit-uptime"] = limit_uptime
-                    if limit_bytes: data["limit-bytes-total"] = limit_bytes
-                    v6_api.add(**data)
-                    success = True
-                    msg_or_id = "v6_gen"
-                except Exception as e:
-                    success = False
-                    msg_or_id = str(e)
-            else:
-                success, msg_or_id = api.create_hotspot_user(
-                    name=username, password=password, profile=plan.perfil_hotspot,
-                    comment=comentario, limit_uptime=limit_uptime, limit_bytes_total=limit_bytes
-                )
-            
-            if success:
-                creado = True
-                v = Voucher(
-                    codigo=username, contrasena=password, precio=plan.precio, 
-                    plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, 
-                    estado='activo', mikrotik_id=msg_or_id,
-                    lote_id=lote.id if lote else None
-                )
-                db.session.add(v)
-                exitos += 1
-                break
+    # Pre-generar todos los códigos asegurando unicidad básica
+    codigos_generados = set()
+    intentos_totales = 0
+    while len(codigos_generados) < cantidad and intentos_totales < cantidad * 5:
+        codigo = prefijo + generate_random_string(longitud, caracteres)
+        codigos_generados.add(codigo)
+        intentos_totales += 1
+        
+    for username in list(codigos_generados)[:cantidad]:
+        password = username if modo == 'pin' else generate_random_string(longitud, caracteres)
+        
+        if es_v6:
+            try:
+                data = {"name": username, "password": password, "profile": plan.perfil_hotspot, "comment": comentario}
+                if limit_uptime: data["limit-uptime"] = limit_uptime
+                if limit_bytes: data["limit-bytes-total"] = limit_bytes
+                v6_api.add(**data)
                 
-        if not creado:
-            errores += 1
+                v = Voucher(codigo=username, contrasena=password, precio=plan.precio, plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, estado='activo', mikrotik_id="v6_gen", lote_id=lote.id if lote else None)
+                vouchers_to_save.append(v)
+                exitos += 1
+            except Exception as e:
+                errores += 1
+        else:
+            # v7 Ráfaga
+            users_batch_v7.append({
+                "name": username,
+                "password": password,
+                "profile": plan.perfil_hotspot,
+                "limit_uptime": limit_uptime,
+                "limit_bytes_total": limit_bytes,
+                "comment": comentario
+            })
+            
+            v = Voucher(codigo=username, contrasena=password, precio=plan.precio, plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, estado='activo', mikrotik_id="batch_gen", lote_id=lote.id if lote else None)
+            vouchers_to_save.append(v)
+            
+    # Ejecutar Ráfaga en v7 si es necesario
+    if not es_v6 and users_batch_v7:
+        success, msg = api.create_hotspot_users_batch(users_batch_v7)
+        if success:
+            exitos = len(users_batch_v7)
+        else:
+            return jsonify({'error': f"Error en generación Ráfaga MikroTik: {msg}"})
             
     if v6_connection:
         try: v6_connection.disconnect()
         except: pass
-            
-    db.session.commit()
+        
+    if vouchers_to_save:
+        try:
+            db.session.bulk_save_objects(vouchers_to_save)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f"Error guardando en BD local: {str(e)}"})
     return jsonify({'exitos': exitos, 'errores': errores, 'success': True})
 
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
