@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vouchers por Perfil (Mikhmon Style) - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #2b3035; /* Color oscuro estilo Mikhmon */
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .mikhmon-header {
+            display: flex;
+            align-items: center;
+            background: #343a40;
+            padding: 10px 20px;
+            border-bottom: 1px solid #23272b;
+            margin-bottom: 20px;
+            color: white;
+            border-radius: 4px;
+        }
+        
+        .mikhmon-header i {
+            margin-right: 10px;
+        }
+
+        .router-selector {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .router-selector select {
+            padding: 8px 12px;
+            background: #343a40;
+            color: white;
+            border: 1px solid #495057;
+            border-radius: 4px;
+            font-family: 'Outfit', sans-serif;
+        }
+        
+        .router-selector button {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* GRID STYLES */
+        .mikhmon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+        }
+
+        .mikhmon-card {
+            border-radius: 4px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        
+        .mikhmon-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .mikhmon-card-icon {
+            font-size: 3.5rem;
+            opacity: 0.8;
+            margin-right: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .mikhmon-card-content {
+            flex: 1;
+        }
+
+        .mikhmon-profile-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .mikhmon-items-count {
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            opacity: 0.9;
+        }
+
+        .mikhmon-actions {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+        }
+
+        .mikhmon-actions a {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mikhmon-actions a:hover {
+            text-decoration: underline;
+        }
+
+    </style>
+</head>
+
+<body>
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        
+        <div class="mikhmon-header">
+            <i class="fas fa-users"></i>
+            <strong>Vouchers</strong> &nbsp; | &nbsp; <i class="fas fa-sync-alt" style="cursor:pointer;" onclick="location.reload()"></i>
+        </div>
+
+        <form class="router-selector" method="GET">
+            <label>Seleccionar Router:</label>
+            <select name="router_id" onchange="this.form.submit()">
+                {% for r in routers %}
+                <option value="{{ r.id }}" {% if r.id == selected_router_id %}selected{% endif %}>{{ r.nombre }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if error %}
+            <div style="background: #dc3545; color: white; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <i class="fas fa-exclamation-triangle"></i> Error al conectar con MikroTik: {{ error }}
+            </div>
+        {% endif %}
+
+        {% if profiles_data %}
+            <div class="mikhmon-grid">
+                {% for profile in profiles_data %}
+                <div class="mikhmon-card" style="background-color: {{ profile.color }};">
+                    <div class="mikhmon-card-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <div class="mikhmon-card-content">
+                        <div class="mikhmon-profile-title">Profile : {{ profile.name }}</div>
+                        <div class="mikhmon-items-count">{{ profile.count }} Items</div>
+                        <div class="mikhmon-actions">
+                            <!-- TODO: Enlace a tabla de usuarios filtrada -->
+                            <a href="#"><i class="fas fa-external-link-square-alt"></i> Abrir</a>
+                            <a href="/admin/hotspot/fichas"><i class="fas fa-users-cog"></i> Generar Voucher</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            {% if not error %}
+            <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 4px;">
+                No se encontraron perfiles en este router.
+            </div>
+            {% endif %}
+        {% endif %}
+
+    </main>
+
+</body>
+</html>

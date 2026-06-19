@@ -711,6 +711,64 @@ class MikroTikAPI:
             return False, str(e)
 
     # ============== HOTSPOT METHODS ==============
+
+    def get_hotspot_profiles_with_counts(self):
+        """Obtiene perfiles y la cantidad de usuarios en cada uno"""
+        try:
+            # REST API (v7)
+            res_profiles = self.session.get(f"{self.base_url}/ip/hotspot/user/profile", timeout=5)
+            res_users = self.session.get(f"{self.base_url}/ip/hotspot/user", timeout=5)
+            
+            if res_profiles.status_code == 200 and res_users.status_code == 200:
+                profiles = res_profiles.json()
+                users = res_users.json()
+                
+                # Count users per profile
+                counts = {}
+                for u in users:
+                    p = u.get('profile', 'default')
+                    counts[p] = counts.get(p, 0) + 1
+                    
+                result = []
+                for p in profiles:
+                    name = p.get('name')
+                    if name:
+                        result.append({
+                            'name': name,
+                            'count': counts.get(name, 0)
+                        })
+                return True, result
+            elif res_profiles.status_code == 404:
+                raise Exception("REST API not found")
+        except Exception:
+            pass
+            
+        # Fallback to v6
+        try:
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(self.host, username=self.username, password=self.password, port=self.port, plaintext_login=True)
+            api = connection.get_api()
+            
+            profiles = api.get_resource('/ip/hotspot/user/profile').get()
+            users = api.get_resource('/ip/hotspot/user').get()
+            
+            counts = {}
+            for u in users:
+                p = u.get('profile', 'default')
+                counts[p] = counts.get(p, 0) + 1
+                
+            result = []
+            for p in profiles:
+                name = p.get('name')
+                if name:
+                    result.append({
+                        'name': name,
+                        'count': counts.get(name, 0)
+                    })
+            connection.disconnect()
+            return True, result
+        except Exception as e:
+            return False, str(e)
     
     def create_hotspot_users_batch(self, users_data):
         """
@@ -4751,6 +4809,55 @@ def hotspot_vendedores():
 def hotspot_vendedor_nuevo():
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
     return render_template('hotspot_vendedor_crear.html', routers=routers)
+
+@app.route('/admin/hotspot/vouchers_grid')
+@login_required
+@admin_required
+def hotspot_vouchers_grid():
+    """Vista de Vouchers estilo Mikhmon (Grid de colores por perfil)"""
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
+    selected_router_id = request.args.get('router_id')
+    
+    if not selected_router_id and routers:
+        selected_router_id = routers[0].id
+        
+    router = None
+    profiles_data = []
+    error = None
+    
+    if selected_router_id:
+        router = ConfigMikroTik.query.get(selected_router_id)
+        if router:
+            api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+            success, result = api.get_hotspot_profiles_with_counts()
+            if success:
+                profiles_data = result
+            else:
+                error = result
+                
+    # Asignar un color fijo o pseudo-aleatorio basado en el nombre del perfil
+    # para imitar la paleta de colores de Mikhmon
+    mikhmon_colors = [
+        '#ffc107', # Amarillo
+        '#6c757d', # Gris
+        '#6f42c1', # Morado
+        '#28a745', # Verde
+        '#e83e8c', # Rosa
+        '#fd7e14', # Naranja/Rojo
+        '#17a2b8', # Teal
+        '#20c997', # Cian
+    ]
+    
+    for i, p in enumerate(profiles_data):
+        # Asignar color secuencialmente (rotando)
+        p['color'] = mikhmon_colors[i % len(mikhmon_colors)]
+        
+    return render_template('hotspot_vouchers_grid.html', 
+                           routers=routers, 
+                           selected_router_id=int(selected_router_id) if selected_router_id else None,
+                           profiles_data=profiles_data,
+                           router=router,
+                           error=error)
 
 @app.route('/api/hotspot/live/dashboard', methods=['GET'])
 @login_required
