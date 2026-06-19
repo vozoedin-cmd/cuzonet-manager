@@ -150,10 +150,10 @@
                     {% endfor %}
                 </select>
                 
-                <select class="mikhmon-select">
-                    <option value="">Comentario</option>
+                <select name="comment" class="mikhmon-select" onchange="document.getElementById('filterForm').submit()">
+                    <option value="">Comentario (Mostrar todo)</option>
                     {% for c in comments %}
-                        <option value="{{ c }}">{{ c }}</option>
+                        <option value="{{ c }}" {% if c == selected_comment %}selected{% endif %}>{{ c }}</option>
                     {% endfor %}
                 </select>
             </form>

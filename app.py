@@ -4903,6 +4903,7 @@ def hotspot_mikhmon_users():
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
     selected_router_id = request.args.get('router_id')
     profile_filter = request.args.get('profile')
+    comment_filter = request.args.get('comment')
     
     if not selected_router_id and routers:
         selected_router_id = routers[0].id
@@ -4929,6 +4930,10 @@ def hotspot_mikhmon_users():
                 # Extraer comentarios unicos para el filtro de comentarios
                 comments = list(set([u.get('comment') for u in users if u.get('comment')]))
                 comments.sort()
+                
+                # Filtrar la lista de usuarios si hay un filtro de comentario activo
+                if comment_filter:
+                    users = [u for u in users if u.get('comment') == comment_filter]
             else:
                 error = result
                 
@@ -4939,6 +4944,7 @@ def hotspot_mikhmon_users():
                            profiles=profiles,
                            comments=comments,
                            selected_profile=profile_filter,
+                           selected_comment=comment_filter,
                            router=router,
                            error=error)
 
