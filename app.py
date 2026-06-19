@@ -713,26 +713,8 @@ class MikroTikAPI:
     # ============== HOTSPOT METHODS ==============
 
     def get_hotspot_users(self, profile=None):
-        """Obtiene la lista de usuarios, opcionalmente filtrada por perfil"""
-        try:
-            # REST API (v7)
-            url = f"{self.base_url}/ip/hotspot/user"
-            params = {}
-            if profile:
-                params['profile'] = profile
-            response = self.session.get(url, params=params, timeout=15)
-            
-            if response.status_code == 200:
-                users = response.json()
-                if profile:
-                    users = [u for u in users if u.get('profile') == profile]
-                return True, users
-            elif response.status_code == 404:
-                raise Exception("REST API not found")
-        except Exception:
-            pass
-            
-        # Fallback to v6
+        """Obtiene la lista de usuarios usando API Clásica (ultra rápida) por defecto"""
+        # Try Classic API (v6/v7) first for speed
         try:
             import routeros_api
             connection = routeros_api.RouterOsApiPool(self.host, username=self.username, password=self.password, port=self.port, plaintext_login=True)
@@ -747,40 +729,28 @@ class MikroTikAPI:
             connection.disconnect()
             return True, users
         except Exception as e:
+            pass # Si falla, intenta REST
+            
+        try:
+            # Fallback a REST API (v7)
+            url = f"{self.base_url}/ip/hotspot/user"
+            params = {}
+            if profile:
+                params['profile'] = profile
+            response = self.session.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                users = response.json()
+                if profile:
+                    users = [u for u in users if u.get('profile') == profile]
+                return True, users
+            elif response.status_code == 404:
+                raise Exception("REST API not found")
+        except Exception as e:
             return False, str(e)
 
     def get_hotspot_profiles_with_counts(self):
-        """Obtiene perfiles y la cantidad de usuarios en cada uno"""
-        try:
-            # REST API (v7)
-            res_profiles = self.session.get(f"{self.base_url}/ip/hotspot/user/profile", timeout=5)
-            res_users = self.session.get(f"{self.base_url}/ip/hotspot/user", timeout=5)
-            
-            if res_profiles.status_code == 200 and res_users.status_code == 200:
-                profiles = res_profiles.json()
-                users = res_users.json()
-                
-                # Count users per profile
-                counts = {}
-                for u in users:
-                    p = u.get('profile', 'default')
-                    counts[p] = counts.get(p, 0) + 1
-                    
-                result = []
-                for p in profiles:
-                    name = p.get('name')
-                    if name:
-                        result.append({
-                            'name': name,
-                            'count': counts.get(name, 0)
-                        })
-                return True, result
-            elif res_profiles.status_code == 404:
-                raise Exception("REST API not found")
-        except Exception:
-            pass
-            
-        # Fallback to v6
+        """Obtiene perfiles y la cantidad de usuarios usando API Clásica por velocidad"""
         try:
             import routeros_api
             connection = routeros_api.RouterOsApiPool(self.host, username=self.username, password=self.password, port=self.port, plaintext_login=True)
@@ -804,6 +774,34 @@ class MikroTikAPI:
                     })
             connection.disconnect()
             return True, result
+        except Exception:
+            pass # Si falla, intenta REST
+            
+        try:
+            # Fallback REST API
+            res_profiles = self.session.get(f"{self.base_url}/ip/hotspot/user/profile", timeout=5)
+            res_users = self.session.get(f"{self.base_url}/ip/hotspot/user", timeout=5)
+            
+            if res_profiles.status_code == 200 and res_users.status_code == 200:
+                profiles = res_profiles.json()
+                users = res_users.json()
+                
+                counts = {}
+                for u in users:
+                    p = u.get('profile', 'default')
+                    counts[p] = counts.get(p, 0) + 1
+                    
+                result = []
+                for p in profiles:
+                    name = p.get('name')
+                    if name:
+                        result.append({
+                            'name': name,
+                            'count': counts.get(name, 0)
+                        })
+                return True, result
+            elif res_profiles.status_code == 404:
+                raise Exception("REST API not found")
         except Exception as e:
             return False, str(e)
     
@@ -920,32 +918,25 @@ class MikroTikAPI:
             return False, str(e)
             
     def get_hotspot_profiles(self):
-        """Obtiene la lista de perfiles de usuario (planes) del MikroTik"""
+        """Obtiene la lista de perfiles de usuario usando API Clásica"""
         try:
-            # Try REST API (v7)
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(self.host, username=self.username, password=self.password, port=self.port, plaintext_login=True)
+            api = connection.get_api()
+            profiles = api.get_resource('/ip/hotspot/user/profile').get()
+            connection.disconnect()
+            return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
+        except Exception:
+            pass # Si falla, intenta REST
+            
+        try:
+            # Fallback REST API
             response = self.session.get(f"{self.base_url}/ip/hotspot/user/profile", timeout=5)
             if response.status_code == 200:
                 profiles = response.json()
                 return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
             elif response.status_code == 404:
-                raise Exception("REST API not found, try v6 fallback")
-        except Exception:
-            pass
-            
-        # Fallback to Classic API (v6)
-        try:
-            import routeros_api
-            connection = routeros_api.RouterOsApiPool(
-                self.host, 
-                username=self.username, 
-                password=self.password, 
-                port=self.port, 
-                plaintext_login=True
-            )
-            api = connection.get_api()
-            profiles = api.get_resource('/ip/hotspot/user/profile').get()
-            connection.disconnect()
-            return True, [p.get('name') for p in profiles if p.get('name') and p.get('name') != 'default']
+                raise Exception("REST API not found")
         except Exception as e:
             return False, f"Error obteniendo perfiles: {str(e)}"
 
