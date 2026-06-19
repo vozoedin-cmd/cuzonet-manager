@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Usuarios (Mikhmon Style) - CuzoNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #2b3035; /* Color oscuro estilo Mikhmon */
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .mikhmon-toolbar {
+            display: flex;
+            align-items: center;
+            background: #343a40;
+            padding: 10px 20px;
+            border-bottom: 1px solid #23272b;
+            color: white;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .mikhmon-toolbar a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mikhmon-toolbar a:hover {
+            color: #0ea5e9;
+        }
+
+        .mikhmon-filters {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .mikhmon-input, .mikhmon-select {
+            background: #2b3035;
+            color: white;
+            border: 1px solid #495057;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .mikhmon-btn {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mikhmon-btn:hover {
+            background: #0284c7;
+        }
+
+        .mikhmon-table-container {
+            overflow-x: auto;
+            background: #343a40;
+            border-radius: 4px;
+            border: 1px solid #495057;
+        }
+
+        .mikhmon-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .mikhmon-table th, .mikhmon-table td {
+            padding: 10px 15px;
+            text-align: left;
+            border-bottom: 1px solid #495057;
+            white-space: nowrap;
+        }
+
+        .mikhmon-table th {
+            font-weight: 600;
+            background: #2b3035;
+        }
+
+        .mikhmon-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .icon-action {
+            color: #fff;
+            margin: 0 3px;
+            cursor: pointer;
+        }
+        .icon-action:hover {
+            color: #0ea5e9;
+        }
+
+    </style>
+</head>
+
+<body>
+    {% include 'sidebar.html' %}
+
+    <main class="main-content">
+        
+        <!-- Toolbar Superior -->
+        <div class="mikhmon-toolbar">
+            <a href="#"><i class="fas fa-users"></i> Usuarios</a> |
+            <a href="/admin/hotspot/fichas"><i class="fas fa-user-plus"></i> Añadir Usuarios</a> |
+            <a href="/admin/hotspot/fichas"><i class="fas fa-ticket-alt"></i> Generar cupón</a> |
+            <a href="#"><i class="fas fa-download"></i> Guion</a> |
+            <a href="#"><i class="fas fa-file-csv"></i> CSV</a>
+        </div>
+
+        <!-- Filtros y Buscador -->
+        <div class="mikhmon-filters">
+            <input type="text" class="mikhmon-input" placeholder="Buscar" style="flex: 1; max-width: 200px;">
+            
+            <form id="filterForm" method="GET" style="display:flex; gap: 10px; align-items:center;">
+                <input type="hidden" name="router_id" value="{{ selected_router_id }}">
+                
+                <select name="profile" class="mikhmon-select" onchange="document.getElementById('filterForm').submit()">
+                    <option value="all">Perfil (Mostrar todo)</option>
+                    {% for p in profiles %}
+                        <option value="{{ p }}" {% if p == selected_profile %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select class="mikhmon-select">
+                    <option value="">Comentario</option>
+                    {% for c in comments %}
+                        <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            
+            <button class="mikhmon-btn"><i class="fas fa-lock"></i> Por defecto</button>
+            <button class="mikhmon-btn"><i class="fas fa-qrcode"></i> QR</button>
+            <button class="mikhmon-btn"><i class="fas fa-print"></i> Pequeño</button>
+            
+            <!-- Botón Volver a la cuadrícula -->
+            <a href="/admin/hotspot/vouchers_grid?router_id={{ selected_router_id }}" class="mikhmon-btn" style="background:#6c757d; text-decoration:none; margin-left:auto;">
+                <i class="fas fa-arrow-left"></i> Volver a Grid
+            </a>
+        </div>
+
+        {% if error %}
+            <div style="background: #dc3545; color: white; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <i class="fas fa-exclamation-triangle"></i> Error al conectar con MikroTik: {{ error }}
+            </div>
+        {% endif %}
+
+        <!-- Tabla -->
+        <div class="mikhmon-table-container">
+            <table class="mikhmon-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;"><input type="checkbox"> 50</th>
+                        <th><i class="fas fa-server"></i> Servidor</th>
+                        <th><i class="fas fa-user"></i> Nombre</th>
+                        <th>Imprimir</th>
+                        <th><i class="fas fa-id-badge"></i> Perfil</th>
+                        <th><i class="fas fa-clock"></i> Actividad</th>
+                        <th><i class="fas fa-arrow-down"></i> Bytes en</th>
+                        <th><i class="fas fa-arrow-up"></i> Bytes de salida</th>
+                        <th><i class="fas fa-comment"></i> Comentario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>
+                            <i class="fas fa-minus-circle" style="color:#dc3545; cursor:pointer;" title="Eliminar"></i> 
+                            <i class="fas fa-unlock" style="color:#fff;"></i>
+                        </td>
+                        <td>{{ u.get('server', 'all') }}</td>
+                        <td><i class="fas fa-edit"></i> {{ u.get('name', '') }}</td>
+                        <td>
+                            <i class="fas fa-print icon-action"></i>
+                            <i class="fas fa-qrcode icon-action"></i>
+                        </td>
+                        <td>{{ u.get('profile', '') }}</td>
+                        <td>{{ u.get('uptime', '00:00:00') }}</td>
+                        <td>{{ u.get('bytes-in', '0') }} bytes</td>
+                        <td>{{ u.get('bytes-out', '0') }} bytes</td>
+                        <td>{{ u.get('comment', '') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 30px; opacity: 0.7;">No se encontraron usuarios en este perfil.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+</body>
+</html>

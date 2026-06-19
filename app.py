@@ -712,6 +712,42 @@ class MikroTikAPI:
 
     # ============== HOTSPOT METHODS ==============
 
+    def get_hotspot_users(self, profile=None):
+        """Obtiene la lista de usuarios, opcionalmente filtrada por perfil"""
+        try:
+            # REST API (v7)
+            url = f"{self.base_url}/ip/hotspot/user"
+            if profile:
+                url += f"?profile={profile}"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                users = response.json()
+                if profile:
+                    users = [u for u in users if u.get('profile') == profile]
+                return True, users
+            elif response.status_code == 404:
+                raise Exception("REST API not found")
+        except Exception:
+            pass
+            
+        # Fallback to v6
+        try:
+            import routeros_api
+            connection = routeros_api.RouterOsApiPool(self.host, username=self.username, password=self.password, port=self.port, plaintext_login=True)
+            api = connection.get_api()
+            
+            resource = api.get_resource('/ip/hotspot/user')
+            if profile:
+                users = resource.get(**{'profile': profile})
+            else:
+                users = resource.get()
+                
+            connection.disconnect()
+            return True, users
+        except Exception as e:
+            return False, str(e)
+
     def get_hotspot_profiles_with_counts(self):
         """Obtiene perfiles y la cantidad de usuarios en cada uno"""
         try:
@@ -4785,7 +4821,7 @@ def hotspot_plan_desactivar(id):
 @admin_required
 def hotspot_vendedores():
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
-    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
     
     vendedores_data = []
     for v in vendedores:
@@ -4856,6 +4892,53 @@ def hotspot_vouchers_grid():
                            routers=routers, 
                            selected_router_id=int(selected_router_id) if selected_router_id else None,
                            profiles_data=profiles_data,
+                           router=router,
+                           error=error)
+
+@app.route('/admin/hotspot/mikhmon_users')
+@login_required
+@admin_required
+def hotspot_mikhmon_users():
+    """Lista de usuarios estilo Mikhmon"""
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
+    selected_router_id = request.args.get('router_id')
+    profile_filter = request.args.get('profile')
+    
+    if not selected_router_id and routers:
+        selected_router_id = routers[0].id
+        
+    router = None
+    users = []
+    profiles = []
+    comments = []
+    error = None
+    
+    if selected_router_id:
+        router = ConfigMikroTik.query.get(selected_router_id)
+        if router:
+            api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
+            # Obtenemos perfiles para el filtro
+            suc_p, res_p = api.get_hotspot_profiles_with_counts()
+            if suc_p:
+                profiles = [p['name'] for p in res_p]
+            
+            # Obtenemos usuarios
+            success, result = api.get_hotspot_users(profile=profile_filter if profile_filter != 'all' else None)
+            if success:
+                users = result
+                # Extraer comentarios unicos para el filtro de comentarios
+                comments = list(set([u.get('comment') for u in users if u.get('comment')]))
+                comments.sort()
+            else:
+                error = result
+                
+    return render_template('hotspot_mikhmon_users.html', 
+                           routers=routers, 
+                           selected_router_id=int(selected_router_id) if selected_router_id else None,
+                           users=users,
+                           profiles=profiles,
+                           comments=comments,
+                           selected_profile=profile_filter,
                            router=router,
                            error=error)
 

@@ -166,8 +166,7 @@
                         <div class="mikhmon-profile-title">Profile : {{ profile.name }}</div>
                         <div class="mikhmon-items-count">{{ profile.count }} Items</div>
                         <div class="mikhmon-actions">
-                            <!-- TODO: Enlace a tabla de usuarios filtrada -->
-                            <a href="#"><i class="fas fa-external-link-square-alt"></i> Abrir</a>
+                            <a href="/admin/hotspot/mikhmon_users?router_id={{ selected_router_id }}&profile={{ profile.name }}"><i class="fas fa-external-link-square-alt"></i> Abrir</a>
                             <a href="/admin/hotspot/fichas"><i class="fas fa-users-cog"></i> Generar Voucher</a>
                         </div>
                     </div>
