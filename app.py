@@ -4695,7 +4695,7 @@ def hotspot_vendedores():
 @login_required
 @admin_required
 def hotspot_vendedor_nuevo():
-    routers = ConfigMikroTik.query.filter_by(tipo='hotspot').all()
+    routers = ConfigMikroTik.query.filter_by(activo=True).all()
     return render_template('hotspot_vendedor_crear.html', routers=routers)
 
 @app.route('/api/hotspot/live/dashboard', methods=['GET'])

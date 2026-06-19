@@ -157,6 +157,7 @@
             background: #1e1e24;
             color: #fff;
             padding: 12px;
+            font-size: 1.05rem;
         }
 
         .btn-submit {
@@ -234,6 +235,97 @@
         }
         .glow-1 { top: -100px; left: -100px; }
         .glow-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(0,0,0,0) 70%); }
+        /* CUSTOM SELECT STYLES */
+        .custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            width: 100%;
+        }
+        
+        .custom-select {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .custom-select:hover {
+            background: rgba(0, 0, 0, 0.5);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .custom-select.open {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        
+        .custom-select-arrow {
+            transition: transform 0.3s ease;
+            color: #a5b4fc;
+        }
+        
+        .custom-select.open .custom-select-arrow {
+            transform: rotate(180deg);
+        }
+        
+        .custom-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e1e24;
+            border: 1px solid rgba(99, 102, 241, 0.5);
+            border-top: none;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            max-height: 250px;
+            overflow-y: auto;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 10;
+            transform: translateY(-10px);
+        }
+        
+        .custom-select.open + .custom-options {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .custom-option {
+            padding: 14px 20px;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .custom-option:last-child {
+            border-bottom: none;
+        }
+        
+        .custom-option:hover, .custom-option.selected {
+            background: rgba(99, 102, 241, 0.2);
+            color: #fff;
+            padding-left: 25px;
+        }
+
+        /* Ocultar el select original */
+        select.hidden-select {
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -279,10 +371,20 @@
                 <div class="form-row full">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-briefcase"></i> Tipo de Vendedor</label>
-                        <select class="pro-select" name="tipo_vendedor">
+                        <select class="hidden-select" name="tipo_vendedor" id="tipo_vendedor">
                             <option value="acumulativo">Comisión Acumulativa (Postpago)</option>
                             <option value="prepago">Saldo Prepagado (Venta Directa)</option>
                         </select>
+                        <div class="custom-select-wrapper" data-target="tipo_vendedor">
+                            <div class="custom-select">
+                                <span class="custom-select-trigger">Comisión Acumulativa (Postpago)</span>
+                                <i class="fas fa-chevron-down custom-select-arrow"></i>
+                            </div>
+                            <div class="custom-options">
+                                <div class="custom-option selected" data-value="acumulativo">Comisión Acumulativa (Postpago)</div>
+                                <div class="custom-option" data-value="prepago">Saldo Prepagado (Venta Directa)</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -307,12 +409,24 @@
                 <div class="form-row full">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-server"></i> Asignar a Router MikroTik (Opcional)</label>
-                        <select name="router_id" class="pro-select">
+                        <select class="hidden-select" name="router_id" id="router_id">
                             <option value="">-- Modo Global (Sin router específico) --</option>
                             {% for r in routers %}
                                 <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
                             {% endfor %}
                         </select>
+                        <div class="custom-select-wrapper" data-target="router_id">
+                            <div class="custom-select">
+                                <span class="custom-select-trigger">-- Modo Global (Sin router específico) --</span>
+                                <i class="fas fa-chevron-down custom-select-arrow"></i>
+                            </div>
+                            <div class="custom-options">
+                                <div class="custom-option selected" data-value="">-- Modo Global (Sin router específico) --</div>
+                                {% for r in routers %}
+                                    <div class="custom-option" data-value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
