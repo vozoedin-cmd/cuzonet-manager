@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Lotes | CuzoNet Hotspot</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-tertiary: #334155;
+            --primary: #0ea5e9;
+            --primary-hover: #0284c7;
+            --secondary: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --gradient-primary: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 40px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-title h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-action {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: white;
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover {
+            background: var(--secondary);
+            box-shadow: none;
+        }
+
+        .main-content {
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .batch-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .batch-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr auto;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .batch-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+
+        .batch-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 6px;
+            height: 100%;
+            background: var(--gradient-primary);
+        }
+
+        .batch-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .batch-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .batch-meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .batch-meta i {
+            color: var(--primary);
+        }
+
+        .progress-container {
+            width: 100%;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .progress-bar-fill-sold {
+            height: 100%;
+            background: var(--danger);
+        }
+
+        .progress-bar-fill-stock {
+            height: 100%;
+            background: var(--success);
+        }
+
+        .stat-block {
+            text-align: center;
+        }
+        
+        .stat-block .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+        }
+        .stat-block .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            color: white;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-icon:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .btn-icon.print {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .btn-icon.print:hover {
+            background: var(--success);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px dashed var(--border-color);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .batch-card {
+                grid-template-columns: 1fr;
+            }
+            .batch-card::before {
+                width: 100%;
+                height: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="dashboard-header">
+        <div class="header-title">
+            <a href="/admin/hotspot" style="color: var(--text-light); text-decoration: none;">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1><i class="fas fa-layer-group"></i> Monitor de Lotes (Batch Monitor)</h1>
+        </div>
+        <div>
+            <a href="/admin/hotspot/fichas" class="btn-action">
+                <i class="fas fa-plus"></i> Generar Nuevo Lote
+            </a>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="batch-grid">
+            {% for stat in lotes_stats %}
+            <div class="batch-card">
+                <!-- Info del Lote -->
+                <div class="batch-info">
+                    <div class="batch-name">{{ stat.lote.nombre }}</div>
+                    <div class="batch-meta">
+                        <span><i class="fas fa-calendar-alt"></i> {{ stat.lote.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</span>
+                        <span><i class="fas fa-fingerprint"></i> ID: {{ stat.lote.uuid[:8] }}...</span>
+                        <span><i class="fas fa-user-tag"></i> {{ stat.lote.vendedor.nombre }}</span>
+                    </div>
+                </div>
+
+                <!-- Barra de Progreso -->
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Vendido: {{ stat.vendidos }}</span>
+                        <span>En Stock: {{ stat.en_stock }}</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill-sold" style="width: {{ (stat.vendidos / stat.total * 100) if stat.total > 0 else 0 }}%;"></div>
+                        <div class="progress-bar-fill-stock" style="width: {{ (stat.en_stock / stat.total * 100) if stat.total > 0 else 0 }}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Stats 1 -->
+                <div class="stat-block">
+                    <div class="value">{{ stat.total }}</div>
+                    <div class="label">Total Fichas</div>
+                </div>
+
+                <!-- Stats 2 -->
+                <div class="stat-block">
+                    <div class="value" style="color: var(--success);">Q. {{ "%.2f"|format(stat.recaudado) }}</div>
+                    <div class="label">Recaudado</div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="actions">
+                    <a href="/admin/hotspot/lotes/{{ stat.lote.id }}/imprimir" class="btn-icon print" title="Imprimir Lote (QR)">
+                        <i class="fas fa-print"></i>
+                    </a>
+                    <a href="#" class="btn-icon" title="Exportar a Excel" onclick="alert('Función de exportación en desarrollo.');">
+                        <i class="fas fa-file-excel"></i>
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-box-open"></i>
+                <h2>No hay lotes generados</h2>
+                <p style="color: var(--text-muted);">Los lotes de fichas aparecerán aquí una vez que comiences a generar pines.</p>
+                <a href="/admin/hotspot/fichas" class="btn-action" style="margin-top: 20px;">
+                    Ir al Generador
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

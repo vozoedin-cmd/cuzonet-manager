@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Imprimir Lote - {{ lote.nombre }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --brand-color: #0ea5e9; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; }
+        .control-panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto 40px auto; text-align: center; border: 1px solid #e2e8f0; }
+        .inputs-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .input-group { text-align: left; }
+        .input-group label { display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
+        .input-group input, .input-group select { width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #e2e8f0; box-sizing: border-box; font-family: 'Inter'; font-weight: 600; }
+        #colorPicker { height: 45px; padding: 5px; cursor: pointer; }
+        
+        .btn { background-color: var(--brand-color); color: white; border: none; padding: 15px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; font-weight: 900; width: 100%; transition: 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-secondary { background: #64748b; margin-top: 10px; text-decoration: none; }
+        
+        /* Contenedor de impresión */
+        #print-area { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 0 auto; max-width: 21cm; }
+        
+        /* Estilo Ticket (Parecido a VoucherForge) */
+        .v-card { 
+            background: white; 
+            width: 4.5cm; /* Ancho típico de impresora térmica 58mm */
+            height: auto; 
+            border: 2px solid var(--brand-color); 
+            border-radius: 8px; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            break-inside: avoid; 
+            page-break-inside: avoid; 
+        }
+        .v-header { 
+            font-size: 0.8rem; 
+            font-weight: 900; 
+            text-align: center; 
+            color: white; 
+            background: var(--brand-color);
+            padding: 5px 0; 
+            text-transform: uppercase; 
+        }
+        
+        /* Layout Interno */
+        .v-body {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .qr-container {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
+        
+        .qr-container img {
+            width: 100px;
+            height: 100px;
+            display: block;
+        }
+
+        .v-creds { padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; border-bottom: 1px dashed #cbd5e1; width: 100%; margin-bottom: 5px; }
+        .v-lbl { font-size: 0.55rem; font-weight: 700; color: #64748b; margin-right: 4px; text-transform: uppercase; }
+        .v-val { font-size: 1.1rem; font-weight: 900; color: black; letter-spacing: 1px; }
+        
+        .v-price-box { 
+            width: 100%;
+            text-align: center; 
+            margin: 2px 0; 
+        }
+        .v-price { font-size: 1rem; font-weight: 900; color: var(--brand-color); }
+        .v-time { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: #475569; }
+        
+        .v-footer { 
+            font-size: 0.5rem; 
+            font-weight: 700; 
+            text-align: center; 
+            color: #64748b; 
+            padding: 5px; 
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        /* Ocultar elementos en impresión */
+        @media print { 
+            @page { margin: 5mm; } 
+            body { padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+            .control-panel { display: none; } 
+            #print-area { width: 100%; max-width: none; gap: 5px; } 
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <div class="panel-header">
+            <h2>🖨️ CuzoNet Print Studio (Pro)</h2>
+            <p style="color: #64748b;">Lote: {{ lote.nombre }} | Fichas: {{ vouchers|length }}</p>
+        </div>
+        
+        <div class="inputs-grid">
+            <div class="input-group">
+                <label>Nombre del Negocio:</label>
+                <input type="text" id="businessName" value="WIFI PREMIUM" oninput="updatePreview()">
+            </div>
+            <div class="input-group">
+                <label>Color del Ticket:</label>
+                <input type="color" id="colorPicker" value="#0ea5e9" oninput="updateColor(this.value)">
+            </div>
+            <div class="input-group">
+                <label>Tamaño de Impresión:</label>
+                <select id="printSize" onchange="updateSize(this.value)">
+                    <option value="4.5cm">Térmica 58mm</option>
+                    <option value="6.5cm">Térmica 80mm</option>
+                    <option value="8cm">Hoja A4 (Rejilla)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Duración del Plan:</label>
+                <input type="text" id="timeInput" value="{{ lote.plan.nombre }}" oninput="updatePreview()">
+            </div>
+            <div class="input-group">
+                <label>Precio Mostrado:</label>
+                <input type="text" id="priceInput" value="Q. {{ '%.2f'|format(lote.plan.precio) }}" oninput="updatePreview()">
+            </div>
+            <div class="input-group">
+                <label>Mostrar Código QR:</label>
+                <select id="showQR" onchange="updatePreview()">
+                    <option value="yes">Sí, generar conexión automática</option>
+                    <option value="no">No, solo mostrar PIN</option>
+                </select>
+            </div>
+        </div>
+        
+        <button class="btn" onclick="window.print()">IMPRIMIR LOTES (CTRL + P)</button>
+        <a href="/admin/hotspot/lotes" class="btn btn-secondary">Volver al Monitor de Lotes</a>
+    </div>
+
+    <!-- Data Injection -->
+    <script>
+        const baseUrl = "{{ url_login }}";
+        const vouchersData = [
+            {% for v in vouchers %}
+                {
+                    codigo: "{{ v.codigo }}",
+                    password: "{{ v.contrasena }}",
+                    id: {{ loop.index }}
+                }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+    </script>
+
+    <div id="print-area"></div>
+
+    <script>
+        function updateColor(color) { 
+            document.documentElement.style.setProperty('--brand-color', color); 
+        }
+        
+        function updateSize(size) {
+            const cards = document.querySelectorAll('.v-card');
+            cards.forEach(card => card.style.width = size);
+        }
+
+        function updatePreview() {
+            const businessName = document.getElementById('businessName').value || 'WIFI';
+            const timeStr = document.getElementById('timeInput').value || '-';
+            const priceStr = document.getElementById('priceInput').value || '-';
+            const showQR = document.getElementById('showQR').value === 'yes';
+            const printArea = document.getElementById('print-area');
+            
+            printArea.innerHTML = ''; // Limpiar
+            
+            vouchersData.forEach((v, index) => {
+                const card = document.createElement('div');
+                card.className = 'v-card';
+                
+                // Construir URL del QR
+                const qrUrl = `${baseUrl}?username=${encodeURIComponent(v.codigo)}&password=${encodeURIComponent(v.password)}`;
+                
+                // HTML Base del ticket
+                let innerHTML = `
+                    <div class="v-header">${businessName}</div>
+                    <div class="v-body">
+                `;
+                
+                // Añadir QR si está habilitado
+                if (showQR) {
+                    innerHTML += `<div class="qr-container" id="qr-${index}"></div>`;
+                }
+                
+                // Credenciales y Precio
+                innerHTML += `
+                        <div class="v-creds">
+                            <div><span class="v-lbl">Usuario/PIN:</span></div>
+                            <div class="v-val">${v.codigo}</div>
+                        </div>
+                        <div class="v-price-box">
+                            <div class="v-time">${timeStr}</div>
+                            <div class="v-price">${priceStr}</div>
+                        </div>
+                    </div>
+                    <div class="v-footer">Ficha #${v.id} | Powered by CuzoNet</div>
+                `;
+                
+                card.innerHTML = innerHTML;
+                printArea.appendChild(card);
+                
+                // Generar QR en el contenedor si está habilitado
+                if (showQR) {
+                    new QRCode(document.getElementById(`qr-${index}`), {
+                        text: qrUrl,
+                        width: 90,
+                        height: 90,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.L
+                    });
+                }
+            });
+            
+            // Actualizar tamaño base
+            updateSize(document.getElementById('printSize').value);
+        }
+
+        // Render inicial
+        window.onload = function() {
+            updatePreview();
+        };
+    </script>
+</body>
+</html>

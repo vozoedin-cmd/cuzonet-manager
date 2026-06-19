@@ -325,6 +325,25 @@ class PlanHotspot(db.Model):
         }
 
 
+class LoteFichas(db.Model):
+    """Lotes de fichas generadas en bloque"""
+    __tablename__ = 'lotes_fichas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    uuid = db.Column(db.String(50), nullable=False, unique=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    cantidad_solicitada = db.Column(db.Integer, nullable=False, default=0)
+    router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey('planes_hotspot.id'), nullable=False)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    
+    # Relaciones
+    router = db.relationship('ConfigMikroTik', backref=db.backref('lotes', lazy=True))
+    plan = db.relationship('PlanHotspot', backref=db.backref('lotes', lazy=True))
+    vendedor = db.relationship('Usuario', foreign_keys=[vendedor_id])
+
+
 class Voucher(db.Model):
     """Vouchers de Hotspot generados"""
     __tablename__ = 'vouchers'
@@ -339,10 +358,12 @@ class Voucher(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     estado = db.Column(db.String(20), default='activo')  # activo, usado
     mikrotik_id = db.Column(db.String(50))  # ID en MikroTik (para eliminarlo luego si es necesario)
+    lote_id = db.Column(db.Integer, db.ForeignKey('lotes_fichas.id'), nullable=True)
     
     # Relaciones
     plan = db.relationship('PlanHotspot', backref=db.backref('vouchers', lazy=True))
     router = db.relationship('ConfigMikroTik', backref=db.backref('vouchers', lazy=True))
+    lote = db.relationship('LoteFichas', backref=db.backref('vouchers_lista', lazy=True))
     
     def to_dict(self):
         return {
@@ -4469,15 +4490,34 @@ def run_init_db_async():
         _fcntl.flock(_lock_fd, _fcntl.LOCK_EX)
         try:
             init_db()
+            with app.app_context():
+                try:
+                    db.create_all()
+                    from sqlalchemy import text
+                    db.session.execute(text('ALTER TABLE vouchers ADD COLUMN lote_id INTEGER REFERENCES lotes_fichas(id)'))
+                    db.session.commit()
+                    print("Migración: Columna lote_id agregada con éxito.")
+                except Exception as e:
+                    db.session.rollback()
         finally:
             _fcntl.flock(_lock_fd, _fcntl.LOCK_UN)
             _lock_fd.close()
     except (ImportError, OSError):
         try:
             init_db()
+            with app.app_context():
+                try:
+                    db.create_all()
+                    from sqlalchemy import text
+                    db.session.execute(text('ALTER TABLE vouchers ADD COLUMN lote_id INTEGER REFERENCES lotes_fichas(id)'))
+                    db.session.commit()
+                    print("Migración: Columna lote_id agregada con éxito.")
+                except Exception as e:
+                    db.session.rollback()
         except Exception as e:
             print(f"[WARNING] init_db falló: {e}")
     except Exception as e:
+        print(f"[WARNING] run_init_db_async falló: {e}")
         print(f"[WARNING] init_db falló: {e}")
 
 # Arrancar la inicialización de base de datos de fondo
@@ -4682,6 +4722,44 @@ def hotspot_live_dashboard_api():
 def hotspot_fichas():
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
     return render_template('hotspot_impresion_multiple.html', routers=routers)
+
+@app.route('/admin/hotspot/lotes')
+@login_required
+@admin_required
+def hotspot_lotes():
+    """Monitor de Lotes de Fichas (Estilo VoucherForge)"""
+    lotes = LoteFichas.query.order_by(LoteFichas.fecha_creacion.desc()).all()
+    
+    # Calcular estadísticas por lote
+    lotes_stats = []
+    for lote in lotes:
+        vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
+        vendidos = sum(1 for v in vouchers if v.estado == 'usado')
+        en_stock = len(vouchers) - vendidos
+        lotes_stats.append({
+            'lote': lote,
+            'total': len(vouchers),
+            'vendidos': vendidos,
+            'en_stock': en_stock,
+            'recaudado': sum(v.precio for v in vouchers if v.estado == 'usado'),
+            'potencial': sum(v.precio for v in vouchers)
+        })
+        
+    return render_template('hotspot_lotes.html', lotes_stats=lotes_stats)
+
+@app.route('/admin/hotspot/lotes/<int:lote_id>/imprimir')
+@login_required
+@admin_required
+def hotspot_lote_imprimir(lote_id):
+    """Genera la vista de impresión visual de los tickets de un lote"""
+    lote = LoteFichas.query.get_or_404(lote_id)
+    vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
+    
+    # Necesitamos pasar la IP del router o el DNS para armar el código QR
+    # Normalmente es http://<router_ip>/login?username=X&password=Y
+    url_login = f"http://{lote.router.host}/login"
+    
+    return render_template('hotspot_imprimir_lote.html', lote=lote, vouchers=vouchers, url_login=url_login)
 
 @app.route('/api/hotspot/get_profiles')
 @login_required
@@ -5046,6 +5124,7 @@ def hotspot_generar_masivo_ajax():
     limit_uptime = request.form.get('limit_uptime', '').strip()
     limit_bytes = request.form.get('limit_bytes', '').strip()
     comentario = request.form.get('comentario', '').strip()
+    lote_uuid = request.form.get('lote_uuid', '').strip()
     
     if not limit_uptime: limit_uptime = None
     if not limit_bytes: limit_bytes = None
@@ -5063,6 +5142,21 @@ def hotspot_generar_masivo_ajax():
     router = ConfigMikroTik.query.get(router_id)
     if not router:
         return jsonify({'error': 'Router no encontrado'})
+        
+    # Obtener o crear el lote
+    lote = None
+    if lote_uuid:
+        lote = LoteFichas.query.filter_by(uuid=lote_uuid).first()
+        if not lote:
+            # cantidad_total viene del form para saber de cuánto era el lote originalmente
+            cantidad_total = int(request.form.get('cantidad_total', cantidad))
+            nombre_lote = f"Lote {plan.nombre} - {router.nombre}"
+            lote = LoteFichas(
+                uuid=lote_uuid, nombre=nombre_lote, cantidad_solicitada=cantidad_total,
+                router_id=router.id, plan_id=plan.id, vendedor_id=current_user.id
+            )
+            db.session.add(lote)
+            db.session.commit()
     
     api = MikroTikAPI(router.host, router.username, router.password, router.port, router.use_ssl)
     conectado, msg = api.test_connection()
@@ -5119,7 +5213,12 @@ def hotspot_generar_masivo_ajax():
             
             if success:
                 creado = True
-                v = Voucher(codigo=username, contrasena=password, precio=plan.precio, plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, estado='activo', mikrotik_id=msg_or_id)
+                v = Voucher(
+                    codigo=username, contrasena=password, precio=plan.precio, 
+                    plan_id=plan.id, router_id=router.id, vendedor_id=current_user.id, 
+                    estado='activo', mikrotik_id=msg_or_id,
+                    lote_id=lote.id if lote else None
+                )
                 db.session.add(v)
                 exitos += 1
                 break

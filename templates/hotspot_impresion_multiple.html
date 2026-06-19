@@ -246,6 +246,10 @@
             
             const formData = new FormData(this);
             const cantidadTotal = parseInt(formData.get('cantidad'));
+            const loteUuid = 'lote-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+            formData.append('lote_uuid', loteUuid);
+            formData.append('cantidad_total', cantidadTotal);
+            
             const batchSize = 10;
             let successTotal = 0;
             let errorTotal = 0;
