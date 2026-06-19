@@ -4727,39 +4727,47 @@ def hotspot_fichas():
 @login_required
 @admin_required
 def hotspot_lotes():
-    """Monitor de Lotes de Fichas (Estilo VoucherForge)"""
-    lotes = LoteFichas.query.order_by(LoteFichas.fecha_creacion.desc()).all()
-    
-    # Calcular estadísticas por lote
-    lotes_stats = []
-    for lote in lotes:
-        vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
-        vendidos = sum(1 for v in vouchers if v.estado == 'usado')
-        en_stock = len(vouchers) - vendidos
-        lotes_stats.append({
-            'lote': lote,
-            'total': len(vouchers),
-            'vendidos': vendidos,
-            'en_stock': en_stock,
-            'recaudado': sum(v.precio for v in vouchers if v.estado == 'usado'),
-            'potencial': sum(v.precio for v in vouchers)
-        })
+    try:
+        """Monitor de Lotes de Fichas (Estilo VoucherForge)"""
+        lotes = LoteFichas.query.order_by(LoteFichas.fecha_creacion.desc()).all()
         
-    return render_template('hotspot_lotes.html', lotes_stats=lotes_stats)
+        # Calcular estadísticas por lote
+        lotes_stats = []
+        for lote in lotes:
+            vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
+            vendidos = sum(1 for v in vouchers if v.estado == 'usado')
+            en_stock = len(vouchers) - vendidos
+            lotes_stats.append({
+                'lote': lote,
+                'total': len(vouchers),
+                'vendidos': vendidos,
+                'en_stock': en_stock,
+                'recaudado': sum(v.precio for v in vouchers if v.estado == 'usado' and v.precio),
+                'potencial': sum(v.precio for v in vouchers if v.precio)
+            })
+            
+        return render_template('hotspot_lotes.html', lotes_stats=lotes_stats)
+    except Exception as e:
+        import traceback
+        return f"<h1>Error Interno</h1><pre>{traceback.format_exc()}</pre>"
 
 @app.route('/admin/hotspot/lotes/<int:lote_id>/imprimir')
 @login_required
 @admin_required
 def hotspot_lote_imprimir(lote_id):
-    """Genera la vista de impresión visual de los tickets de un lote"""
-    lote = LoteFichas.query.get_or_404(lote_id)
-    vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
-    
-    # Necesitamos pasar la IP del router o el DNS para armar el código QR
-    # Normalmente es http://<router_ip>/login?username=X&password=Y
-    url_login = f"http://{lote.router.host}/login"
-    
-    return render_template('hotspot_imprimir_lote.html', lote=lote, vouchers=vouchers, url_login=url_login)
+    try:
+        """Genera la vista de impresión visual de los tickets de un lote"""
+        lote = LoteFichas.query.get_or_404(lote_id)
+        vouchers = Voucher.query.filter_by(lote_id=lote.id).all()
+        
+        # Necesitamos pasar la IP del router o el DNS para armar el código QR
+        # Normalmente es http://<router_ip>/login?username=X&password=Y
+        url_login = f"http://{lote.router.host}/login"
+        
+        return render_template('hotspot_imprimir_lote.html', lote=lote, vouchers=vouchers, url_login=url_login)
+    except Exception as e:
+        import traceback
+        return f"<h1>Error Interno</h1><pre>{traceback.format_exc()}</pre>"
 
 @app.route('/api/hotspot/get_profiles')
 @login_required
