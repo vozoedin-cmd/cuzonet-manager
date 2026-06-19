@@ -7,6 +7,7 @@
     <title>Lista de Usuarios (Mikhmon Style) - CuzoNet</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         body {
@@ -119,6 +120,30 @@
             color: #0ea5e9;
         }
 
+        .dataTables_wrapper .dataTables_length, .dataTables_wrapper .dataTables_filter, .dataTables_wrapper .dataTables_info, .dataTables_wrapper .dataTables_processing, .dataTables_wrapper .dataTables_paginate {
+            color: white !important;
+            margin-bottom: 15px;
+        }
+        
+        .dataTables_wrapper .dataTables_filter input, .dataTables_wrapper .dataTables_length select {
+            background: #2b3035;
+            color: white;
+            border: 1px solid #495057;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-family: 'Outfit', sans-serif;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: white !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current, .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: #0ea5e9;
+            color: white !important;
+            border: none;
+        }
+
     </style>
 </head>
 
@@ -138,7 +163,7 @@
 
         <!-- Filtros y Buscador -->
         <div class="mikhmon-filters">
-            <input type="text" class="mikhmon-input" placeholder="Buscar" style="flex: 1; max-width: 200px;">
+            <input type="text" id="customSearch" class="mikhmon-input" placeholder="Buscar" style="flex: 1; max-width: 200px;">
             
             <form id="filterForm" method="GET" style="display:flex; gap: 10px; align-items:center;">
                 <input type="hidden" name="router_id" value="{{ selected_router_id }}">
@@ -175,8 +200,8 @@
         {% endif %}
 
         <!-- Tabla -->
-        <div class="mikhmon-table-container">
-            <table class="mikhmon-table">
+        <div class="mikhmon-table-container" style="padding: 15px;">
+            <table class="mikhmon-table" id="usersTable">
                 <thead>
                     <tr>
                         <th style="width: 50px;"><input type="checkbox"> 50</th>
@@ -220,5 +245,25 @@
 
     </main>
 
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#usersTable').DataTable({
+                "pageLength": 50,
+                "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todo"]],
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                },
+                "order": [[ 2, "asc" ]] // Ordenar por nombre por defecto
+            });
+            
+            // Reemplazar el buscador nativo de DataTables con el input que queríamos
+            $('.dataTables_filter').hide();
+            $('#customSearch').on('keyup', function() {
+                $('#usersTable').DataTable().search(this.value).draw();
+            });
+        });
+    </script>
 </body>
 </html>
