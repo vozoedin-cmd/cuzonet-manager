@@ -658,7 +658,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         loadCharts();
         fetchNocStats(); // Primera carga inmediata
-        setInterval(fetchNocStats, 3000); // Latido constante cada 3 segundos
+        // Reducir la frecuencia de los latidos para bajar la carga en el servidor/MikroTik
+        setInterval(fetchNocStats, 20000); // Cambiado de 3s a 20s
         
         // Cargar estado de clientes a los 2 segundos, y luego cada 15
         setTimeout(fetchClientLiveStatus, 2000);
