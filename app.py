@@ -4883,7 +4883,9 @@ def hotspot_vendedores():
     
     vendedores_data = []
     for v in vendedores:
-        fichas_impresas = Voucher.query.filter_by(vendedor_id=v.id).count()
+        fichas_mikrotik = Voucher.query.filter_by(vendedor_id=v.id).count()
+        fichas_omada = OmadaVoucher.query.filter_by(vendedor_id=v.id).count()
+        fichas_impresas = fichas_mikrotik + fichas_omada
         abonos = TransaccionVendedor.query.filter_by(vendedor_id=v.id, tipo='abono').all()
         total_abonado = sum(a.monto for a in abonos)
         
