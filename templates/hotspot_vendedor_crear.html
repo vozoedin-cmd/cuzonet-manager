@@ -9,9 +9,13 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
+        :root {
+            --primary-color: #ff6600;
+            --info-color: #ffaa00;
+        }
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: #050505;
+            background-color: #0f0f12;
             color: #fff;
         }
         
@@ -140,7 +144,7 @@
         .pro-input:focus, .pro-select:focus {
             background: rgba(0, 0, 0, 0.5);
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+            box-shadow: 0 0 0 4px rgba(255, 102, 0, 0.15);
             transform: translateY(-2px);
         }
         
@@ -161,7 +165,7 @@
         }
 
         .btn-submit {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background: linear-gradient(90deg, #ff6600 0%, #e63900 100%);
             color: white;
             border: none;
             padding: 18px 40px;
@@ -176,14 +180,14 @@
             align-items: center;
             gap: 12px;
             font-family: 'Outfit', sans-serif;
-            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 10px 25px rgba(255, 102, 0, 0.4);
             margin-top: 16px;
         }
 
         .btn-submit:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.6);
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            box-shadow: 0 15px 35px rgba(255, 102, 0, 0.6);
+            background: linear-gradient(90deg, #ffaa00 0%, #ff6600 100%);
         }
         
         .btn-submit i {
@@ -228,13 +232,13 @@
             position: absolute;
             width: 300px;
             height: 300px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(0,0,0,0) 70%);
+            background: radial-gradient(circle, rgba(255, 102, 0, 0.15) 0%, rgba(0,0,0,0) 70%);
             border-radius: 50%;
             z-index: 0;
             pointer-events: none;
         }
         .glow-1 { top: -100px; left: -100px; }
-        .glow-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(0,0,0,0) 70%); }
+        .glow-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, rgba(255, 170, 0, 0.15) 0%, rgba(0,0,0,0) 70%); }
         /* CUSTOM SELECT STYLES */
         .custom-select-wrapper {
             position: relative;
@@ -366,7 +370,7 @@
             {% endwith %}
             
             <form action="/admin/hotspot/vendedor/guardar" method="POST" style="position: relative; z-index: 2;">
-                <input type="hidden" name="vendedor_id" id="vendedor_id">
+                <input type="hidden" name="vendedor_id" id="vendedor_id" value="{{ vendedor.id if vendedor else '' }}">
                 
                 <div class="form-row full">
                     <div class="pro-group">
@@ -391,18 +395,21 @@
                 <div class="form-row full">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-store"></i> Nombre del Negocio o Vendedor</label>
-                        <input type="text" name="nombre" class="pro-input" placeholder="Ej: Abarrotes Doña Maria..." required autocomplete="off">
+                        <input type="text" name="nombre" class="pro-input" placeholder="Ej: Abarrotes Doña Maria..." required autocomplete="off" value="{{ vendedor.nombre if vendedor else '' }}">
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-mobile-alt"></i> Usuario / Teléfono</label>
-                        <input type="text" name="username" class="pro-input" placeholder="Ej: 55512345" required autocomplete="off">
+                        <input type="text" name="username" class="pro-input" placeholder="Ej: 55512345" required autocomplete="off" value="{{ vendedor.username if vendedor else '' }}">
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-lock"></i> Contraseña de Acceso</label>
-                        <input type="password" name="password" class="pro-input" placeholder="••••••••" required>
+                        <input type="password" name="password" class="pro-input" placeholder="••••••••" {% if not vendedor %}required{% endif %}>
+                        {% if vendedor %}
+                        <small style="color: #ffaa00; margin-top:5px; display:block;">(Dejar en blanco para conservar la misma contraseña)</small>
+                        {% endif %}
                     </div>
                 </div>
 

@@ -8,6 +8,61 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        :root {
+            --brand-color: #ff6600;
+            --neon-glow: 0 0 15px rgba(255, 102, 0, 0.4);
+            --bg-dark: #0f0f12;
+        }
+        body { background-color: var(--bg-dark); color: #fff; }
+        
+        .main-content { background: var(--bg-dark); }
+        .table-section {
+            background: rgba(20, 20, 25, 0.85);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), var(--neon-glow);
+            border: 1px solid rgba(255, 102, 0, 0.3);
+            overflow: hidden;
+            padding: 20px;
+        }
+        .table-header h2 { color: #ffaa00; text-shadow: 0 0 10px rgba(255,102,0,0.5); }
+        
+        .data-table { width: 100%; color: #fff; border-collapse: collapse; }
+        .data-table thead th {
+            background-color: rgba(255, 102, 0, 0.1);
+            color: #ffaa00;
+            border-bottom: 2px solid #ff6600;
+            padding: 15px;
+            text-align: left;
+        }
+        .data-table tbody tr { border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.2s; }
+        .data-table tbody tr:hover { background-color: rgba(255, 102, 0, 0.05); }
+        .data-table td { padding: 15px; }
+        
+        .btn-primary { background: linear-gradient(90deg, #ff6600, #e63900) !important; border: none; box-shadow: 0 4px 10px rgba(255, 102, 0, 0.4); }
+        .btn-primary:hover { background: linear-gradient(90deg, #ffaa00, #ff6600) !important; box-shadow: 0 6px 15px rgba(255, 102, 0, 0.6); transform: scale(1.05); }
+        
+        .stat-badge { background: rgba(3,167,134,0.1); border: 1px solid #03a786; color: #03a786; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; }
+        .stat-badge.active { background: rgba(255, 102, 0, 0.1); border-color: #ff6600; color: #ffaa00; }
+        .ip-badge { background: rgba(255,255,255,0.05); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; }
+        
+        .btn-icon.success { background: rgba(3,167,134,0.2); color: #03a786; border: 1px solid #03a786; }
+        .btn-icon.success:hover { background: #03a786; color: #fff; box-shadow: 0 0 10px #03a786; }
+        
+        .modal {
+            background: rgba(20, 20, 25, 0.95);
+            border: 1px solid #ff6600;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(255, 102, 0, 0.3);
+        }
+        .modal-header h2 { color: #ffaa00; }
+        .form-control { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,102,0,0.3); color: #fff; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .form-control:focus { border-color: #ffaa00; outline: none; box-shadow: 0 0 10px rgba(255,102,0,0.2); }
+        
+        .search-box input { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,102,0,0.3); color: #fff; }
+        .search-box input:focus { border-color: #ffaa00; }
+    </style>
 </head>
 
 <body>
@@ -97,6 +152,9 @@
                                     <button class="btn-icon success" title="Abonar Saldo" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
                                         <i class="fas fa-hand-holding-usd"></i>
                                     </button>
+                                    <a href="/admin/hotspot/vendedor/nuevo?edit={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; display: inline-flex; align-items: center; justify-content: center;" title="Editar Vendedor">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

@@ -4884,7 +4884,11 @@ def hotspot_vendedores():
 @admin_required
 def hotspot_vendedor_nuevo():
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
-    return render_template('hotspot_vendedor_crear.html', routers=routers)
+    vendedor_id = request.args.get('edit')
+    vendedor = None
+    if vendedor_id:
+        vendedor = Usuario.query.get(vendedor_id)
+    return render_template('hotspot_vendedor_crear.html', routers=routers, vendedor=vendedor)
 
 @app.route('/admin/hotspot/vouchers_grid')
 @login_required
