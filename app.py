@@ -1467,6 +1467,10 @@ def omada_sync_api():
                     if v_local.estado != nuevo_estado:
                         v_local.estado = nuevo_estado
                         changed = True
+                else:
+                    if v_local.estado != 'eliminado':
+                        v_local.estado = 'eliminado'
+                        changed = True
         except Exception as e:
             errores_sync.append(f"{config.nombre}: {str(e)}")
             
@@ -5274,6 +5278,10 @@ def hotspot_omada_historial():
                             
                         if v_local.estado != nuevo_estado:
                             v_local.estado = nuevo_estado
+                            changed = True
+                    else:
+                        if v_local.estado != 'eliminado':
+                            v_local.estado = 'eliminado'
                             changed = True
             except Exception as e:
                 errores_sync.append(f"Error en {config.nombre}: {str(e)}")
