@@ -1,5 +1,6 @@
 import requests
 import urllib3
+import time
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -115,7 +116,7 @@ class OmadaAPI:
             "endTime": "23:59",
             "logout": True,
             "maxUsers": 1,
-            "name": f"API_{tiempo_valor}m",
+            "name": f"API_{tiempo_valor}m_{int(time.time())}",
             "pattern": {"patternType": 0, "position": 0, "ssidNetworkEnable": False, "durationEnable": False, "limitEnable": False},
             "scheduleTime": 0,
             "startTime": "00:00",
