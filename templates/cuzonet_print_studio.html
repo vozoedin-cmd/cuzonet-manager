@@ -185,6 +185,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 10px;">
                 <h3 style="margin: 0; color: #ffaa00;"><i class="fas fa-chart-pie"></i> Estadísticas por Plan / Lote</h3>
                 <div>
+                    <button id="btnSyncOmada" class="btn-modal-action" onclick="sincronizarOmada()" style="margin-right: 15px; border-color: #03a786; color: #03a786;"><i class="fas fa-sync-alt"></i> Sincronizar Omada</button>
                     <button class="btn-modal-action" onclick="imprimirStats()" style="margin-right: 15px;"><i class="fas fa-print"></i> Imprimir Reporte</button>
                     <button onclick="document.getElementById('statsModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
                 </div>
@@ -288,6 +289,30 @@
                 typeof showToast !== 'undefined' ? showToast('Error de red al conectar con el servidor', 'error') : alert('Error de red');
             } finally {
                 btn.innerHTML = oldHtml;
+                btn.disabled = false;
+            }
+        }
+
+        async function sincronizarOmada() {
+            const btn = document.getElementById('btnSyncOmada');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+            btn.disabled = true;
+            
+            try {
+                const r = await fetch('/api/omada/sync', { method: 'POST' });
+                const res = await r.json();
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    // Reload stats
+                    abrirStatsVendedores();
+                } else {
+                    showToast(res.error || 'Error al sincronizar', 'error');
+                }
+            } catch (e) {
+                showToast('Error de red al sincronizar', 'error');
+            } finally {
+                btn.innerHTML = originalHtml;
                 btn.disabled = false;
             }
         }

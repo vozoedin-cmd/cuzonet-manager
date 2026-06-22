@@ -1429,6 +1429,55 @@ def generar_fichas_omada():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/omada/sync', methods=['POST'])
+@login_required
+def omada_sync_api():
+    from datetime import datetime
+    omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
+    if not omadas_configs:
+        return jsonify({'success': False, 'error': 'No hay controladores Omada activos configurados.'})
+        
+    changed = False
+    total_sync = 0
+    errores_sync = []
+    
+    from omada_api import OmadaAPI
+    for config in omadas_configs:
+        try:
+            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+            status_map = omada.get_all_vouchers_status()
+            total_sync += len(status_map)
+            
+            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', OmadaVoucher.omada_id == config.id).all()
+            for v_local in all_vouchers_local:
+                if v_local.codigo in status_map:
+                    try:
+                        omada_status = int(status_map[v_local.codigo])
+                    except ValueError:
+                        omada_status = 0
+                        
+                    nuevo_estado = 'activo'
+                    if omada_status == 1:
+                        nuevo_estado = 'usado'
+                        if not v_local.fecha_uso:
+                            v_local.fecha_uso = datetime.utcnow()
+                    elif omada_status in (2, 3, 4):
+                        nuevo_estado = 'vencido'
+                        
+                    if v_local.estado != nuevo_estado:
+                        v_local.estado = nuevo_estado
+                        changed = True
+        except Exception as e:
+            errores_sync.append(f"{config.nombre}: {str(e)}")
+            
+    if changed:
+        db.session.commit()
+        
+    if errores_sync:
+        return jsonify({'success': False, 'error': " | ".join(errores_sync)})
+        
+    return jsonify({'success': True, 'message': f'Sincronizados {total_sync} vouchers.'})
+
 @app.route('/api/omada/stats_vendedores', methods=['GET'])
 @login_required
 @admin_required
