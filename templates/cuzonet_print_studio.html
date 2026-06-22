@@ -52,6 +52,27 @@
             .main-content { margin-left: 0 !important; padding: 0 !important; }
             #print-area { width: 100%; max-width: none; } 
         }
+
+        /* PRO Modal Styles */
+        .pro-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; display: inline-block; text-align: center; min-width: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.5); text-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.5); text-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+        .badge-orange { background: rgba(255, 102, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 102, 0, 0.5); text-shadow: 0 0 8px rgba(255, 102, 0, 0.5); }
+        
+        .pro-progress-bg { background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; width: 100%; margin-top: 6px; overflow: hidden; position: relative; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+        .pro-progress-fill { background: linear-gradient(90deg, #10b981, #ef4444); height: 100%; border-radius: 3px; transition: width 0.5s ease-out; }
+        
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 10px rgba(255, 102, 0, 0.4); border-color: rgba(255, 102, 0, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(255, 102, 0, 0.9); border-color: #ffaa00; }
+            100% { box-shadow: 0 0 10px rgba(255, 102, 0, 0.4); border-color: rgba(255, 102, 0, 0.5); }
+        }
+        .master-total-box { animation: pulse-glow 2.5s infinite; background: linear-gradient(135deg, rgba(20,20,25,0.95), rgba(40,15,5,0.95)); backdrop-filter: blur(10px); padding: 20px 25px; border-radius: 16px; margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border: 2px solid #ff6600; position: relative; overflow: hidden; }
+        .master-total-box::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,102,0,0.1) 0%, transparent 60%); z-index: 0; pointer-events: none; }
+        .master-total-content { position: relative; z-index: 1; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn-modal-action { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-size: 0.9rem; font-family: 'Inter'; font-weight: 600; }
+        .btn-modal-action:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); border-color: #ffaa00; color: #ffaa00; }
     </style>
 </head>
 <body>
@@ -163,7 +184,10 @@
         <div class="modal-content" style="background: rgba(20, 20, 25, 0.95); border: 1px solid #ff6600; border-radius: 12px; padding: 30px; width: 800px; max-width: 95%; color: #fff; box-shadow: 0 0 30px rgba(255, 102, 0, 0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 10px;">
                 <h3 style="margin: 0; color: #ffaa00;"><i class="fas fa-chart-pie"></i> Estadísticas por Plan / Lote</h3>
-                <button onclick="document.getElementById('statsModal').style.display='none'" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <div>
+                    <button class="btn-modal-action" onclick="imprimirStats()" style="margin-right: 15px;"><i class="fas fa-print"></i> Imprimir Reporte</button>
+                    <button onclick="document.getElementById('statsModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
             </div>
             <div id="statsContent" style="min-height: 150px;">
                 <div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x text-warning"></i></div>
@@ -298,11 +322,23 @@
                         let subDinero = 0;
                         
                         lotes.forEach(l => {
+                            let totalFichas = l.total_fichas || 1; // avoid div by 0
+                            let pctVendidas = (l.vendidas / totalFichas) * 100;
+                            
                             html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                                 <td style="padding: 8px; color: #ccc;">${l.plan}</td>
-                                <td style="padding: 8px; text-align:center; color: #03a786; font-weight:bold;">${l.disponibles}</td>
-                                <td style="padding: 8px; text-align:center; color: #e63946;">${l.vendidas}</td>
-                                <td style="padding: 8px; text-align:center; font-weight:bold;">${l.total_fichas}</td>
+                                <td style="padding: 8px; text-align:center;">
+                                    <span class="pro-badge badge-green">${l.disponibles}</span>
+                                </td>
+                                <td style="padding: 8px; text-align:center;">
+                                    <span class="pro-badge badge-red">${l.vendidas}</span>
+                                </td>
+                                <td style="padding: 8px; text-align:center; font-weight:bold;">
+                                    ${l.total_fichas}
+                                    <div class="pro-progress-bg">
+                                        <div class="pro-progress-fill" style="width: ${pctVendidas}%"></div>
+                                    </div>
+                                </td>
                                 <td style="padding: 8px; text-align:right; color:#ffaa00; font-weight:bold;">Q ${l.total_dinero.toFixed(2)}</td>
                             </tr>`;
                             subFichas += l.total_fichas;
@@ -321,11 +357,13 @@
                         granTotalDinero += subDinero;
                     }
                     
-                    html += `<div style="background: linear-gradient(90deg, rgba(255,102,0,0.2), rgba(230,57,0,0.4)); padding: 15px; border-radius: 8px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ff6600;">
-                        <span style="font-weight:bold; font-size: 1.1rem; color:#fff;">TOTAL GENERAL MASTER</span>
-                        <div style="text-align: right;">
-                            <span style="display: block; font-size: 0.9rem; color: #ccc;">Fichas Totales: <b>${granTotalFichas}</b></span>
-                            <span style="font-weight:bold; font-size: 1.3rem; color:#ffaa00;">Q ${granTotalDinero.toFixed(2)}</span>
+                    html += `<div class="master-total-box">
+                        <div class="master-total-content">
+                            <span style="font-weight:900; font-size: 1.2rem; color:#fff; letter-spacing: 1px;"><i class="fas fa-coins" style="color:#ffaa00; margin-right:8px;"></i>TOTAL GENERAL MASTER</span>
+                            <div style="text-align: right;">
+                                <span style="display: block; font-size: 0.95rem; color: #ccc;">Fichas Totales: <b>${granTotalFichas}</b></span>
+                                <span style="font-weight:900; font-size: 1.5rem; color:#ffaa00; text-shadow: 0 0 10px rgba(255,170,0,0.5);">Q ${granTotalDinero.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>`;
                     
@@ -340,6 +378,11 @@
         }
 
         function updateColor(color) { document.documentElement.style.setProperty('--brand-color', color); }
+        
+        function imprimirStats() {
+            window.print();
+        }
+
         function iniciarProceso(exportPDF = false) {
             let textoFresco = document.getElementById('codesInput').value;
             const businessName = document.getElementById('businessName').value || 'WIFI';
