@@ -1442,46 +1442,55 @@ def omada_sync_api():
     errores_sync = []
     
     from omada_api import OmadaAPI
+    status_map_global = {}
+    
     for config in omadas_configs:
         try:
             omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
             status_map = omada.get_all_vouchers_status()
+            status_map_global.update(status_map)
             total_sync += len(status_map)
-            
-            from sqlalchemy import or_
-            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', or_(OmadaVoucher.omada_id == config.id, OmadaVoucher.omada_id == None, OmadaVoucher.omada_id == '')).all()
-            for v_local in all_vouchers_local:
-                if v_local.codigo in status_map:
-                    try:
-                        omada_status = int(status_map[v_local.codigo])
-                    except ValueError:
-                        omada_status = 0
-                        
-                    nuevo_estado = 'activo'
-                    if omada_status == 1:
-                        nuevo_estado = 'usado'
-                        if not v_local.fecha_uso:
-                            v_local.fecha_uso = datetime.utcnow()
-                    elif omada_status in (2, 3, 4):
-                        nuevo_estado = 'vencido'
-                        
-                    if v_local.estado != nuevo_estado:
-                        v_local.estado = nuevo_estado
-                        changed = True
-                else:
-                    if v_local.estado != 'eliminado':
-                        v_local.estado = 'eliminado'
-                        changed = True
         except Exception as e:
             errores_sync.append(f"{config.nombre}: {str(e)}")
             
+    # Solo procesar si no hubo errores de conexion para evitar falsos "eliminados"
+    eliminados_count = 0
+    actualizados_count = 0
+    if not errores_sync:
+        all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
+        for v_local in all_vouchers_local:
+            if v_local.codigo in status_map_global:
+                try:
+                    omada_status = int(status_map_global[v_local.codigo])
+                except ValueError:
+                    omada_status = 0
+                    
+                nuevo_estado = 'activo'
+                if omada_status == 1:
+                    nuevo_estado = 'usado'
+                    if not v_local.fecha_uso:
+                        from datetime import datetime
+                        v_local.fecha_uso = datetime.utcnow()
+                elif omada_status in (2, 3, 4):
+                    nuevo_estado = 'vencido'
+                    
+                if v_local.estado != nuevo_estado:
+                    v_local.estado = nuevo_estado
+                    changed = True
+                    actualizados_count += 1
+            else:
+                if v_local.estado != 'eliminado':
+                    v_local.estado = 'eliminado'
+                    changed = True
+                    eliminados_count += 1
+                    
     if changed:
         db.session.commit()
         
     if errores_sync:
         return jsonify({'success': False, 'error': " | ".join(errores_sync)})
         
-    return jsonify({'success': True, 'message': f'Sincronizados {total_sync} vouchers.'})
+    return jsonify({'success': True, 'message': f'Sincronizados {total_sync} fichas. (Actualizadas: {actualizados_count}, Eliminadas localmente: {eliminados_count})'})
 
 @app.route('/api/omada/stats_vendedores', methods=['GET'])
 @login_required
@@ -5249,45 +5258,47 @@ def hotspot_omada_historial():
     omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
     total_sync = 0
     errores_sync = []
+    changed = False
     
-    if omadas_configs:
-        changed = False
+    if len(omadas_configs) > 0:
         from omada_api import OmadaAPI
+        status_map_global = {}
         
         for config in omadas_configs:
             try:
                 omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
                 status_map = omada.get_all_vouchers_status()
+                status_map_global.update(status_map)
                 total_sync += len(status_map)
-                
-                # Actualizar DB local con los estados de este Omada
-                from sqlalchemy import or_
-                all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', or_(OmadaVoucher.omada_id == config.id, OmadaVoucher.omada_id == None, OmadaVoucher.omada_id == '')).all()
-                for v_local in all_vouchers_local:
-                    if v_local.codigo in status_map:
-                        try:
-                            omada_status = int(status_map[v_local.codigo])
-                        except ValueError:
-                            omada_status = 0
-                            
-                        nuevo_estado = 'activo'
-                        if omada_status == 1:
-                            nuevo_estado = 'usado'
-                            if not v_local.fecha_uso:
-                                v_local.fecha_uso = datetime.utcnow()
-                        elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
-                            nuevo_estado = 'vencido'
-                            
-                        if v_local.estado != nuevo_estado:
-                            v_local.estado = nuevo_estado
-                            changed = True
-                    else:
-                        if v_local.estado != 'eliminado':
-                            v_local.estado = 'eliminado'
-                            changed = True
             except Exception as e:
                 errores_sync.append(f"Error en {config.nombre}: {str(e)}")
                 
+        # Actualizar DB local
+        if not errores_sync:
+            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
+            for v_local in all_vouchers_local:
+                if v_local.codigo in status_map_global:
+                    try:
+                        omada_status = int(status_map_global[v_local.codigo])
+                    except ValueError:
+                        omada_status = 0
+                        
+                    nuevo_estado = 'activo'
+                    if omada_status == 1:
+                        nuevo_estado = 'usado'
+                        if not v_local.fecha_uso:
+                            v_local.fecha_uso = datetime.utcnow()
+                    elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
+                        nuevo_estado = 'vencido'
+                        
+                    if v_local.estado != nuevo_estado:
+                        v_local.estado = nuevo_estado
+                        changed = True
+                else:
+                    if v_local.estado != 'eliminado':
+                        v_local.estado = 'eliminado'
+                        changed = True
+                        
         if changed:
             db.session.commit()
             
