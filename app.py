@@ -1434,22 +1434,40 @@ def generar_fichas_omada():
 @admin_required
 def stats_vendedores_omada():
     try:
-        from sqlalchemy import func
-        # Agrupar por vendedor_id, contar fichas y sumar precios
+        from sqlalchemy import func, case
+        # Agrupar por vendedor_id, duracion, precio
         stats = db.session.query(
             Usuario.nombre,
+            OmadaVoucher.duracion_valor,
+            OmadaVoucher.duracion_unidad,
+            OmadaVoucher.precio,
             func.count(OmadaVoucher.id).label('total_fichas'),
-            func.sum(OmadaVoucher.precio).label('total_dinero')
+            func.sum(case((OmadaVoucher.estado == 'activo', 1), else_=0)).label('disponibles'),
+            func.sum(case((OmadaVoucher.estado != 'activo', 1), else_=0)).label('vendidas')
         ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
          .filter(OmadaVoucher.estado != 'eliminado')\
-         .group_by(Usuario.id).all()
+         .group_by(Usuario.id, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
          
-        resultado = []
-        for nombre, total_fichas, total_dinero in stats:
-            resultado.append({
-                'vendedor': nombre,
-                'total_fichas': total_fichas,
-                'total_dinero': float(total_dinero or 0.0)
+        resultado = {}
+        unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
+        
+        for nombre, d_val, d_un, precio, total, disp, vend in stats:
+            if nombre not in resultado:
+                resultado[nombre] = []
+                
+            unidad_str = unidades.get(d_un, 'U')
+            if d_val > 1 and d_un == 1: unidad_str = 'Horas'
+            if d_val > 1 and d_un == 2: unidad_str = 'Días'
+            if d_val > 1 and d_un == 0: unidad_str = 'Mins'
+            
+            plan_str = f"{d_val} {unidad_str} (Q {precio})"
+            
+            resultado[nombre].append({
+                'plan': plan_str,
+                'total_fichas': total,
+                'disponibles': int(disp or 0),
+                'vendidas': int(vend or 0),
+                'total_dinero': float((total or 0) * (precio or 0.0))
             })
             
         return jsonify({'success': True, 'stats': resultado})
