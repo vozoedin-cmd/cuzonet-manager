@@ -61,7 +61,22 @@
         .form-control:focus { border-color: #ffaa00; outline: none; box-shadow: 0 0 10px rgba(255,102,0,0.2); }
         
         .search-box input { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,102,0,0.3); color: #fff; }
-        .search-box input:focus { border-color: #ffaa00; }
+        .search-box input:focus { border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.4); }
+
+        /* PRO Badges */
+        .pro-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block; text-align: center; min-width: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); letter-spacing: 0.5px; }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.5); text-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+        .badge-orange { background: rgba(255, 102, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 102, 0, 0.5); text-shadow: 0 0 8px rgba(255, 102, 0, 0.5); }
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.5); text-shadow: 0 0 8px rgba(168, 85, 247, 0.5); }
+
+        /* Btn Pulse */
+        @keyframes pulse-btn {
+            0% { box-shadow: 0 0 10px rgba(3,167,134,0.4); }
+            50% { box-shadow: 0 0 20px rgba(3,167,134,0.8); }
+            100% { box-shadow: 0 0 10px rgba(3,167,134,0.4); }
+        }
+        .btn-pulse { animation: pulse-btn 2s infinite; border: 1px solid #03a786; background: rgba(3,167,134,0.2); color: #03a786; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-pulse:hover { background: #03a786; color: #fff; transform: scale(1.05); }
     </style>
 </head>
 
@@ -144,15 +159,15 @@
                                 <span class="stat-badge" style="background: rgba(255,255,255,0.1); color: var(--text-muted);">Sin Asignar</span>
                                 {% endif %}
                             </td>
-                            <td><span style="font-weight: 600; color: var(--warning);">Q. {{ "%.2f"|format(item.vendedor.balance or 0.0) }}</span></td>
-                            <td><span style="color: var(--success);">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
-                            <td><span class="ip-badge">{{ item.fichas_impresas }} fichas</span></td>
+                            <td><span class="pro-badge badge-orange">Q. {{ "%.2f"|format(item.vendedor.balance or 0.0) }}</span></td>
+                            <td><span class="pro-badge badge-green">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
+                            <td><span class="pro-badge badge-purple" style="color: #c084fc; border-color: #c084fc;">{{ item.fichas_impresas }} fichas</span></td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
-                                    <button class="btn-icon success" title="Abonar Saldo" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
+                                    <button class="btn-icon success" style="transition: all 0.3s; box-shadow: 0 0 5px rgba(3,167,134,0.3);" title="Abonar Saldo" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
                                         <i class="fas fa-hand-holding-usd"></i>
                                     </button>
-                                    <a href="/admin/hotspot/vendedor/nuevo?edit={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; display: inline-flex; align-items: center; justify-content: center;" title="Editar Vendedor">
+                                    <a href="/admin/hotspot/vendedor/nuevo?edit={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 0 5px rgba(255,170,0,0.3);" title="Editar Vendedor" onmouseover="this.style.background='#ffaa00'; this.style.color='#fff';" onmouseout="this.style.background='rgba(255,170,0,0.2)'; this.style.color='#ffaa00';">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </div>
@@ -171,29 +186,32 @@
 
     <!-- Modal Carga Saldo (Reusable for list view) -->
     <div id="saldoModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h2><i class="fas fa-wallet"></i> Recargar Saldo</h2>
-                <button type="button" class="btn-icon" onclick="closeModal('saldoModal')"><i class="fas fa-times"></i></button>
+        <div class="modal" style="background: linear-gradient(135deg, rgba(20,20,25,0.98), rgba(40,15,5,0.98)); backdrop-filter: blur(15px); border: 2px solid #ff6600; box-shadow: 0 0 40px rgba(255, 102, 0, 0.4); max-width: 450px;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 15px;">
+                <h2 style="color: #ffaa00; text-shadow: 0 0 10px rgba(255,170,0,0.5);"><i class="fas fa-wallet" style="margin-right: 10px;"></i> Recargar Saldo</h2>
+                <button type="button" class="btn-icon" style="color: #ffaa00; border: none; font-size: 1.2rem; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.color='#ff6600'" onmouseout="this.style.color='#ffaa00'" onclick="closeModal('saldoModal')"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" style="padding: 24px;">
                 <form action="/admin/hotspot/vendedor/cargar-saldo" method="POST">
                     <input type="hidden" name="vendedor_id" id="saldo_vendedor_id">
-                    <div class="form-group">
-                        <label>Vendedor</label>
-                        <input type="text" id="saldo_vendedor_nombre" readonly class="form-control" style="background: rgba(255,255,255,0.05); color: var(--text-primary);">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Vendedor</label>
+                        <input type="text" id="saldo_vendedor_nombre" readonly class="form-control" style="background: rgba(0,0,0,0.3); color: #ffaa00; font-weight: bold; font-size: 1.1rem; border: 1px solid rgba(255,102,0,0.2);">
                     </div>
-                    <div class="form-group">
-                        <label for="s_monto">Monto a Cargar (Q)</label>
-                        <input type="number" step="0.01" name="monto" id="s_monto" required class="form-control" placeholder="Monto en Quetzales">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="s_monto" style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Monto a Cargar (Q)</label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 15px; top: 12px; color: #03a786; font-weight: 900; font-size: 1.2rem;">Q</span>
+                            <input type="number" step="0.01" name="monto" id="s_monto" required class="form-control" style="padding-left: 40px; font-size: 1.2rem; font-weight: bold; color: #03a786; border-color: #03a786;" placeholder="0.00">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="s_desc">Descripción / Referencia de Pago</label>
-                        <input type="text" name="descripcion" id="s_desc" class="form-control" placeholder="Ej: Pago recibido en efectivo">
+                    <div class="form-group" style="margin-bottom: 30px;">
+                        <label for="s_desc" style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Descripción / Referencia</label>
+                        <input type="text" name="descripcion" id="s_desc" class="form-control" placeholder="Ej: Pago en efectivo / Transferencia">
                     </div>
-                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('saldoModal')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" style="background: var(--gradient-success);">Abonar a la Cuenta</button>
+                    <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 10px;">
+                        <button type="button" class="btn" style="background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.2); width: 40%; transition: all 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="closeModal('saldoModal')">Cancelar</button>
+                        <button type="submit" class="btn btn-pulse" style="width: 60%; padding: 12px; border-radius: 8px;"><i class="fas fa-check-circle"></i> Abonar Ahora</button>
                     </div>
                 </form>
             </div>
