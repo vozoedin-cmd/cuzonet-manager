@@ -22,16 +22,16 @@
         .control-panel .btn-print:hover { background: linear-gradient(90deg, #ffaa00, #ff6600); transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 102, 0, 0.7); }
         
         #print-area { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 0 auto; max-width: 21cm; }
-        .v-card { background: white; width: 2.85cm; height: auto; border: 1.5px solid var(--brand-color); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
-        .v-header { font-size: 0.5rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; border-bottom: 1px solid var(--brand-color); text-transform: uppercase; }
+        .v-card { background: white; width: 2.6cm; height: auto; border: 1.5px solid var(--brand-color); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
+        .v-header { font-size: 0.45rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; border-bottom: 1px solid var(--brand-color); text-transform: uppercase; }
         .v-creds { padding: 4px; display: flex; flex-direction: column; gap: 2px; }
         .v-row { display: flex; justify-content: center; align-items: center; margin: 2px 0; }
-        .v-lbl { font-size: 0.45rem; font-weight: 700; color: #64748b; margin-right: 4px; }
-        .v-val { font-size: 0.8rem; font-weight: 900; color: black; letter-spacing: 0.5px; }
+        .v-lbl { font-size: 0.4rem; font-weight: 700; color: #64748b; margin-right: 4px; }
+        .v-val { font-size: 0.75rem; font-weight: 900; color: black; letter-spacing: 0.5px; }
         .v-price-box { background-color: var(--brand-color); color: white; text-align: center; padding: 4px 0; margin: 0 3px; border-radius: 4px; }
-        .v-price { font-size: 0.75rem; font-weight: 900; }
-        .v-time { font-size: 0.45rem; font-weight: 700; text-transform: uppercase; margin-top: 1px; }
-        .v-footer { font-size: 0.45rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; margin-top: auto; }
+        .v-price { font-size: 0.7rem; font-weight: 900; }
+        .v-time { font-size: 0.4rem; font-weight: 700; text-transform: uppercase; margin-top: 1px; }
+        .v-footer { font-size: 0.4rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; margin-top: auto; }
         
         /* Plantilla Premium */
         .v-card.premium { border: 2px solid #d4af37; background: linear-gradient(135deg, #fff, #fdfbf1); box-shadow: 0 2px 5px rgba(212,175,55,0.2); }
@@ -48,7 +48,7 @@
         @media print { 
             @page { margin: 0; } 
             body { padding: 10mm; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-            .control-panel, .sidebar, .header, .bg-animation { display: none !important; } 
+            .control-panel, .sidebar, .header, .bg-animation, #cuzobot-container { display: none !important; } 
             .main-content { margin-left: 0 !important; padding: 0 !important; }
             #print-area { width: 100%; max-width: none; } 
         }
