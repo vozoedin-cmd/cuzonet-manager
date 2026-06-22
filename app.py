@@ -1448,7 +1448,8 @@ def omada_sync_api():
             status_map = omada.get_all_vouchers_status()
             total_sync += len(status_map)
             
-            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', OmadaVoucher.omada_id == config.id).all()
+            from sqlalchemy import or_
+            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', or_(OmadaVoucher.omada_id == config.id, OmadaVoucher.omada_id == None, OmadaVoucher.omada_id == '')).all()
             for v_local in all_vouchers_local:
                 if v_local.codigo in status_map:
                     try:
@@ -5260,7 +5261,8 @@ def hotspot_omada_historial():
                 total_sync += len(status_map)
                 
                 # Actualizar DB local con los estados de este Omada
-                all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', OmadaVoucher.omada_id == config.id).all()
+                from sqlalchemy import or_
+                all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado', or_(OmadaVoucher.omada_id == config.id, OmadaVoucher.omada_id == None, OmadaVoucher.omada_id == '')).all()
                 for v_local in all_vouchers_local:
                     if v_local.codigo in status_map:
                         try:
