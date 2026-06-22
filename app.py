@@ -1375,11 +1375,14 @@ def generar_fichas_omada():
         unidad = int(data.get('unidad', 1)) # 0=min, 1=hora, 2=dia
         precio = float(data.get('precio', 0.0))
         vendedor_id = data.get('vendedor_id')
-        if vendedor_id:
-            try:
-                vendedor_id = int(vendedor_id)
-            except ValueError:
-                vendedor_id = None
+        if not vendedor_id:
+            return jsonify({'success': False, 'error': 'Debe seleccionar un Vendedor. No se pueden generar fichas sin asignar.'})
+            
+        try:
+            vendedor_id = int(vendedor_id)
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Vendedor inválido.'})
+            
         omada_id = data.get('omada_id')
         if not omada_id:
             return jsonify({'success': False, 'error': 'Debe seleccionar un controlador Omada'})
@@ -1423,6 +1426,33 @@ def generar_fichas_omada():
         db.session.commit()
             
         return jsonify({'success': True, 'pines': pines})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/stats_vendedores', methods=['GET'])
+@login_required
+@admin_required
+def stats_vendedores_omada():
+    try:
+        from sqlalchemy import func
+        # Agrupar por vendedor_id, contar fichas y sumar precios
+        stats = db.session.query(
+            Usuario.nombre,
+            func.count(OmadaVoucher.id).label('total_fichas'),
+            func.sum(OmadaVoucher.precio).label('total_dinero')
+        ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
+         .filter(OmadaVoucher.estado != 'eliminado')\
+         .group_by(Usuario.id).all()
+         
+        resultado = []
+        for nombre, total_fichas, total_dinero in stats:
+            resultado.append({
+                'vendedor': nombre,
+                'total_fichas': total_fichas,
+                'total_dinero': float(total_dinero or 0.0)
+            })
+            
+        return jsonify({'success': True, 'stats': resultado})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 

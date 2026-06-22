@@ -109,12 +109,17 @@
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-user-tag"></i> Vendedor Asignado</label>
-                            <select id="genVendedor">
-                                <option value="">Sin Asignar (Solo generar)</option>
-                                {% for v in vendedores %}
-                                <option value="{{ v.id }}">{{ v.nombre }}</option>
-                                {% endfor %}
-                            </select>
+                            <div style="display: flex; gap: 10px;">
+                                <select id="genVendedor" style="flex: 1;">
+                                    <option value="">-- Seleccionar Vendedor --</option>
+                                    {% for v in vendedores %}
+                                    <option value="{{ v.id }}">{{ v.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn-print" style="width: auto; padding: 12px; background: rgba(20,20,25,0.8); border: 1px solid #ff6600;" onclick="abrirStatsVendedores()" title="Ver Estadísticas por Vendedor">
+                                    <i class="fas fa-chart-pie" style="color: #ffaa00;"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
@@ -152,6 +157,19 @@
             <div id="print-area"></div>
         </div>
     </main>
+
+    <!-- Modal Estadísticas de Vendedores -->
+    <div class="modal-overlay" id="statsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div class="modal-content" style="background: rgba(20, 20, 25, 0.95); border: 1px solid #ff6600; border-radius: 12px; padding: 30px; width: 500px; max-width: 90%; color: #fff; box-shadow: 0 0 30px rgba(255, 102, 0, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: #ffaa00;"><i class="fas fa-chart-pie"></i> Estadísticas de Vendedores</h3>
+                <button onclick="document.getElementById('statsModal').style.display='none'" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div id="statsContent" style="min-height: 150px;">
+                <div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x text-warning"></i></div>
+            </div>
+        </div>
+    </div>
 
     <script>
         async function cargarSitiosPrint() {
@@ -213,6 +231,12 @@
                 const tiempo = document.getElementById('genTimeVal').value;
                 const unidad = document.getElementById('genTimeUnidad').value;
                 const vendedor_id = document.getElementById('genVendedor').value;
+                if(!vendedor_id) {
+                    typeof showToast !== 'undefined' ? showToast('DEBES seleccionar a un Vendedor responsable.', 'error') : alert('Debes seleccionar a un Vendedor');
+                    btn.innerHTML = oldHtml;
+                    btn.disabled = false;
+                    return;
+                }
                 const precio = document.getElementById('genPrecio').value;
                 const site_name = document.getElementById('genOmadaSite').value;
                 
@@ -241,6 +265,53 @@
             } finally {
                 btn.innerHTML = oldHtml;
                 btn.disabled = false;
+            }
+        }
+
+        async function abrirStatsVendedores() {
+            document.getElementById('statsModal').style.display = 'flex';
+            const content = document.getElementById('statsContent');
+            content.innerHTML = '<div style="text-align: center; margin-top: 50px; color:#ffaa00;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Cargando datos...</div>';
+            
+            try {
+                const r = await fetch('/api/omada/stats_vendedores');
+                const res = await r.json();
+                
+                if (res.success) {
+                    if (res.stats.length === 0) {
+                        content.innerHTML = '<p style="text-align:center; color:#aaa; margin-top: 20px;">No hay fichas generadas todavía.</p>';
+                        return;
+                    }
+                    
+                    let html = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+                    html += '<tr style="border-bottom: 1px solid #ff6600; color: #ffaa00; text-align: left;">';
+                    html += '<th style="padding: 10px;">Vendedor</th><th style="padding: 10px; text-align:center;">Fichas</th><th style="padding: 10px; text-align:right;">Total (Q)</th></tr>';
+                    
+                    let totalDinero = 0;
+                    let totalFichas = 0;
+                    
+                    res.stats.forEach(s => {
+                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <td style="padding: 10px;">${s.vendedor}</td>
+                            <td style="padding: 10px; text-align:center; font-weight:bold;">${s.total_fichas}</td>
+                            <td style="padding: 10px; text-align:right; color:#03a786; font-weight:bold;">Q ${s.total_dinero.toFixed(2)}</td>
+                        </tr>`;
+                        totalDinero += s.total_dinero;
+                        totalFichas += s.total_fichas;
+                    });
+                    
+                    html += `<tr style="background: rgba(255,102,0,0.1);">
+                        <td style="padding: 10px; font-weight:bold; color:#ffaa00;">TOTAL GENERAL</td>
+                        <td style="padding: 10px; text-align:center; font-weight:bold; color:#ffaa00;">${totalFichas}</td>
+                        <td style="padding: 10px; text-align:right; font-weight:bold; color:#ffaa00;">Q ${totalDinero.toFixed(2)}</td>
+                    </tr>`;
+                    html += '</table>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = `<div style="color: #e63946; text-align: center;">Error: ${res.error}</div>`;
+                }
+            } catch (e) {
+                content.innerHTML = '<div style="color: #e63946; text-align: center;">Error de red al obtener estadísticas.</div>';
             }
         }
 
