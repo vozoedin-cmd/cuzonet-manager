@@ -159,24 +159,29 @@ class OmadaAPI:
         """
         self.login()
         
-        query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage=1&currentPageSize=10000"
-        res = self.session.get(query_url, timeout=15)
-        data = res.json()
-        
-        if data.get('errorCode') != 0:
-            raise Exception(f"Error obteniendo estado de fichas: {data.get('msg')}")
-            
-        lista = data.get('result', {}).get('data', [])
-        
         status_map = {}
-        # status codes in Omada (generalmente):
-        # 0 = Unused
-        # 1 = In Use (o Used)
-        # 2 = Expired
-        for v in lista:
-            code = str(v.get('code'))
-            status = v.get('status')
-            status_map[code] = status
+        current_page = 1
+        page_size = 500  # Tamaño seguro para evitar límites de Omada
+        
+        while True:
+            query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage={current_page}&currentPageSize={page_size}"
+            res = self.session.get(query_url, timeout=15)
+            data = res.json()
             
-        print(f"[OMADA SYNC] Descargados {len(lista)} vouchers. Ejemplo status: {list(status_map.items())[:5]}")
+            if data.get('errorCode') != 0:
+                raise Exception(f"Error obteniendo estado de fichas: {data.get('msg')}")
+                
+            lista = data.get('result', {}).get('data', [])
+            
+            for v in lista:
+                code = str(v.get('code'))
+                status = v.get('status')
+                status_map[code] = status
+                
+            if len(lista) < page_size:
+                break # Llegamos al final de las páginas
+                
+            current_page += 1
+            
+        print(f"[OMADA SYNC] Descargados {len(status_map)} vouchers. Ejemplo status: {list(status_map.items())[:5]}")
         return status_map
