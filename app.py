@@ -1433,7 +1433,10 @@ def generar_fichas_omada():
 @login_required
 def omada_sync_api():
     from datetime import datetime
-    omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
+    omadas_configs = ConfigOmada.query.all()
+    # Filtrar en python para evitar problemas con SQLite y booleanos
+    omadas_configs = [c for c in omadas_configs if c.activo]
+    
     if not omadas_configs:
         return jsonify({'success': False, 'error': 'No hay controladores Omada activos configurados.'})
         
@@ -1491,6 +1494,38 @@ def omada_sync_api():
         return jsonify({'success': False, 'error': " | ".join(errores_sync)})
         
     return jsonify({'success': True, 'message': f'Sincronizados {total_sync} fichas. (Actualizadas: {actualizados_count}, Eliminadas localmente: {eliminados_count})'})
+
+@app.route('/api/omada/debug_sync', methods=['GET'])
+@login_required
+def debug_omada_sync():
+    omadas_configs = ConfigOmada.query.all()
+    omadas_configs = [c for c in omadas_configs if c.activo]
+    
+    if not omadas_configs:
+        return jsonify({'error': 'No hay configs activas'})
+        
+    debug_info = {}
+    from omada_api import OmadaAPI
+    
+    for config in omadas_configs:
+        try:
+            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+            status_map = omada.get_all_vouchers_status()
+            debug_info[config.nombre] = {
+                'success': True,
+                'vouchers_found': len(status_map),
+                'sample': list(status_map.items())[:5]
+            }
+        except Exception as e:
+            debug_info[config.nombre] = {
+                'success': False,
+                'error_msg': str(e)
+            }
+            
+    all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').count()
+    debug_info['local_db'] = {'vouchers_activos_total': all_vouchers_local}
+            
+    return jsonify(debug_info)
 
 @app.route('/api/omada/stats_vendedores', methods=['GET'])
 @login_required
@@ -5244,17 +5279,13 @@ def api_hotspot_get_profiles():
 @admin_required
 def hotspot_omada_print():
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
-    omadas = ConfigOmada.query.filter_by(activo=True).all()
+    omadas = ConfigOmada.query.all()
     return render_template('cuzonet_print_studio.html', vendedores=vendedores, omadas=omadas)
+
 @app.route('/admin/hotspot/omada-historial')
 @login_required
+@admin_required
 def hotspot_omada_historial():
-    from datetime import datetime, timedelta
-    
-    sync_info = None
-    sync_error = None
-    
-    # Sincronización en tiempo real con Múltiples Omadas
     omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
     total_sync = 0
     errores_sync = []
