@@ -153,50 +153,36 @@ class OmadaAPI:
 
     def get_all_vouchers_status(self):
         """
-        Descarga todos los vouchers desde Omada iterando por los grupos de vouchers.
-        Devuelve un diccionario con el código como clave y el estado como valor.
+        Descarga todos los vouchers desde Omada y devuelve un diccionario
+        con el código como clave y el estado como valor:
+        0: unused (Activo), 1: used, 2: expired
         """
         self.login()
-        status_map = {}
         
-        # 1. Obtener todos los grupos de vouchers
-        groups = []
-        c_page = 1
+        status_map = {}
+        current_page = 1
+        page_size = 500  # Tamaño seguro para evitar límites de Omada
+        
         while True:
-            g_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups?currentPage={c_page}&currentPageSize=100"
-            res = self.session.get(g_url, timeout=15)
+            query_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/vouchers?currentPage={current_page}&currentPageSize={page_size}"
+            res = self.session.get(query_url, timeout=15)
             data = res.json()
+            
             if data.get('errorCode') != 0:
-                if c_page > 1: break
-                raise Exception(f"Error obteniendo grupos de fichas: {data.get('msg')}")
-            
+                if current_page > 1: break # Si ya no hay mas paginas
+                raise Exception(f"Error obteniendo estado de fichas: {data.get('msg')}")
+                
             lista = data.get('result', {}).get('data', [])
-            groups.extend(lista)
-            if len(lista) < 100:
-                break
-            c_page += 1
             
-        # 2. Por cada grupo, obtener sus vouchers
-        for g in groups:
-            g_id = g.get('id')
-            if not g_id: continue
+            for v in lista:
+                code = str(v.get('code'))
+                status = v.get('status')
+                status_map[code] = status
+                
+            if len(lista) < page_size:
+                break # Llegamos al final de las páginas
+                
+            current_page += 1
             
-            v_page = 1
-            while True:
-                v_url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups/{g_id}/vouchers?currentPage={v_page}&currentPageSize=500"
-                res = self.session.get(v_url, timeout=15)
-                data = res.json()
-                if data.get('errorCode') != 0:
-                    break
-                
-                v_lista = data.get('result', {}).get('data', [])
-                for v in v_lista:
-                    code = str(v.get('code'))
-                    status_map[code] = v.get('status')
-                    
-                if len(v_lista) < 500:
-                    break
-                v_page += 1
-                
-        print(f"[OMADA SYNC] Descargados {len(status_map)} vouchers desde {len(groups)} grupos.")
+        print(f"[OMADA SYNC] Descargados {len(status_map)} vouchers. Ejemplo status: {list(status_map.items())[:5]}")
         return status_map

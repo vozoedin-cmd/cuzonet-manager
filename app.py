@@ -1498,34 +1498,25 @@ def omada_sync_api():
 @app.route('/api/omada/debug_sync', methods=['GET'])
 @login_required
 def debug_omada_sync():
-    omadas_configs = ConfigOmada.query.all()
-    omadas_configs = [c for c in omadas_configs if c.activo]
+    total = OmadaVoucher.query.count()
+    activos = OmadaVoucher.query.filter_by(estado='activo').count()
+    eliminados = OmadaVoucher.query.filter_by(estado='eliminado').count()
+    usados = OmadaVoucher.query.filter_by(estado='usado').count()
+    vencidos = OmadaVoucher.query.filter_by(estado='vencido').count()
     
-    if not omadas_configs:
-        return jsonify({'error': 'No hay configs activas'})
-        
-    debug_info = {}
-    from omada_api import OmadaAPI
+    # Check if they have vendedor_id
+    sin_vendedor = OmadaVoucher.query.filter(OmadaVoucher.vendedor_id == None).count()
     
-    for config in omadas_configs:
-        try:
-            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
-            status_map = omada.get_all_vouchers_status()
-            debug_info[config.nombre] = {
-                'success': True,
-                'vouchers_found': len(status_map),
-                'sample': list(status_map.items())[:5]
-            }
-        except Exception as e:
-            debug_info[config.nombre] = {
-                'success': False,
-                'error_msg': str(e)
-            }
-            
-    all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').count()
-    debug_info['local_db'] = {'vouchers_activos_total': all_vouchers_local}
-            
-    return jsonify(debug_info)
+    return jsonify({
+        'total_vouchers': total,
+        'estados': {
+            'activo': activos,
+            'eliminado': eliminados,
+            'usado': usados,
+            'vencido': vencidos
+        },
+        'sin_vendedor': sin_vendedor
+    })
 
 @app.route('/api/omada/stats_vendedores', methods=['GET'])
 @login_required
@@ -5007,6 +4998,102 @@ def hotspot_vendedor_nuevo():
     if vendedor_id:
         vendedor = Usuario.query.get(vendedor_id)
     return render_template('hotspot_vendedor_crear.html', routers=routers, vendedor=vendedor)
+
+@app.route('/admin/hotspot/control-vendedores')
+@login_required
+@admin_required
+def hotspot_control_vendedores():
+    from sqlalchemy import func, case
+    
+    # Obtener stats agregados de fichas Omada
+    stats = db.session.query(
+        Usuario.id,
+        Usuario.nombre,
+        OmadaVoucher.duracion_valor,
+        OmadaVoucher.duracion_unidad,
+        OmadaVoucher.precio,
+        func.count(OmadaVoucher.id).label('total_fichas'),
+        func.sum(case((OmadaVoucher.estado == 'activo', 1), else_=0)).label('disponibles'),
+        func.sum(case((OmadaVoucher.estado != 'activo', 1), else_=0)).label('vendidas')
+    ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
+     .filter(OmadaVoucher.estado != 'eliminado')\
+     .group_by(Usuario.id, Usuario.nombre, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
+     
+    resultado = {}
+    unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
+    
+    global_total = 0
+    global_disponibles = 0
+    global_vendidas = 0
+    global_dinero = 0
+    global_vendido = 0
+    
+    for uid, nombre, d_val, d_un, precio, total, disp, vend in stats:
+        if nombre not in resultado:
+            resultado[nombre] = {
+                'vendedor_id': uid,
+                'planes': [],
+                'total_fichas': 0,
+                'total_disponibles': 0,
+                'total_vendidas': 0,
+                'dinero_total_esperado': 0,
+                'dinero_vendido': 0
+            }
+            
+        unidad_str = unidades.get(d_un, 'U')
+        if d_val > 1 and d_un == 1: unidad_str = 'Horas'
+        if d_val > 1 and d_un == 2: unidad_str = 'Días'
+        if d_val > 1 and d_un == 0: unidad_str = 'Mins'
+        
+        plan_str = f"{d_val} {unidad_str} (Q {precio})"
+        
+        total_dinero_plan = float((total or 0) * (precio or 0.0))
+        vendido_dinero_plan = float((vend or 0) * (precio or 0.0))
+        
+        resultado[nombre]['planes'].append({
+            'plan': plan_str,
+            'total': total,
+            'disponibles': int(disp or 0),
+            'vendidas': int(vend or 0),
+            'precio': precio,
+            'total_dinero': total_dinero_plan,
+            'vendido_dinero': vendido_dinero_plan
+        })
+        
+        resultado[nombre]['total_fichas'] += total
+        resultado[nombre]['total_disponibles'] += int(disp or 0)
+        resultado[nombre]['total_vendidas'] += int(vend or 0)
+        resultado[nombre]['dinero_total_esperado'] += total_dinero_plan
+        resultado[nombre]['dinero_vendido'] += vendido_dinero_plan
+        
+        global_total += total
+        global_disponibles += int(disp or 0)
+        global_vendidas += int(vend or 0)
+        global_dinero += total_dinero_plan
+        global_vendido += vendido_dinero_plan
+        
+    # Calcular porcentajes para cada vendedor
+    for nom, data in resultado.items():
+        if data['total_fichas'] > 0:
+            data['porcentaje_ventas'] = round((data['total_vendidas'] / data['total_fichas']) * 100, 1)
+        else:
+            data['porcentaje_ventas'] = 0
+            
+    # Calcular global porcentaje
+    global_porcentaje = 0
+    if global_total > 0:
+        global_porcentaje = round((global_vendidas / global_total) * 100, 1)
+        
+    return render_template('hotspot_control_vendedores.html', 
+                           vendedores_data=resultado, 
+                           global_stats={
+                               'total': global_total,
+                               'disponibles': global_disponibles,
+                               'vendidas': global_vendidas,
+                               'dinero': global_dinero,
+                               'vendido': global_vendido,
+                               'porcentaje': global_porcentaje
+                           })
 
 @app.route('/admin/hotspot/vouchers_grid')
 @login_required

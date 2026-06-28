@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Control de Vendedores{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="header-title">
+        <h1><i class="fas fa-chart-line text-primary"></i> Control de Vendedores y Ventas</h1>
+        <p>Monitoreo de inventario y progreso de fichas (Omada)</p>
+    </div>
+</div>
+
+<!-- Tarjetas Globales -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    
+    <div class="stat-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+        <div style="background: rgba(var(--bs-primary-rgb), 0.2); color: var(--bs-primary); width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-ticket-alt"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.total }}</h3>
+            <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Total Generadas</p>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+        <div style="background: rgba(16, 185, 129, 0.2); color: #10b981; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.disponibles }}</h3>
+            <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">En Existencia</p>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+        <div style="background: rgba(239, 68, 68, 0.2); color: #ef4444; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-fire"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.vendidas }}</h3>
+            <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Vendidas / Usadas</p>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+        <div style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-coins"></i>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">Q {{ "%.2f"|format(global_stats.vendido) }}</h3>
+            <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Ingresos Generados</p>
+            <small style="color: rgba(255,255,255,0.4); font-size: 0.75rem;">De Q {{ "%.2f"|format(global_stats.dinero) }} totales</small>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjetas por Vendedor -->
+<h3 style="color: #fff; margin-bottom: 20px; font-weight: 600;"><i class="fas fa-users text-primary"></i> Detalle por Vendedor</h3>
+
+<div class="vendedores-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px;">
+    {% for vendedor, data in vendedores_data.items() %}
+    <div class="vendedor-card glass-panel" style="background: rgba(30, 30, 40, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 15px; overflow: hidden; display: flex; flex-direction: column;">
+        
+        <!-- Header del Vendedor -->
+        <div class="vendedor-header" style="background: rgba(0,0,0,0.2); padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="margin: 0; color: #fff; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-user-circle text-primary" style="font-size: 1.5rem;"></i> {{ vendedor }}
+                </h4>
+                <span style="background: {% if data.porcentaje_ventas > 80 %}rgba(16,185,129,0.2); color: #10b981;{% elif data.porcentaje_ventas > 40 %}rgba(245,158,11,0.2); color: #f59e0b;{% else %}rgba(255,255,255,0.1); color: #ccc;{% endif %} padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;">
+                    {{ data.porcentaje_ventas }}% Vendido
+                </span>
+            </div>
+            
+            <!-- Barra de progreso general -->
+            <div class="progress-container" style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
+                <div class="progress-bar" style="height: 100%; width: {{ data.porcentaje_ventas }}%; background: linear-gradient(90deg, var(--bs-primary), #3b82f6); border-radius: 4px;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: rgba(255,255,255,0.6);">
+                <span>0</span>
+                <span>Total Fichas: {{ data.total_fichas }}</span>
+            </div>
+        </div>
+
+        <!-- Detalles financieros y de stock -->
+        <div class="vendedor-body" style="padding: 20px; flex-grow: 1;">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; text-align: center;">
+                    <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-bottom: 5px;">Inventario Restante</span>
+                    <strong style="color: #10b981; font-size: 1.1rem;">{{ data.total_disponibles }}</strong>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; text-align: center;">
+                    <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-bottom: 5px;">Dinero Generado</span>
+                    <strong style="color: #f59e0b; font-size: 1.1rem;">Q {{ "%.2f"|format(data.dinero_vendido) }}</strong>
+                </div>
+            </div>
+
+            <h5 style="color: rgba(255,255,255,0.8); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 15px;">Desglose por Planes</h5>
+            
+            <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
+                {% for p in data.planes %}
+                <div style="background: rgba(0,0,0,0.15); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="display: block; color: #fff; font-size: 0.9rem; font-weight: 500;">{{ p.plan }}</span>
+                        <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem;">Total: {{ p.total }}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: block; color: #ef4444; font-size: 0.85rem; font-weight: bold;">Vendidas: {{ p.vendidas }}</span>
+                        <span style="color: #10b981; font-size: 0.8rem;">Stock: {{ p.disponibles }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+
+    </div>
+    {% endfor %}
+
+    {% if not vendedores_data %}
+    <div style="grid-column: 1 / -1; padding: 50px; text-align: center; background: rgba(0,0,0,0.2); border-radius: 15px;">
+        <i class="fas fa-box-open" style="font-size: 3rem; color: rgba(255,255,255,0.2); margin-bottom: 15px;"></i>
+        <h3 style="color: rgba(255,255,255,0.5);">No hay fichas asignadas a vendedores actualmente.</h3>
+        <p style="color: rgba(255,255,255,0.4);">Genera fichas desde el Omada Print Studio y asígnalas a tus vendedores para llevar el control aquí.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+    /* Custom Scrollbar for the plans list */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.1);
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.4);
+    }
+</style>
+
+{% endblock %}
