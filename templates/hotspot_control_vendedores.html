@@ -107,6 +107,8 @@
                         <th>Stock</th>
                         <th>Vendidas</th>
                         <th>Asignadas</th>
+                        <th>Vendedor</th>
+                        <th>Fecha</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
@@ -119,6 +121,8 @@
                         <td contenteditable="true" data-campo="stock">{{ lote.stock }}</td>
                         <td contenteditable="true" data-campo="vendidas">{{ lote.vendidas }}</td>
                         <td contenteditable="true" data-campo="asignadas">{{ lote.asignadas }}</td>
+                        <td contenteditable="true" data-campo="vendedor_asignado">{{ lote.vendedor_asignado }}</td>
+                        <td contenteditable="true" data-campo="fecha_asignacion">{{ lote.fecha_asignacion }}</td>
                         <td contenteditable="true" data-campo="estado">{{ lote.estado }}</td>
                     </tr>
                     {% endfor %}

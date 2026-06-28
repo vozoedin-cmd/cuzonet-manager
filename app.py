@@ -454,6 +454,8 @@ class InventarioManualLote(db.Model):
     stock = db.Column(db.Integer, default=0)
     vendidas = db.Column(db.Integer, default=0)
     asignadas = db.Column(db.Integer, default=0)
+    vendedor_asignado = db.Column(db.String(100), default='')
+    fecha_asignacion = db.Column(db.String(50), default='')
     estado = db.Column(db.String(50), default='Activo')
 
 class InventarioManualVendedor(db.Model):
@@ -5074,7 +5076,8 @@ def add_inventario_manual():
             nuevo = InventarioManualLote(
                 lote=f"L00{InventarioManualLote.query.count() + 1}",
                 plan="Nuevo Plan",
-                cantidad=0, stock=0, vendidas=0, asignadas=0, estado="Activo"
+                cantidad=0, stock=0, vendidas=0, asignadas=0,
+                vendedor_asignado="", fecha_asignacion="", estado="Activo"
             )
             db.session.add(nuevo)
         elif tipo == 'vendedor':
@@ -6228,6 +6231,13 @@ def iniciar_scheduler():
 try:
     with app.app_context():
         db.create_all()
+        # Agregar nuevas columnas si no existen
+        try:
+            db.session.execute("ALTER TABLE inventario_manual_lote ADD COLUMN vendedor_asignado VARCHAR(100) DEFAULT ''")
+            db.session.execute("ALTER TABLE inventario_manual_lote ADD COLUMN fecha_asignacion VARCHAR(50) DEFAULT ''")
+            db.session.commit()
+        except:
+            db.session.rollback()
         print("Tablas de base de datos verificadas/creadas con éxito.")
     
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.getenv('FLASK_ENV', 'production') != 'development':
