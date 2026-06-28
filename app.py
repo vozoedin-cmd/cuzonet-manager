@@ -6233,11 +6233,13 @@ try:
         db.create_all()
         # Agregar nuevas columnas si no existen
         try:
-            db.session.execute("ALTER TABLE inventario_manual_lote ADD COLUMN vendedor_asignado VARCHAR(100) DEFAULT ''")
-            db.session.execute("ALTER TABLE inventario_manual_lote ADD COLUMN fecha_asignacion VARCHAR(50) DEFAULT ''")
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE inventario_manual_lote ADD COLUMN vendedor_asignado VARCHAR(100) DEFAULT ''"))
+            db.session.execute(text("ALTER TABLE inventario_manual_lote ADD COLUMN fecha_asignacion VARCHAR(50) DEFAULT ''"))
             db.session.commit()
-        except:
+        except Exception as e:
             db.session.rollback()
+            print("Notice de DB (puede ser normal si las columnas ya existen):", e)
         print("Tablas de base de datos verificadas/creadas con éxito.")
     
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.getenv('FLASK_ENV', 'production') != 'development':
