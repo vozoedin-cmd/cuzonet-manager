@@ -445,6 +445,27 @@ class AuditLog(db.Model):
         }
 
 
+class InventarioManualLote(db.Model):
+    __tablename__ = 'inventario_manual_lote'
+    id = db.Column(db.Integer, primary_key=True)
+    lote = db.Column(db.String(50))
+    plan = db.Column(db.String(50))
+    cantidad = db.Column(db.Integer, default=0)
+    stock = db.Column(db.Integer, default=0)
+    vendidas = db.Column(db.Integer, default=0)
+    asignadas = db.Column(db.Integer, default=0)
+    estado = db.Column(db.String(50), default='Activo')
+
+class InventarioManualVendedor(db.Model):
+    __tablename__ = 'inventario_manual_vendedor'
+    id = db.Column(db.Integer, primary_key=True)
+    vendedor = db.Column(db.String(100))
+    stock = db.Column(db.Integer, default=0)
+    vendidas = db.Column(db.Integer, default=0)
+    dinero = db.Column(db.String(50), default='Q0')
+    comision = db.Column(db.String(50), default='Q0')
+
+
 class AlertaOmada(db.Model):
     """Registro de alertas recibidas del webhook de Omada"""
     __tablename__ = 'alertas_omada'
@@ -5003,97 +5024,70 @@ def hotspot_vendedor_nuevo():
 @login_required
 @admin_required
 def hotspot_control_vendedores():
-    from sqlalchemy import func, case
+    lotes = InventarioManualLote.query.order_by(InventarioManualLote.id.desc()).all()
+    vendedores = InventarioManualVendedor.query.order_by(InventarioManualVendedor.id.desc()).all()
     
-    # Obtener stats agregados de fichas Omada
-    stats = db.session.query(
-        Usuario.id,
-        Usuario.nombre,
-        OmadaVoucher.duracion_valor,
-        OmadaVoucher.duracion_unidad,
-        OmadaVoucher.precio,
-        func.count(OmadaVoucher.id).label('total_fichas'),
-        func.sum(case((OmadaVoucher.estado == 'activo', 1), else_=0)).label('disponibles'),
-        func.sum(case((OmadaVoucher.estado != 'activo', 1), else_=0)).label('vendidas')
-    ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
-     .filter(OmadaVoucher.estado != 'eliminado')\
-     .group_by(Usuario.id, Usuario.nombre, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
-     
-    resultado = {}
-    unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
-    
-    global_total = 0
-    global_disponibles = 0
-    global_vendidas = 0
-    global_dinero = 0
-    global_vendido = 0
-    
-    for uid, nombre, d_val, d_un, precio, total, disp, vend in stats:
-        if nombre not in resultado:
-            resultado[nombre] = {
-                'vendedor_id': uid,
-                'planes': [],
-                'total_fichas': 0,
-                'total_disponibles': 0,
-                'total_vendidas': 0,
-                'dinero_total_esperado': 0,
-                'dinero_vendido': 0
-            }
-            
-        unidad_str = unidades.get(d_un, 'U')
-        if d_val > 1 and d_un == 1: unidad_str = 'Horas'
-        if d_val > 1 and d_un == 2: unidad_str = 'Días'
-        if d_val > 1 and d_un == 0: unidad_str = 'Mins'
-        
-        plan_str = f"{d_val} {unidad_str} (Q {precio})"
-        
-        total_dinero_plan = float((total or 0) * (precio or 0.0))
-        vendido_dinero_plan = float((vend or 0) * (precio or 0.0))
-        
-        resultado[nombre]['planes'].append({
-            'plan': plan_str,
-            'total': total,
-            'disponibles': int(disp or 0),
-            'vendidas': int(vend or 0),
-            'precio': precio,
-            'total_dinero': total_dinero_plan,
-            'vendido_dinero': vendido_dinero_plan
-        })
-        
-        resultado[nombre]['total_fichas'] += total
-        resultado[nombre]['total_disponibles'] += int(disp or 0)
-        resultado[nombre]['total_vendidas'] += int(vend or 0)
-        resultado[nombre]['dinero_total_esperado'] += total_dinero_plan
-        resultado[nombre]['dinero_vendido'] += vendido_dinero_plan
-        
-        global_total += total
-        global_disponibles += int(disp or 0)
-        global_vendidas += int(vend or 0)
-        global_dinero += total_dinero_plan
-        global_vendido += vendido_dinero_plan
-        
-    # Calcular porcentajes para cada vendedor
-    for nom, data in resultado.items():
-        if data['total_fichas'] > 0:
-            data['porcentaje_ventas'] = round((data['total_vendidas'] / data['total_fichas']) * 100, 1)
-        else:
-            data['porcentaje_ventas'] = 0
-            
-    # Calcular global porcentaje
-    global_porcentaje = 0
-    if global_total > 0:
-        global_porcentaje = round((global_vendidas / global_total) * 100, 1)
-        
     return render_template('hotspot_control_vendedores.html', 
-                           vendedores_data=resultado, 
-                           global_stats={
-                               'total': global_total,
-                               'disponibles': global_disponibles,
-                               'vendidas': global_vendidas,
-                               'dinero': global_dinero,
-                               'vendido': global_vendido,
-                               'porcentaje': global_porcentaje
-                           })
+                           lotes=lotes, 
+                           vendedores=vendedores)
+
+@app.route('/api/hotspot/inventario-manual/update', methods=['POST'])
+@login_required
+@admin_required
+def update_inventario_manual():
+    data = request.json
+    tipo = data.get('tipo')  # 'lote' o 'vendedor'
+    item_id = data.get('id')
+    campo = data.get('campo')
+    valor = data.get('valor')
+    
+    try:
+        if tipo == 'lote':
+            item = InventarioManualLote.query.get(item_id)
+            if item and hasattr(item, campo):
+                if campo in ['cantidad', 'stock', 'vendidas', 'asignadas']:
+                    setattr(item, campo, int(valor) if str(valor).isdigit() else 0)
+                else:
+                    setattr(item, campo, str(valor))
+        elif tipo == 'vendedor':
+            item = InventarioManualVendedor.query.get(item_id)
+            if item and hasattr(item, campo):
+                if campo in ['stock', 'vendidas']:
+                    setattr(item, campo, int(valor) if str(valor).isdigit() else 0)
+                else:
+                    setattr(item, campo, str(valor))
+                    
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/hotspot/inventario-manual/add', methods=['POST'])
+@login_required
+@admin_required
+def add_inventario_manual():
+    data = request.json
+    tipo = data.get('tipo')
+    
+    try:
+        if tipo == 'lote':
+            nuevo = InventarioManualLote(
+                lote=f"L00{InventarioManualLote.query.count() + 1}",
+                plan="Nuevo Plan",
+                cantidad=0, stock=0, vendidas=0, asignadas=0, estado="Activo"
+            )
+            db.session.add(nuevo)
+        elif tipo == 'vendedor':
+            nuevo = InventarioManualVendedor(
+                vendedor="Nuevo Vendedor",
+                stock=0, vendidas=0, dinero="Q0", comision="Q0"
+            )
+            db.session.add(nuevo)
+            
+        db.session.commit()
+        return jsonify({'success': True, 'id': nuevo.id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/admin/hotspot/vouchers_grid')
 @login_required
@@ -6240,4 +6234,6 @@ except Exception as e:
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
+    with app.app_context():
+        db.create_all()
     app.run(host='0.0.0.0', port=port, debug=debug)

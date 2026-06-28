@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Vendedores - CuzoNet</title>
+    <title>Inventario Manual - CuzoNet</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -12,168 +12,239 @@
         :root {
             --brand-color: #ff6600;
             --neon-glow: 0 0 15px rgba(255, 102, 0, 0.4);
-            --bg-dark: #0f0f12;
+            --bg-dark: #000000;
         }
         body { background-color: var(--bg-dark); color: #fff; }
         .main-content { background: var(--bg-dark); padding-bottom: 50px; }
         
-        /* Custom Scrollbar for the plans list */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
+        .editable-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .editable-table th { 
+            text-align: left; 
+            padding: 12px 15px; 
+            color: #fff; 
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
-            border-radius: 4px;
+        .editable-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.8);
+            transition: all 0.2s;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.2);
-            border-radius: 4px;
+        
+        /* Make editable cells look slightly different on hover */
+        td[contenteditable="true"]:hover, td[contenteditable="true"]:focus {
+            background: rgba(255,102,0,0.1);
+            outline: 1px solid #ffaa00;
+            cursor: text;
+            color: #fff;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255,255,255,0.4);
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+
+        .saving-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(16,185,129,0.5);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            box-shadow: 0 0 15px rgba(16,185,129,0.3);
+        }
+        
+        .btn-add {
+            background: rgba(255,255,255,0.05);
+            border: 1px dashed rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+        .btn-add:hover {
+            background: rgba(255,102,0,0.1);
+            border-color: #ff6600;
+            color: #ffaa00;
         }
     </style>
 </head>
 
 <body>
-    <!-- Fondo animado -->
-    <div class="bg-animation">
-        <div class="bg-gradient"></div>
-        <div class="bg-grid"></div>
-        <div class="floating-orbs">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-3"></div>
-        </div>
-    </div>
-
     {% include 'sidebar.html' %}
 
     <main class="main-content">
-        <div class="content-header" style="margin-bottom: 30px;">
+        <div class="content-header" style="margin-bottom: 20px;">
             <div class="header-title">
-                <h1 style="color: #ffaa00; text-shadow: 0 0 10px rgba(255,102,0,0.5);"><i class="fas fa-chart-line"></i> Control de Vendedores y Ventas</h1>
-                <p style="color: rgba(255,255,255,0.6);">Monitoreo de inventario y progreso de fichas (Omada)</p>
+                <h1 style="color: #fff;"><i class="fas fa-table" style="color: #ff6600;"></i> Control de Inventario</h1>
+                <p style="color: rgba(255,255,255,0.5);">Edita los valores directamente en la tabla. Los cambios se guardan automáticamente.</p>
             </div>
         </div>
 
-        <!-- Tarjetas Globales -->
-        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-            
-            <div class="stat-card" style="background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,102,0,0.3); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <div style="background: rgba(255, 102, 0, 0.2); color: #ff6600; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-ticket-alt"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.total }}</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Total Generadas</p>
-                </div>
-            </div>
-
-            <div class="stat-card" style="background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,102,0,0.3); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <div style="background: rgba(16, 185, 129, 0.2); color: #10b981; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.disponibles }}</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">En Existencia</p>
-                </div>
-            </div>
-
-            <div class="stat-card" style="background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,102,0,0.3); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <div style="background: rgba(239, 68, 68, 0.2); color: #ef4444; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-fire"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">{{ global_stats.vendidas }}</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Vendidas / Usadas</p>
-                </div>
-            </div>
-
-            <div class="stat-card" style="background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,102,0,0.3); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <div style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-coins"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0; font-size: 1.5rem; color: #fff;">Q {{ "%.2f"|format(global_stats.vendido) }}</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.9rem;">Ingresos Generados</p>
-                    <small style="color: rgba(255,255,255,0.4); font-size: 0.75rem;">De Q {{ "%.2f"|format(global_stats.dinero) }} totales</small>
-                </div>
-            </div>
+        <!-- SECCION 1: Inventario General -->
+        <h2 class="section-title">Inventario General</h2>
+        
+        <div style="overflow-x: auto;">
+            <table class="editable-table" id="tabla-lotes">
+                <thead>
+                    <tr>
+                        <th>Lote</th>
+                        <th>Plan</th>
+                        <th>Cantidad</th>
+                        <th>Stock</th>
+                        <th>Vendidas</th>
+                        <th>Asignadas</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lote in lotes %}
+                    <tr data-id="{{ lote.id }}" data-tipo="lote">
+                        <td contenteditable="true" data-campo="lote">{{ lote.lote }}</td>
+                        <td contenteditable="true" data-campo="plan">{{ lote.plan }}</td>
+                        <td contenteditable="true" data-campo="cantidad">{{ lote.cantidad }}</td>
+                        <td contenteditable="true" data-campo="stock">{{ lote.stock }}</td>
+                        <td contenteditable="true" data-campo="vendidas">{{ lote.vendidas }}</td>
+                        <td contenteditable="true" data-campo="asignadas">{{ lote.asignadas }}</td>
+                        <td contenteditable="true" data-campo="estado">{{ lote.estado }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        <button class="btn-add" onclick="addNewRow('lote')"><i class="fas fa-plus"></i> Añadir Lote</button>
 
-        <!-- Tarjetas por Vendedor -->
-        <h3 style="color: #ffaa00; margin-bottom: 20px; font-weight: 600;"><i class="fas fa-users"></i> Detalle por Vendedor</h3>
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <div class="vendedores-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px;">
-            {% for vendedor, data in vendedores_data.items() %}
-            <div class="vendedor-card glass-panel" style="background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,102,0,0.3); border-radius: 15px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                
-                <!-- Header del Vendedor -->
-                <div class="vendedor-header" style="background: rgba(0,0,0,0.4); padding: 20px; border-bottom: 1px solid rgba(255,102,0,0.2);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="margin: 0; color: #fff; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-user-circle" style="font-size: 1.5rem; color: #ff6600;"></i> {{ vendedor }}
-                        </h4>
-                        <span style="background: {% if data.porcentaje_ventas > 80 %}rgba(16,185,129,0.2); color: #10b981;{% elif data.porcentaje_ventas > 40 %}rgba(245,158,11,0.2); color: #f59e0b;{% else %}rgba(255,255,255,0.1); color: #ccc;{% endif %} padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; border: 1px solid currentColor;">
-                            {{ data.porcentaje_ventas }}% Vendido
-                        </span>
-                    </div>
-                    
-                    <!-- Barra de progreso general -->
-                    <div class="progress-container" style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
-                        <div class="progress-bar" style="height: 100%; width: {{ data.porcentaje_ventas }}%; background: linear-gradient(90deg, #ff6600, #ffaa00); border-radius: 4px;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: rgba(255,255,255,0.6);">
-                        <span>0</span>
-                        <span>Total Fichas: {{ data.total_fichas }}</span>
-                    </div>
-                </div>
-
-                <!-- Detalles financieros y de stock -->
-                <div class="vendedor-body" style="padding: 20px; flex-grow: 1;">
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; text-align: center; border: 1px solid rgba(16,185,129,0.2);">
-                            <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-bottom: 5px;">Inventario Restante</span>
-                            <strong style="color: #10b981; font-size: 1.1rem;">{{ data.total_disponibles }}</strong>
-                        </div>
-                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; text-align: center; border: 1px solid rgba(245,158,11,0.2);">
-                            <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-bottom: 5px;">Dinero Generado</span>
-                            <strong style="color: #f59e0b; font-size: 1.1rem;">Q {{ "%.2f"|format(data.dinero_vendido) }}</strong>
-                        </div>
-                    </div>
-
-                    <h5 style="color: #ffaa00; font-size: 0.9rem; border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 10px; margin-bottom: 15px;">Desglose por Planes</h5>
-                    
-                    <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;" class="custom-scrollbar">
-                        {% for p in data.planes %}
-                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <span style="display: block; color: #fff; font-size: 0.9rem; font-weight: 500;">{{ p.plan }}</span>
-                                <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem;">Total: {{ p.total }}</span>
-                            </div>
-                            <div style="text-align: right;">
-                                <span style="display: block; color: #ef4444; font-size: 0.85rem; font-weight: bold;">Vendidas: {{ p.vendidas }}</span>
-                                <span style="color: #10b981; font-size: 0.8rem;">Stock: {{ p.disponibles }}</span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                </div>
-
-            </div>
-            {% endfor %}
-
-            {% if not vendedores_data %}
-            <div style="grid-column: 1 / -1; padding: 50px; text-align: center; background: rgba(20, 20, 25, 0.85); border: 1px solid rgba(255,102,0,0.3); border-radius: 15px;">
-                <i class="fas fa-box-open" style="font-size: 3rem; color: rgba(255,255,255,0.2); margin-bottom: 15px;"></i>
-                <h3 style="color: rgba(255,255,255,0.5);">No hay fichas asignadas a vendedores actualmente.</h3>
-                <p style="color: rgba(255,255,255,0.4);">Genera fichas desde el Omada Print Studio y asígnalas a tus vendedores para llevar el control aquí.</p>
-            </div>
-            {% endif %}
-
+        <!-- SECCION 2: Inventario por Vendedor -->
+        <h2 class="section-title">Inventario por vendedor</h2>
+        
+        <div style="overflow-x: auto;">
+            <table class="editable-table" id="tabla-vendedores">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th>Stock</th>
+                        <th>Vendidas</th>
+                        <th>Dinero</th>
+                        <th>Comisión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vendedores %}
+                    <tr data-id="{{ v.id }}" data-tipo="vendedor">
+                        <td contenteditable="true" data-campo="vendedor">{{ v.vendedor }}</td>
+                        <td contenteditable="true" data-campo="stock">{{ v.stock }}</td>
+                        <td contenteditable="true" data-campo="vendidas">{{ v.vendidas }}</td>
+                        <td contenteditable="true" data-campo="dinero">{{ v.dinero }}</td>
+                        <td contenteditable="true" data-campo="comision">{{ v.comision }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        <button class="btn-add" onclick="addNewRow('vendedor')"><i class="fas fa-plus"></i> Añadir Vendedor</button>
+        
+        <p style="color: rgba(255,255,255,0.3); font-size: 0.8rem; margin-top: 20px;">* Escribe directamente en cualquier celda para actualizar los valores.</p>
+
     </main>
+
+    <!-- Indicador de guardado -->
+    <div class="saving-indicator" id="saving-indicator">
+        <i class="fas fa-check-circle"></i> Guardado
+    </div>
+
+    <script>
+        let saveTimeout;
+        const indicator = document.getElementById('saving-indicator');
+
+        // Función para mostrar indicador de guardado
+        function showSaved() {
+            indicator.style.display = 'flex';
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+
+        // Función para guardar celda
+        async function saveCell(cell) {
+            const row = cell.closest('tr');
+            const id = row.getAttribute('data-id');
+            const tipo = row.getAttribute('data-tipo');
+            const campo = cell.getAttribute('data-campo');
+            const valor = cell.innerText.trim();
+
+            try {
+                const res = await fetch('/api/hotspot/inventario-manual/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id, tipo, campo, valor})
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showSaved();
+                } else {
+                    alert("Error al guardar: " + data.error);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        // Añadir eventos a todas las celdas editables
+        function attachEvents() {
+            document.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
+                // Prevenir saltos de línea al presionar Enter
+                cell.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        cell.blur(); // Quita el foco, lo que dispara 'blur'
+                    }
+                });
+
+                // Guardar cuando se pierde el foco
+                cell.addEventListener('blur', function() {
+                    saveCell(this);
+                });
+            });
+        }
+
+        // Llamada inicial
+        attachEvents();
+
+        // Función para añadir fila
+        async function addNewRow(tipo) {
+            try {
+                const res = await fetch('/api/hotspot/inventario-manual/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({tipo})
+                });
+                const data = await res.json();
+                if(data.success) {
+                    // Recargar página para ver la nueva fila
+                    window.location.reload();
+                } else {
+                    alert("Error al crear fila: " + data.error);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+    </script>
 </body>
 </html>
