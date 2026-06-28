@@ -5092,6 +5092,28 @@ def add_inventario_manual():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/force-update-db')
+def force_update_db():
+    from sqlalchemy import text
+    resultados = []
+    try:
+        db.session.execute(text("ALTER TABLE inventario_manual_lote ADD COLUMN vendedor_asignado VARCHAR(100) DEFAULT ''"))
+        db.session.commit()
+        resultados.append("Columna vendedor_asignado agregada.")
+    except Exception as e:
+        db.session.rollback()
+        resultados.append(f"Error vendedor_asignado: {str(e)}")
+        
+    try:
+        db.session.execute(text("ALTER TABLE inventario_manual_lote ADD COLUMN fecha_asignacion VARCHAR(50) DEFAULT ''"))
+        db.session.commit()
+        resultados.append("Columna fecha_asignacion agregada.")
+    except Exception as e:
+        db.session.rollback()
+        resultados.append(f"Error fecha_asignacion: {str(e)}")
+        
+    return jsonify({"resultados": resultados})
+
 @app.route('/admin/hotspot/vouchers_grid')
 @login_required
 @admin_required
