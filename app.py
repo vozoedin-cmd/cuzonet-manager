@@ -6226,14 +6226,16 @@ def iniciar_scheduler():
 
 # Inicializar scheduler al cargar la app (para Gunicorn)
 try:
+    with app.app_context():
+        db.create_all()
+        print("Tablas de base de datos verificadas/creadas con éxito.")
+    
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.getenv('FLASK_ENV', 'production') != 'development':
         iniciar_scheduler()
 except Exception as e:
-    print("Error iniciando scheduler:", e)
+    print("Error en inicialización (DB o Scheduler):", e)
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
-    with app.app_context():
-        db.create_all()
     app.run(host='0.0.0.0', port=port, debug=debug)
