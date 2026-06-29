@@ -1458,6 +1458,23 @@ def generar_fichas_omada():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/admin/hotspot/omada-debug')
+@login_required
+def omada_debug():
+    config = ConfigOmada.query.filter_by(activo=True).first()
+    if not config: return "No active config"
+    from omada_api import OmadaAPI
+    omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+    try:
+        sites = omada.get_all_sites()
+        if not sites: return "No sites"
+        omada.site_id = sites[0]['id']
+        query_url = f"{omada.base_url}/{omada.omadac_id}/api/v2/hotspot/sites/{omada.site_id}/vouchers?currentPage=1&currentPageSize=10"
+        res = omada.session.get(query_url, timeout=10)
+        return jsonify(res.json())
+    except Exception as e:
+        return str(e)
+
 @app.route('/api/omada/sync', methods=['POST'])
 @login_required
 def omada_sync_api():
