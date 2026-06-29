@@ -1442,6 +1442,14 @@ def generar_fichas_omada():
         # Guardar en base de datos
         nuevos_vouchers = []
         for pin in pines:
+            # Si el código ya existe (Omada recicló un PIN de una ficha eliminada antigua),
+            # renombramos la antigua para no perder su historial de venta/deuda, pero liberamos el PIN.
+            existing = OmadaVoucher.query.filter_by(codigo=pin).first()
+            if existing:
+                existing.codigo = f"{existing.codigo}_old_{existing.id}"
+                db.session.add(existing)
+                db.session.flush() # Forzar el update en la base de datos para liberar el unique constraint
+                
             v = OmadaVoucher(
                 codigo=pin,
                 duracion_valor=tiempo,
