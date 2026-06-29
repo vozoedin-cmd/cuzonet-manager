@@ -1424,10 +1424,16 @@ def generar_fichas_omada():
             
         site_name_override = data.get('site_name')
         final_site_name = site_name_override if site_name_override else config.site_id
+        
+        comentario = data.get('comentario', '').strip()
+        if not comentario and vendedor_id:
+            v = Usuario.query.get(vendedor_id)
+            if v:
+                comentario = v.nombre
             
         from omada_api import OmadaAPI
         api = OmadaAPI(config.url, config.username, config.password, final_site_name)
-        pines = api.generar_fichas(cantidad, minutos, 1) # Pasamos minutos y unidad=1 (minutos en V6)
+        pines = api.generar_fichas(cantidad, minutos, 1, comentario) # Pasamos minutos y unidad=1 (minutos en V6)
         
         if not pines:
             return jsonify({'success': False, 'error': 'Se ejecutó el comando pero no se obtuvieron los PINs en la respuesta.'})

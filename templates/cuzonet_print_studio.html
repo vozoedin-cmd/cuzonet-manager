@@ -146,7 +146,11 @@
                             <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
                             <input type="number" id="genPrecio" value="3.00" step="0.50" min="0">
                         </div>
-                        <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1; padding: 12px; margin-top: 24px;" onclick="autoGenerateVouchers()">
+                        <div class="input-group" style="flex: 1;">
+                            <label><i class="fas fa-comment"></i> Ref / Lote Omada</label>
+                            <input type="text" id="genComentario" placeholder="Opcional (Ej. Lote 5)">
+                        </div>
+                        <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1.5; padding: 12px; margin-top: 24px;" onclick="autoGenerateVouchers()">
                             GENERAR CON API <i class="fas fa-bolt"></i>
                         </button>
                     </div>
@@ -264,11 +268,12 @@
                 }
                 const precio = document.getElementById('genPrecio').value;
                 const site_name = document.getElementById('genOmadaSite').value;
+                const comentario = document.getElementById('genComentario').value;
                 
                 const r = await fetch('/api/omada/generar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ omada_id, site_name, cantidad, tiempo, unidad, vendedor_id, precio })
+                    body: JSON.stringify({ omada_id, site_name, cantidad, tiempo, unidad, vendedor_id, precio, comentario })
                 });
                 const res = await r.json();
                 

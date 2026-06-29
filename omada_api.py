@@ -95,7 +95,7 @@ class OmadaAPI:
         except Exception as e:
             return False, str(e)
             
-    def generar_fichas(self, cantidad, tiempo_valor, tiempo_unidad):
+    def generar_fichas(self, cantidad, tiempo_valor, tiempo_unidad, comentario=""):
         """
         tiempo_unidad: 0=minutos, 1=horas, 2=dias
         """
@@ -104,19 +104,23 @@ class OmadaAPI:
         # En Omada v6 la ruta para crear grupos de fichas es voucherGroups
         url = f"{self.base_url}/{self.omadac_id}/api/v2/hotspot/sites/{self.site_id}/voucherGroups"
         
+        name_prefix = comentario if comentario else "API"
+        import re
+        name_prefix = re.sub(r'[^a-zA-Z0-9_\- ]', '', name_prefix)
+        
         # En Omada V6 durationType=1 parece ser Minutos
         payload = {
             "amount": cantidad,
             "applyToAllPortals": True,
             "codeForm": [0], # Numerico
             "codeLength": 6,
-            "description": "Auto API",
+            "description": f"Ref: {comentario}" if comentario else "Auto API",
             "duration": tiempo_valor, # Minutos
             "durationType": 1,
             "endTime": "23:59",
             "logout": True,
             "maxUsers": 1,
-            "name": f"API_{tiempo_valor}m_{int(time.time())}",
+            "name": f"{name_prefix}_{tiempo_valor}m_{int(time.time())}",
             "pattern": {"patternType": 0, "position": 0, "ssidNetworkEnable": False, "durationEnable": False, "limitEnable": False},
             "scheduleTime": 0,
             "startTime": "00:00",
