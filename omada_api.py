@@ -180,7 +180,20 @@ class OmadaAPI:
             
             for v in lista:
                 code = str(v.get('code'))
-                status = v.get('status')
+                if 'status' in v:
+                    status = v.get('status')
+                else:
+                    # Omada V6 fallback: calculate status from 'used' and 'valid'
+                    used = v.get('used', 0)
+                    valid = v.get('valid', True)
+                    
+                    if not valid:
+                        status = 2 # Vencido
+                    elif used > 0:
+                        status = 1 # Usado
+                    else:
+                        status = 0 # Activo
+                        
                 status_map[code] = status
                 
             if len(lista) < page_size:
