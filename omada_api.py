@@ -174,7 +174,10 @@ class OmadaAPI:
             
             if data.get('errorCode') != 0:
                 if current_page > 1: break # Si ya no hay mas paginas
-                raise Exception(f"Error obteniendo estado de fichas: {data.get('msg')}")
+                # If it's an API error (e.g. site doesn't support hotspot), we just assume 0 vouchers for this site
+                # instead of throwing an exception, which would block the deletion logic for ALL sites.
+                print(f"Skipping site {self.site_id} due to API error: {data.get('msg')}")
+                break
                 
             lista = data.get('result', {}).get('data', [])
             
