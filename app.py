@@ -255,6 +255,7 @@ class OmadaVoucher(db.Model):
     cliente_nombre = db.Column(db.String(100), nullable=True)
     fecha_uso = db.Column(db.DateTime, nullable=True)
     omada_id = db.Column(db.Integer, db.ForeignKey('config_omada.id'), nullable=True)
+    lote = db.Column(db.String(100), nullable=True)
     
     vendedor = db.relationship('Usuario', backref=db.backref('omada_vouchers', lazy=True))
     omada = db.relationship('ConfigOmada', backref=db.backref('vouchers', lazy=True))
@@ -1447,7 +1448,8 @@ def generar_fichas_omada():
                 duracion_unidad=unidad,
                 precio=precio,
                 vendedor_id=vendedor_id,
-                omada_id=omada_id
+                omada_id=omada_id,
+                lote=comentario
             )
             db.session.add(v)
             nuevos_vouchers.append(v)
@@ -1588,9 +1590,10 @@ def debug_omada_sync():
 def stats_vendedores_omada():
     try:
         from sqlalchemy import func, case
-        # Agrupar por vendedor_id, duracion, precio
+        # Agrupar por vendedor_id, lote, duracion, precio
         stats = db.session.query(
             Usuario.nombre,
+            OmadaVoucher.lote,
             OmadaVoucher.duracion_valor,
             OmadaVoucher.duracion_unidad,
             OmadaVoucher.precio,
@@ -1599,12 +1602,12 @@ def stats_vendedores_omada():
             func.sum(case((OmadaVoucher.estado != 'activo', 1), else_=0)).label('vendidas')
         ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
          .filter(OmadaVoucher.estado != 'eliminado')\
-         .group_by(Usuario.id, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
+         .group_by(Usuario.id, OmadaVoucher.lote, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
          
         resultado = {}
         unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
         
-        for nombre, d_val, d_un, precio, total, disp, vend in stats:
+        for nombre, lote, d_val, d_un, precio, total, disp, vend in stats:
             if nombre not in resultado:
                 resultado[nombre] = []
                 
@@ -1614,6 +1617,8 @@ def stats_vendedores_omada():
             if d_val > 1 and d_un == 0: unidad_str = 'Mins'
             
             plan_str = f"{d_val} {unidad_str} (Q {precio})"
+            if lote:
+                plan_str = f"{lote} - {plan_str}"
             
             resultado[nombre].append({
                 'plan': plan_str,
@@ -3874,6 +3879,7 @@ def migrate_db():
                     'cliente_nombre': 'VARCHAR(100)',
                     'fecha_uso': datetime_type,
                     'omada_id': 'INTEGER',
+                    'lote': 'VARCHAR(100)'
                 }
                 
                 for col_name, col_type in columns_to_add.items():
