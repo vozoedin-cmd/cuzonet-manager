@@ -5037,15 +5037,26 @@ def hotspot_vendedores():
     vendedores_data = []
     for v in vendedores:
         fichas_mikrotik = Voucher.query.filter_by(vendedor_id=v.id).count()
-        fichas_omada = OmadaVoucher.query.filter_by(vendedor_id=v.id).count()
+        fichas_omada = OmadaVoucher.query.filter_by(vendedor_id=v.id).filter(OmadaVoucher.estado != 'eliminado').count()
         fichas_impresas = fichas_mikrotik + fichas_omada
         abonos = TransaccionVendedor.query.filter_by(vendedor_id=v.id, tipo='abono').all()
         total_abonado = sum(a.monto for a in abonos)
         
+        # Calcular ventas de Omada (Fichas usadas/vencidas)
+        omada_vendidas = OmadaVoucher.query.filter_by(vendedor_id=v.id).filter(OmadaVoucher.estado.in_(['usado', 'vencido'])).all()
+        ventas_omada = sum(ov.precio for ov in omada_vendidas)
+        fichas_omada_vendidas = len(omada_vendidas)
+        
+        # Deuda pendiente
+        deuda_pendiente = ventas_omada - total_abonado
+        
         vendedores_data.append({
             'vendedor': v,
             'fichas_impresas': fichas_impresas,
-            'total_abonado': total_abonado
+            'fichas_omada_vendidas': fichas_omada_vendidas,
+            'ventas_omada': ventas_omada,
+            'total_abonado': total_abonado,
+            'deuda_pendiente': deuda_pendiente
         })
         
     return render_template('hotspot_vendedores.html', 
