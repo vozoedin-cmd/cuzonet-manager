@@ -160,7 +160,18 @@
                                     {% endif %}
                                 </div>
                             </td>
-                            <td><span class="pro-badge badge-purple" style="color: #c084fc; border-color: #c084fc;">{{ item.fichas_omada_vendidas }} / {{ item.fichas_impresas }}</span></td>
+                            <td>
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                    <span class="pro-badge badge-purple" style="color: #c084fc; border-color: #c084fc;">
+                                        Omada: {{ item.fichas_omada_vendidas }} / {{ item.fichas_omada }}
+                                    </span>
+                                    {% if item.fichas_mikrotik > 0 %}
+                                    <span class="pro-badge" style="font-size: 0.7rem; padding: 2px 6px; background: rgba(255,255,255,0.05); color: #888;">
+                                        + {{ item.fichas_mikrotik }} de MikroTik
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </td>
                             <td><span class="pro-badge badge-orange">Q. {{ "%.2f"|format(item.ventas_omada or 0.0) }}</span></td>
                             <td><span class="pro-badge badge-green">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
                             <td><span class="pro-badge badge-red" style="font-weight: 800;">Q. {{ "%.2f"|format(item.deuda_pendiente or 0.0) }}</span></td>

@@ -5053,6 +5053,8 @@ def hotspot_vendedores():
         vendedores_data.append({
             'vendedor': v,
             'fichas_impresas': fichas_impresas,
+            'fichas_mikrotik': fichas_mikrotik,
+            'fichas_omada': fichas_omada,
             'fichas_omada_vendidas': fichas_omada_vendidas,
             'ventas_omada': ventas_omada,
             'total_abonado': total_abonado,
