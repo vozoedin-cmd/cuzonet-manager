@@ -1468,10 +1468,22 @@ def omada_debug():
     try:
         sites = omada.get_all_sites()
         if not sites: return "No sites"
-        omada.site_id = sites[0]['id']
-        query_url = f"{omada.base_url}/{omada.omadac_id}/api/v2/hotspot/sites/{omada.site_id}/vouchers?currentPage=1&currentPageSize=10"
-        res = omada.session.get(query_url, timeout=10)
-        return jsonify(res.json())
+        
+        all_vouchers = []
+        for site in sites:
+            omada.site_id = site['id']
+            query_url = f"{omada.base_url}/{omada.omadac_id}/api/v2/hotspot/sites/{omada.site_id}/vouchers?currentPage=1&currentPageSize=50"
+            res = omada.session.get(query_url, timeout=10)
+            data = res.json()
+            if data.get('errorCode') == 0:
+                vouchers = data.get('result', {}).get('data', [])
+                if vouchers:
+                    all_vouchers.extend(vouchers)
+                    
+        return jsonify({
+            'total_found': len(all_vouchers),
+            'first_5': all_vouchers[:5]
+        })
     except Exception as e:
         return str(e)
 
