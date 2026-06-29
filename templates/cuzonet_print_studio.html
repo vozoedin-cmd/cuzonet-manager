@@ -116,11 +116,11 @@
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-clock"></i> Tiempo (Valor)</label>
-                            <input type="number" id="genTimeVal" value="3" min="1">
+                            <input type="number" id="genTimeVal" value="3" min="1" oninput="syncPrintFields()">
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label>Unidad de Tiempo</label>
-                            <select id="genTimeUnidad">
+                            <select id="genTimeUnidad" onchange="syncPrintFields()">
                                 <option value="0">Minutos</option>
                                 <option value="1" selected>Horas</option>
                                 <option value="2">Días</option>
@@ -144,7 +144,7 @@
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
-                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0">
+                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0" oninput="syncPrintFields()">
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-comment"></i> Ref / Lote Omada</label>
@@ -201,6 +201,16 @@
     </div>
 
     <script>
+        function syncPrintFields() {
+            const precio = parseFloat(document.getElementById('genPrecio').value || 0).toFixed(2);
+            document.getElementById('priceInput').value = `Q ${precio}`;
+            
+            const tiempo = document.getElementById('genTimeVal').value || 0;
+            const unidadVal = document.getElementById('genTimeUnidad').value;
+            const tText = unidadVal == 0 ? 'MINUTOS' : (unidadVal == 1 ? 'HORAS' : 'DIAS');
+            document.getElementById('timeInput').value = `${tiempo} ${tText}`;
+        }
+
         async function cargarSitiosPrint() {
             const omadaSelect = document.getElementById('genOmada');
             const siteSelect = document.getElementById('genOmadaSite');
