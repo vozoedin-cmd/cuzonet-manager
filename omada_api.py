@@ -196,8 +196,9 @@ class OmadaAPI:
                         
                 status_map[code] = status
                 
-            if len(lista) < page_size:
-                break # Llegamos al final de las páginas
+            total_rows = data.get('result', {}).get('totalRows', 0)
+            if len(status_map) >= total_rows or len(lista) == 0:
+                break # Llegamos al final
                 
             current_page += 1
             

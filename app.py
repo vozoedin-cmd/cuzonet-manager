@@ -1524,7 +1524,7 @@ def omada_sync_api():
     eliminados_count = 0
     actualizados_count = 0
     if not errores_sync:
-        all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
+        all_vouchers_local = OmadaVoucher.query.all()
         for v_local in all_vouchers_local:
             if v_local.codigo in status_map_global:
                 try:
