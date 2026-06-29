@@ -1564,10 +1564,11 @@ def omada_sync_api():
     if changed:
         db.session.commit()
         
+    mensaje = f"Sincronización completada. Actualizados: {actualizados_count}. Eliminados: {eliminados_count}."
     if errores_sync:
-        return jsonify({'success': False, 'error': " | ".join(errores_sync)})
+        mensaje += f" [Advertencia: Algunos sitios fallaron: {' | '.join(errores_sync)}]"
         
-    return jsonify({'success': True, 'message': f'Sincronizados {total_sync} fichas. (Actualizadas: {actualizados_count}, Eliminadas localmente: {eliminados_count})'})
+    return jsonify({'success': True, 'message': mensaje})
 
 @app.route('/api/omada/debug_sync', methods=['GET'])
 @login_required
