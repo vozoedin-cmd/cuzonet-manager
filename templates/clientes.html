@@ -567,6 +567,44 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
+    <!-- Modal Opciones de Avisos de Cobro -->
+    <div class="modal-overlay" id="avisosCobroModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-invoice-dollar"></i> Imprimir Avisos de Cobro</h3>
+                <button class="modal-close" onclick="closeModal('avisosCobroModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="avisosCobroForm" class="config-form" style="padding:1.5rem;" onsubmit="generarAvisosCobroFiltrados(event)">
+                <div class="form-group">
+                    <label for="filtro_estado"><i class="fas fa-users"></i> ¿Para quiénes imprimir?</label>
+                    <select id="filtro_estado" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                        <option value="todos">Todos los Activos</option>
+                        <option value="morosos">Solo Morosos (sin pago este mes)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro_dia_pago"><i class="fas fa-calendar-day"></i> Filtrar por Día de Pago</label>
+                    <select id="filtro_dia_pago" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                        <option value="">Todos los días (No filtrar)</option>
+                        {% for d in range(1, 32) %}
+                        <option value="{{ d }}">Día {{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="modal-footer" style="padding: 0; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('avisosCobroModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-warning" style="background: #e67e22; color: white;">
+                        <i class="fas fa-print"></i> Generar Recibos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
         // ===== PAGO RÁPIDO =====
@@ -748,13 +786,26 @@
         }
 
         function abrirAvisosCobro() {
+            openModal('avisosCobroModal');
+        }
+
+        function generarAvisosCobroFiltrados(e) {
+            e.preventDefault();
             const activeTab = document.querySelector('.router-tab.active');
             const routerId = activeTab ? activeTab.dataset.routerId : '';
-            let url = '/avisos-cobro';
+            const filtro = document.getElementById('filtro_estado').value;
+            const diaPago = document.getElementById('filtro_dia_pago').value;
+
+            let url = `/avisos-cobro?filtro=${filtro}`;
             if (routerId && routerId !== 'all') {
-                url += '?router_id=' + routerId;
+                url += `&router_id=${routerId}`;
             }
-            window.open(url);
+            if (diaPago) {
+                url += `&dia_pago=${diaPago}`;
+            }
+            
+            closeModal('avisosCobroModal');
+            window.open(url, '_blank');
         }
     </script>
     <style>

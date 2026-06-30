@@ -2117,9 +2117,14 @@ def avisos_cobro(mes=None):
 
     # Obtener clientes activos
     router_id = request.args.get('router_id', type=int)
+    dia_pago_filtro = request.args.get('dia_pago', type=int)
+    
     query = Cliente.query.filter_by(estado='activo')
     if router_id:
         query = query.filter_by(router_id=router_id)
+    if dia_pago_filtro:
+        query = query.filter_by(dia_pago=dia_pago_filtro)
+        
     clientes_activos = query.order_by(Cliente.nombre).all()
 
     # Filtrar morosos: clientes sin pago registrado en el mes
