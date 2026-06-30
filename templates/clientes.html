@@ -122,6 +122,7 @@
                             data-ultimo="{{ cliente.fecha_ultimo_pago.strftime('%Y-%m-%d') if cliente.fecha_ultimo_pago else '' }}"
                             data-corte="{{ cliente.dia_corte or 1 }}"
                             data-precio="{{ cliente.precio_mensual or 0 }}"
+                            data-deuda="{{ calcular_deuda_total(cliente) + (cliente.precio_mensual or 0) }}"
                             data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}"
                             data-router-id="{{ cliente.router_id or '' }}"
                             data-telefono="{{ cliente.telefono or '' }}"
@@ -184,7 +185,7 @@
                                         <i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> {{ cliente.dias_vencidos }} días vencido
                                     </span>
                                     <span style="color: #f59e0b; font-size: 0.9rem; font-weight: bold;">
-                                        <i class="fas fa-coins"></i> Q{{ "%.2f"|format(cliente.saldo_pendiente if cliente.saldo_pendiente and cliente.saldo_pendiente > 0 else cliente.precio_mensual) }}
+                                        <i class="fas fa-coins"></i> Q{{ "%.2f"|format(calcular_deuda_total(cliente) + (cliente.precio_mensual or 0)) }}
                                     </span>
                                     {% else %}
                                     <span style="color: #10b981; font-weight: bold; font-size: 0.95rem;">Al día</span>

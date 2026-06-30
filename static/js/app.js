@@ -655,7 +655,9 @@ function imprimirMorosos() {
         const direccion = row.dataset.direccion || '—';
         const corte     = row.dataset.corte || '1';
         const plan      = row.dataset.plan || '—';
-        const precio    = parseFloat(row.dataset.precio || 0).toFixed(2);
+        // Usar data-deuda si existe, sino data-precio
+        const deudaRaw  = row.dataset.deuda || row.dataset.precio || 0;
+        const precio    = parseFloat(deudaRaw).toFixed(2);
 
         // Separador de grupo cuando cambia el día de corte
         if (corte !== ultimoCorte) {

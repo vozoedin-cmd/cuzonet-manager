@@ -42,6 +42,39 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
+# ============== CONTEXT PROCESSOR ==============
+@app.context_processor
+def utility_processor():
+    def calcular_meses_atrasados(cliente, mes_str=None):
+        """Calcula cuántos meses han pasado desde la fecha_proximo_pago hasta el mes a cobrar."""
+        if not cliente.fecha_proximo_pago:
+            return 0
+        from datetime import datetime
+        if not mes_str:
+            mes_str = datetime.now().strftime('%Y-%m')
+        try:
+            a_cobro, m_cobro = map(int, mes_str.split('-'))
+            a_prox = cliente.fecha_proximo_pago.year
+            m_prox = cliente.fecha_proximo_pago.month
+            
+            diff = (a_cobro - a_prox) * 12 + (m_cobro - m_prox)
+            return diff if diff > 0 else 0
+        except:
+            return 0
+            
+    def calcular_deuda_total(cliente, mes_str=None):
+        """Calcula la deuda acumulada real incluyendo meses atrasados y el saldo pendiente previo."""
+        meses = calcular_meses_atrasados(cliente, mes_str)
+        cuota = cliente.precio_mensual or 0
+        saldo_base = cliente.saldo_pendiente or 0
+        # La deuda es: saldo anterior + (meses atrasados * cuota)
+        return saldo_base + (meses * cuota)
+
+    return dict(
+        calcular_meses_atrasados=calcular_meses_atrasados, 
+        calcular_deuda_total=calcular_deuda_total
+    )
+
 # ============== LOGIN MANAGER ==============
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'

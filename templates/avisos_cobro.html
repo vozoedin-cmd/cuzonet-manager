@@ -563,7 +563,7 @@
         {% if clientes %}
         {% for cliente in clientes %}
         <!-- Calculate Values for Display -->
-        {% set saldo_ant = cliente.saldo_pendiente or 0 %}
+        {% set saldo_ant = calcular_deuda_total(cliente, mes) %}
         {% set cuota = cliente.precio_mensual or 0 %}
         {% set total_apagar = saldo_ant + cuota %}
         
