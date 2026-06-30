@@ -81,6 +81,17 @@ class Usuario(UserMixin, db.Model):
     balance = db.Column(db.Float, default=0.0)
     router_id = db.Column(db.Integer, db.ForeignKey('config_mikrotik.id'), nullable=True)
     
+    # Nuevos campos para vendedores (Fase 1 Mejoras)
+    telefono = db.Column(db.String(20))
+    direccion = db.Column(db.String(200)) # Puede guardar un JSON con depto, muni, aldea
+    foto_perfil = db.Column(db.String(255))
+    tipo_vendedor = db.Column(db.String(50), default='acumulativo') # acumulativo o prepago
+    comision_tipo = db.Column(db.String(20), default='porcentaje') # porcentaje o valor_fijo
+    comision_valor = db.Column(db.Float, default=0.0)
+    limite_fichas = db.Column(db.Integer, default=0) # 0 = sin limite
+    estado = db.Column(db.String(20), default='activo') # activo, suspendido
+    permisos = db.Column(db.Text) # JSON de permisos
+    
     # Relaciones
     router = db.relationship('ConfigMikroTik', backref='vendedores_asignados', lazy=True)
     vouchers = db.relationship('Voucher', backref='vendedor', lazy=True)
@@ -3954,6 +3965,32 @@ def migrate_db():
                                     print(f"[MIGRATION] Error al asignar router por defecto: {inner_e}")
                         except Exception as e:
                             print(f"[MIGRATION] Error agregando '{col_name}': {e}")
+                            
+            # Verificar si la tabla usuarios existe
+            if 'usuarios' in inspector.get_table_names():
+                existing_columns = [col['name'] for col in inspector.get_columns('usuarios')]
+                
+                columns_to_add = {
+                    'telefono': 'VARCHAR(20)',
+                    'direccion': 'VARCHAR(200)',
+                    'foto_perfil': 'VARCHAR(255)',
+                    'tipo_vendedor': "VARCHAR(50) DEFAULT 'acumulativo'",
+                    'comision_tipo': "VARCHAR(20) DEFAULT 'porcentaje'",
+                    'comision_valor': 'FLOAT DEFAULT 0.0',
+                    'limite_fichas': 'INTEGER DEFAULT 0',
+                    'estado': "VARCHAR(20) DEFAULT 'activo'",
+                    'permisos': 'TEXT'
+                }
+                
+                for col_name, col_type in columns_to_add.items():
+                    if col_name not in existing_columns:
+                        try:
+                            with db.engine.connect() as conn:
+                                conn.execute(text(f'ALTER TABLE usuarios ADD COLUMN {col_name} {col_type}'))
+                                conn.commit()
+                            print(f"[MIGRATION] Columna '{col_name}' agregada a usuarios")
+                        except Exception as e:
+                            print(f"[MIGRATION] Error agregando '{col_name}' a usuarios: {e}")
             # Verificar si la tabla omada_vouchers existe
             if 'omada_vouchers' in inspector.get_table_names():
                 existing_columns = [col['name'] for col in inspector.get_columns('omada_vouchers')]
@@ -5993,22 +6030,74 @@ def hotspot_generar_masivo_ajax():
 @admin_required
 def hotspot_vendedor_guardar():
     """Crear o editar un usuario con rol de vendedor"""
+    import os
+    import json
+    from werkzeug.utils import secure_filename
+    
     vendedor_id = request.form.get('vendedor_id')
     username = request.form.get('username', '').strip()
     nombre = request.form.get('nombre', '').strip()
     password = request.form.get('password', '')
     router_id = request.form.get('router_id')
     
+    # Nuevos campos
+    telefono = request.form.get('telefono', '').strip()
+    direccion_depto = request.form.get('direccion_depto', '').strip()
+    direccion_muni = request.form.get('direccion_muni', '').strip()
+    direccion_aldea = request.form.get('direccion_aldea', '').strip()
+    direccion = json.dumps({'depto': direccion_depto, 'muni': direccion_muni, 'aldea': direccion_aldea}) if direccion_depto else ''
+    
+    tipo_vendedor = request.form.get('tipo_vendedor', 'acumulativo')
+    comision_tipo = request.form.get('comision_tipo', 'porcentaje')
+    comision_valor = float(request.form.get('comision_valor', 0.0) or 0.0)
+    limite_fichas = int(request.form.get('limite_fichas', 0) or 0)
+    estado = request.form.get('estado', 'activo')
+    
+    # Permisos
+    permisos = {
+        'vender_fichas': 'vender_fichas' in request.form,
+        'ver_reportes': 'ver_reportes' in request.form,
+        'imprimir': 'imprimir' in request.form,
+        'solicitar_inventario': 'solicitar_inventario' in request.form,
+        'editar_clientes': 'editar_clientes' in request.form,
+        'ver_ganancias': 'ver_ganancias' in request.form,
+        'administrar_omada': 'administrar_omada' in request.form
+    }
+    permisos_json = json.dumps(permisos)
+    
     if router_id:
         router_id = int(router_id)
     else:
         router_id = None
         
+    foto_filename = None
+    if 'foto_perfil' in request.files:
+        file = request.files['foto_perfil']
+        if file.filename != '':
+            filename = secure_filename(f"{username}_{file.filename}")
+            upload_folder = os.path.join(app.root_path, 'static', 'uploads', 'vendedores')
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder, exist_ok=True)
+            file.save(os.path.join(upload_folder, filename))
+            foto_filename = f"uploads/vendedores/{filename}"
+
     if vendedor_id:
         vendedor = Usuario.query.get_or_404(vendedor_id)
         vendedor.username = username
         vendedor.nombre = nombre
         vendedor.router_id = router_id
+        vendedor.telefono = telefono
+        vendedor.direccion = direccion
+        vendedor.tipo_vendedor = tipo_vendedor
+        vendedor.comision_tipo = comision_tipo
+        vendedor.comision_valor = comision_valor
+        vendedor.limite_fichas = limite_fichas
+        vendedor.estado = estado
+        vendedor.permisos = permisos_json
+        
+        if foto_filename:
+            vendedor.foto_perfil = foto_filename
+            
         if password:
             vendedor.set_password(password)
         flash('Datos del vendedor actualizados', 'success')
@@ -6023,7 +6112,16 @@ def hotspot_vendedor_guardar():
             rol='vendedor',
             router_id=router_id,
             activo=True,
-            balance=0.0
+            balance=0.0,
+            telefono=telefono,
+            direccion=direccion,
+            tipo_vendedor=tipo_vendedor,
+            comision_tipo=comision_tipo,
+            comision_valor=comision_valor,
+            limite_fichas=limite_fichas,
+            estado=estado,
+            permisos=permisos_json,
+            foto_perfil=foto_filename
         )
         vendedor.set_password(password)
         db.session.add(vendedor)
@@ -6031,6 +6129,11 @@ def hotspot_vendedor_guardar():
         
     db.session.commit()
     registrar_auditoria('guardar_vendedor', 'usuarios', vendedor.id, f'Vendedor: {username}')
+    
+    # Redirección según botón presionado
+    if request.form.get('action_type') == 'guardar_y_nuevo':
+        return redirect(url_for('hotspot_vendedor_nuevo'))
+        
     return redirect(url_for('hotspot_vendedores'))
 
 

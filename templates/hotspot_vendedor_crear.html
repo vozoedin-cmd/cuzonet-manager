@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear Vendedor - CuzoNet Manager PRO</title>
+    <title>Registrar Nuevo Vendedor - CuzoNet Manager PRO</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -24,6 +24,7 @@
             justify-content: center;
             align-items: flex-start;
             padding-top: 40px;
+            padding-bottom: 40px;
             min-height: 100vh;
         }
 
@@ -36,7 +37,7 @@
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             padding: 40px;
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
             position: relative;
             overflow: hidden;
         }
@@ -96,6 +97,15 @@
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-2px);
             color: #fff;
+        }
+
+        .section-title {
+            color: var(--info-color);
+            border-bottom: 1px solid rgba(255,170,0,0.3);
+            padding-bottom: 10px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
         }
 
         .form-row {
@@ -181,7 +191,6 @@
             gap: 12px;
             font-family: 'Outfit', sans-serif;
             box-shadow: 0 10px 25px rgba(255, 102, 0, 0.4);
-            margin-top: 16px;
         }
 
         .btn-submit:hover {
@@ -189,11 +198,24 @@
             box-shadow: 0 15px 35px rgba(255, 102, 0, 0.6);
             background: linear-gradient(90deg, #ffaa00 0%, #ff6600 100%);
         }
-        
-        .btn-submit i {
-            font-size: 1.3rem;
-        }
 
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 18px 40px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            border-radius: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+        
         /* Alertas PRO */
         .pro-alert {
             background: rgba(239, 68, 68, 0.1);
@@ -221,6 +243,28 @@
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
+        /* Checkbox PRO */
+        .pro-checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pro-checkbox-container:hover {
+            background: rgba(0,0,0,0.4);
+            border-color: rgba(255,255,255,0.1);
+        }
+        .pro-checkbox {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-color);
+        }
+
         @media (max-width: 768px) {
             .form-row { grid-template-columns: 1fr; }
             .pro-form-container { padding: 24px; margin: 16px; }
@@ -239,97 +283,6 @@
         }
         .glow-1 { top: -100px; left: -100px; }
         .glow-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, rgba(255, 170, 0, 0.15) 0%, rgba(0,0,0,0) 70%); }
-        /* CUSTOM SELECT STYLES */
-        .custom-select-wrapper {
-            position: relative;
-            user-select: none;
-            width: 100%;
-        }
-        
-        .custom-select {
-            position: relative;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 16px 20px;
-            border-radius: 16px;
-            font-size: 1.05rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .custom-select:hover {
-            background: rgba(0, 0, 0, 0.5);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-        
-        .custom-select.open {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-        }
-        
-        .custom-select-arrow {
-            transition: transform 0.3s ease;
-            color: #a5b4fc;
-        }
-        
-        .custom-select.open .custom-select-arrow {
-            transform: rotate(180deg);
-        }
-        
-        .custom-options {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #1e1e24;
-            border: 1px solid rgba(99, 102, 241, 0.5);
-            border-top: none;
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-            max-height: 250px;
-            overflow-y: auto;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-            z-index: 10;
-            transform: translateY(-10px);
-        }
-        
-        .custom-select.open + .custom-options {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-        
-        .custom-option {
-            padding: 14px 20px;
-            color: #e2e8f0;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .custom-option:last-child {
-            border-bottom: none;
-        }
-        
-        .custom-option:hover, .custom-option.selected {
-            background: rgba(99, 102, 241, 0.2);
-            color: #fff;
-            padding-left: 25px;
-        }
-
-        /* Ocultar el select original */
-        select.hidden-select {
-            display: none !important;
-        }
     </style>
 </head>
 
@@ -349,15 +302,14 @@
             
             <div class="pro-header">
                 <div>
-                    <h2>Crear Vendedor</h2>
-                    <p>Agrega un nuevo socio comercial o punto de venta a tu red.</p>
+                    <h2>Registrar Nuevo Vendedor</h2>
+                    <p>Cree un nuevo punto de venta para distribuir fichas y administrar sus ventas.</p>
                 </div>
                 <a href="/admin/hotspot/vendedores" class="btn-volver">
-                    <i class="fas fa-arrow-left"></i> Volver a Lista
+                    <i class="fas fa-arrow-left"></i> Cancelar / Volver
                 </a>
             </div>
             
-            <!-- Mostrar alertas rojas brillantes aquí en caso de error -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -369,81 +321,177 @@
                 {% endif %}
             {% endwith %}
             
-            <form action="/admin/hotspot/vendedor/guardar" method="POST" style="position: relative; z-index: 2;">
+            <form action="/admin/hotspot/vendedor/guardar" method="POST" enctype="multipart/form-data" style="position: relative; z-index: 2;">
                 <input type="hidden" name="vendedor_id" id="vendedor_id" value="{{ vendedor.id if vendedor else '' }}">
+                <input type="hidden" name="action_type" id="action_type" value="guardar">
                 
-                <div class="form-row full">
+                <!-- SECCION: Información General -->
+                <h3 class="section-title"><i class="fas fa-info-circle"></i> Información General</h3>
+                <div class="form-row">
                     <div class="pro-group">
-                        <label class="pro-label"><i class="fas fa-briefcase"></i> Tipo de Vendedor</label>
-                        <select class="hidden-select" name="tipo_vendedor" id="tipo_vendedor">
-                            <option value="acumulativo">Comisión Acumulativa (Postpago)</option>
-                            <option value="prepago">Saldo Prepagado (Venta Directa)</option>
-                        </select>
-                        <div class="custom-select-wrapper" data-target="tipo_vendedor">
-                            <div class="custom-select">
-                                <span class="custom-select-trigger">Comisión Acumulativa (Postpago)</span>
-                                <i class="fas fa-chevron-down custom-select-arrow"></i>
-                            </div>
-                            <div class="custom-options">
-                                <div class="custom-option selected" data-value="acumulativo">Comisión Acumulativa (Postpago)</div>
-                                <div class="custom-option" data-value="prepago">Saldo Prepagado (Venta Directa)</div>
-                            </div>
-                        </div>
+                        <label class="pro-label"><i class="fas fa-store"></i> Nombre del Negocio / Vendedor</label>
+                        <input type="text" name="nombre" class="pro-input" placeholder="Ej: Abarrotes Doña Maria" required value="{{ vendedor.nombre if vendedor else '' }}">
                     </div>
-                </div>
-
-                <div class="form-row full">
                     <div class="pro-group">
-                        <label class="pro-label"><i class="fas fa-store"></i> Nombre del Negocio o Vendedor</label>
-                        <input type="text" name="nombre" class="pro-input" placeholder="Ej: Abarrotes Doña Maria..." required autocomplete="off" value="{{ vendedor.nombre if vendedor else '' }}">
+                        <label class="pro-label"><i class="fas fa-phone"></i> Teléfono</label>
+                        <input type="text" name="telefono" id="telefono" class="pro-input" placeholder="Ej: +502 5555 1234" value="{{ vendedor.telefono if vendedor else '' }}">
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="pro-group">
-                        <label class="pro-label"><i class="fas fa-mobile-alt"></i> Usuario / Teléfono</label>
-                        <input type="text" name="username" class="pro-input" placeholder="Ej: 55512345" required autocomplete="off" value="{{ vendedor.username if vendedor else '' }}">
+                        <label class="pro-label"><i class="fas fa-map-marker-alt"></i> Departamento</label>
+                        <input type="text" name="direccion_depto" class="pro-input" placeholder="Ej: Alta Verapaz">
                     </div>
                     <div class="pro-group">
-                        <label class="pro-label"><i class="fas fa-lock"></i> Contraseña de Acceso</label>
-                        <input type="password" name="password" class="pro-input" placeholder="••••••••" {% if not vendedor %}required{% endif %}>
-                        {% if vendedor %}
-                        <small style="color: #ffaa00; margin-top:5px; display:block;">(Dejar en blanco para conservar la misma contraseña)</small>
-                        {% endif %}
+                        <label class="pro-label"><i class="fas fa-map-marker"></i> Municipio</label>
+                        <input type="text" name="direccion_muni" class="pro-input" placeholder="Ej: Cobán">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-home"></i> Aldea / Zona</label>
+                        <input type="text" name="direccion_aldea" class="pro-input" placeholder="Ej: Zona 1">
+                    </div>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-camera"></i> Foto del Vendedor (Opcional)</label>
+                        <input type="file" name="foto_perfil" class="pro-input" accept="image/*" style="padding: 12px;">
                     </div>
                 </div>
 
-                <div class="form-row full">
+                <!-- SECCION: Credenciales -->
+                <h3 class="section-title"><i class="fas fa-key"></i> Credenciales de Acceso</h3>
+                <div class="form-row">
                     <div class="pro-group">
-                        <label class="pro-label"><i class="fas fa-server"></i> Asignar a Router MikroTik (Opcional)</label>
-                        <select class="hidden-select" name="router_id" id="router_id">
-                            <option value="">-- Modo Global (Sin router específico) --</option>
-                            {% for r in routers %}
-                                <option value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</option>
-                            {% endfor %}
-                        </select>
-                        <div class="custom-select-wrapper" data-target="router_id">
-                            <div class="custom-select">
-                                <span class="custom-select-trigger">-- Modo Global (Sin router específico) --</span>
-                                <i class="fas fa-chevron-down custom-select-arrow"></i>
-                            </div>
-                            <div class="custom-options">
-                                <div class="custom-option selected" data-value="">-- Modo Global (Sin router específico) --</div>
-                                {% for r in routers %}
-                                    <div class="custom-option" data-value="{{ r.id }}">{{ r.nombre }} ({{ r.host }})</div>
-                                {% endfor %}
-                            </div>
+                        <label class="pro-label"><i class="fas fa-user"></i> Usuario</label>
+                        <input type="text" name="username" class="pro-input" placeholder="Ej: abarrotes_maria" required autocomplete="off" value="{{ vendedor.username if vendedor else '' }}">
+                    </div>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-lock"></i> Contraseña</label>
+                        <div style="position: relative;">
+                            <input type="password" name="password" id="passwordInput" class="pro-input" placeholder="••••••••" {% if not vendedor %}required{% endif %}>
+                            <button type="button" onclick="togglePassword()" style="position:absolute; right:15px; top:18px; background:none; border:none; color:#a5b4fc; cursor:pointer;"><i class="fas fa-eye" id="eyeIcon"></i></button>
+                        </div>
+                        <div style="margin-top: 8px; display:flex; justify-content: space-between;">
+                            <button type="button" onclick="generarPassword()" style="background:none; border:none; color:#ffaa00; cursor:pointer; font-size:0.85rem;"><i class="fas fa-dice"></i> Generar segura</button>
+                            {% if vendedor %}<small style="color: #ffaa00;">(Dejar en blanco para mantener actual)</small>{% endif %}
                         </div>
                     </div>
                 </div>
 
-                <div class="form-row full">
-                    <button type="submit" class="btn-submit">
-                        <i class="fas fa-bolt"></i> Registrar Nuevo Vendedor
+                <!-- SECCION: Configuración Comercial -->
+                <h3 class="section-title"><i class="fas fa-chart-line"></i> Configuración Comercial</h3>
+                <div class="form-row">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-tags"></i> Tipo de Vendedor</label>
+                        <select class="pro-select" name="tipo_vendedor">
+                            <option value="acumulativo" {% if vendedor and vendedor.tipo_vendedor == 'acumulativo' %}selected{% endif %}>Comisión Acumulativa (Postpago)</option>
+                            <option value="prepago" {% if vendedor and vendedor.tipo_vendedor == 'prepago' %}selected{% endif %}>Saldo Prepagado (Venta Directa)</option>
+                        </select>
+                    </div>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-server"></i> Router MikroTik (Opcional)</label>
+                        <select class="pro-select" name="router_id">
+                            <option value="">-- Modo Global (Todos) --</option>
+                            {% for r in routers %}
+                                <option value="{{ r.id }}" {% if vendedor and vendedor.router_id == r.id %}selected{% endif %}>{{ r.nombre }} ({{ r.host }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-percent"></i> Tipo de Comisión</label>
+                        <select class="pro-select" name="comision_tipo">
+                            <option value="porcentaje" {% if vendedor and vendedor.comision_tipo == 'porcentaje' %}selected{% endif %}>Porcentaje (%)</option>
+                            <option value="fijo" {% if vendedor and vendedor.comision_tipo == 'fijo' %}selected{% endif %}>Valor Fijo (Q)</option>
+                        </select>
+                    </div>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-money-bill-wave"></i> Valor de Comisión</label>
+                        <input type="number" step="0.01" name="comision_valor" class="pro-input" placeholder="Ej: 15 (para 15%)" value="{{ vendedor.comision_valor if vendedor else '0' }}">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-box"></i> Límite de Inventario (Fichas)</label>
+                        <input type="number" name="limite_fichas" class="pro-input" placeholder="0 = Sin límite" value="{{ vendedor.limite_fichas if vendedor else '0' }}">
+                    </div>
+                    <div class="pro-group">
+                        <label class="pro-label"><i class="fas fa-power-off"></i> Estado de la Cuenta</label>
+                        <select class="pro-select" name="estado">
+                            <option value="activo" {% if vendedor and vendedor.estado == 'activo' %}selected{% endif %}>🟢 Activo (Puede vender)</option>
+                            <option value="suspendido" {% if vendedor and vendedor.estado == 'suspendido' %}selected{% endif %}>🔴 Suspendido (Bloqueado)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- SECCION: Permisos -->
+                <h3 class="section-title"><i class="fas fa-shield-alt"></i> Permisos del Vendedor en su Panel</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="vender_fichas" class="pro-checkbox" checked> Vender Fichas
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="ver_reportes" class="pro-checkbox" checked> Ver Reportes
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="imprimir" class="pro-checkbox" checked> Imprimir Vouchers
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="solicitar_inventario" class="pro-checkbox" checked> Solicitar Inventario
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="ver_ganancias" class="pro-checkbox" checked> Ver Ganancias
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <button type="submit" class="btn-submit" onclick="document.getElementById('action_type').value='guardar'">
+                        <i class="fas fa-save"></i> Guardar Vendedor
+                    </button>
+                    <button type="submit" class="btn-secondary" onclick="document.getElementById('action_type').value='guardar_y_nuevo'">
+                        <i class="fas fa-plus"></i> Guardar y Agregar Otro
                     </button>
                 </div>
             </form>
         </div>
     </main>
+    
+    <script>
+        function togglePassword() {
+            const pwd = document.getElementById('passwordInput');
+            const icon = document.getElementById('eyeIcon');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                pwd.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        function generarPassword() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
+            let pwd = '';
+            for(let i=0; i<10; i++) {
+                pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('passwordInput').value = pwd;
+            if(document.getElementById('passwordInput').type === 'password') {
+                togglePassword(); // Mostrarla para que la pueda anotar
+            }
+        }
+        
+        // Validación básica de teléfono en tiempo real
+        document.getElementById('telefono').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^\d\+\-\s\(\)]/g, '');
+        });
+    </script>
 </body>
 </html>
