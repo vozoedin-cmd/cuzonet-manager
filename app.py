@@ -2257,6 +2257,18 @@ def aviso_cobro_individual(cliente_id, mes=None):
     except:
         anio = mes[:4]
         mes_nombre = mes
+        
+    def calcular_vencimiento(mes_str, dia_corte):
+        try:
+            a, m = map(int, mes_str.split('-'))
+            import calendar
+            from datetime import timedelta
+            _, last_day = calendar.monthrange(a, m)
+            dia = min(dia_corte or 1, last_day)
+            venc = datetime(a, m, dia) + timedelta(days=5)
+            return venc.strftime('%d-%m-%Y')
+        except:
+            return "5 días post-corte"
     
     return render_template('avisos_cobro.html', 
                          clientes=[cliente], 
@@ -2267,7 +2279,8 @@ def aviso_cobro_individual(cliente_id, mes=None):
                          filtro='individual',
                          total_activos=1,
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
-                         numero_a_letras=numero_a_letras)
+                         numero_a_letras=numero_a_letras,
+                         calcular_vencimiento=calcular_vencimiento)
 
 
 @app.route('/api/recibos/meses')
