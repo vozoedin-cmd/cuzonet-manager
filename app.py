@@ -91,6 +91,8 @@ class Usuario(UserMixin, db.Model):
     limite_fichas = db.Column(db.Integer, default=0) # 0 = sin limite
     estado = db.Column(db.String(20), default='activo') # activo, suspendido
     permisos = db.Column(db.Text) # JSON de permisos
+    ultimo_acceso = db.Column(db.DateTime, nullable=True)
+    ultima_ip = db.Column(db.String(50), nullable=True)
     
     # Relaciones
     router = db.relationship('ConfigMikroTik', backref='vendedores_asignados', lazy=True)
@@ -1125,6 +1127,10 @@ def login():
         user = Usuario.query.filter_by(username=username).first()
         
         if user and user.check_password(password) and user.activo:
+            user.ultimo_acceso = datetime.utcnow()
+            user.ultima_ip = request.remote_addr
+            db.session.commit()
+            
             login_user(user, remember=True)
             registrar_auditoria('login', 'usuario', user.id, f'Inicio de sesión: {username}')
             if user.rol == 'vendedor':
@@ -3979,7 +3985,9 @@ def migrate_db():
                     'comision_valor': 'FLOAT DEFAULT 0.0',
                     'limite_fichas': 'INTEGER DEFAULT 0',
                     'estado': "VARCHAR(20) DEFAULT 'activo'",
-                    'permisos': 'TEXT'
+                    'permisos': 'TEXT',
+                    'ultimo_acceso': datetime_type,
+                    'ultima_ip': 'VARCHAR(50)'
                 }
                 
                 for col_name, col_type in columns_to_add.items():
@@ -5157,8 +5165,14 @@ def hotspot_plan_desactivar(id):
 @login_required
 @admin_required
 def hotspot_vendedores():
+    from datetime import datetime
+    
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
+    
+    hoy = datetime.utcnow().date()
+    mes_actual = hoy.month
+    año_actual = hoy.year
     
     vendedores_data = []
     for v in vendedores:
@@ -5168,13 +5182,41 @@ def hotspot_vendedores():
         abonos = TransaccionVendedor.query.filter_by(vendedor_id=v.id, tipo='abono').all()
         total_abonado = sum(a.monto for a in abonos)
         
-        # Calcular ventas de Omada (Fichas usadas/vencidas)
+        # Calcular ventas totales históricas de Omada
         omada_vendidas = OmadaVoucher.query.filter_by(vendedor_id=v.id).filter(OmadaVoucher.estado.in_(['usado', 'vencido'])).all()
         ventas_omada = sum(ov.precio for ov in omada_vendidas)
         fichas_omada_vendidas = len(omada_vendidas)
         
-        # Deuda pendiente
-        deuda_pendiente = ventas_omada - total_abonado
+        # Calcular ventas totales históricas de MikroTik
+        mt_vendidas = Voucher.query.filter_by(vendedor_id=v.id).all()
+        ventas_mt = sum(vt.precio for vt in mt_vendidas)
+        fichas_mt_vendidas = len(mt_vendidas)
+        
+        ventas_totales = ventas_omada + ventas_mt
+        
+        # Calcular ventas del mes actual
+        fichas_mes_mt = Voucher.query.filter(
+            Voucher.vendedor_id == v.id,
+            db.func.extract('month', Voucher.fecha_creacion) == mes_actual,
+            db.func.extract('year', Voucher.fecha_creacion) == año_actual
+        ).all()
+        fichas_mes_om = OmadaVoucher.query.filter(
+            OmadaVoucher.vendedor_id == v.id,
+            db.func.extract('month', OmadaVoucher.fecha_uso) == mes_actual,
+            db.func.extract('year', OmadaVoucher.fecha_uso) == año_actual,
+            OmadaVoucher.estado.in_(['usado', 'vencido'])
+        ).all()
+        ventas_mes = sum(vm.precio for vm in fichas_mes_mt) + sum(vo.precio for vo in fichas_mes_om)
+        
+        # Calcular Ganancias del Vendedor este mes
+        ganancias_mes = 0
+        if v.comision_tipo == 'porcentaje':
+            ganancias_mes = ventas_mes * (v.comision_valor / 100.0)
+        else:
+            ganancias_mes = (len(fichas_mes_mt) + len(fichas_mes_om)) * v.comision_valor
+        
+        # Deuda pendiente (sobre el total)
+        deuda_pendiente = ventas_totales - total_abonado
         
         vendedores_data.append({
             'vendedor': v,
@@ -5183,9 +5225,19 @@ def hotspot_vendedores():
             'fichas_omada': fichas_omada,
             'fichas_omada_vendidas': fichas_omada_vendidas,
             'ventas_omada': ventas_omada,
+            'ventas_totales': ventas_totales,
+            'ventas_mes': ventas_mes,
+            'ganancias_mes': ganancias_mes,
             'total_abonado': total_abonado,
             'deuda_pendiente': deuda_pendiente
         })
+        
+    # Ordenar por ventas_mes para el Ranking
+    vendedores_data.sort(key=lambda x: x['ventas_mes'], reverse=True)
+    
+    # Asignar ranking
+    for idx, data in enumerate(vendedores_data):
+        data['ranking'] = idx + 1
         
     return render_template('hotspot_vendedores.html', 
                            vendedores_data=vendedores_data,
@@ -6183,14 +6235,94 @@ def handle_exception(e):
 @vendedor_required
 def vendedor_dashboard():
     """Panel del vendedor para generar vouchers"""
+    from datetime import datetime, timedelta
+    
     planes = PlanHotspot.query.filter_by(activo=True).all()
     router = ConfigMikroTik.query.get(current_user.router_id) if current_user.router_id else None
+    
+    # Obtener vouchers recientes
     vouchers = Voucher.query.filter_by(vendedor_id=current_user.id).order_by(Voucher.fecha_creacion.desc()).limit(15).all()
+    
+    # Calcular Métricas (Fase 2)
+    hoy = datetime.utcnow().date()
+    mes_actual = hoy.month
+    año_actual = hoy.year
+    
+    # Fichas Mikrotik vendidas hoy
+    fichas_hoy_mt = Voucher.query.filter(
+        Voucher.vendedor_id == current_user.id,
+        db.func.date(Voucher.fecha_creacion) == hoy
+    ).all()
+    
+    # Fichas Omada vendidas hoy (estado usado/vencido)
+    fichas_hoy_om = OmadaVoucher.query.filter(
+        OmadaVoucher.vendedor_id == current_user.id,
+        db.func.date(OmadaVoucher.fecha_uso) == hoy,
+        OmadaVoucher.estado.in_(['usado', 'vencido'])
+    ).all()
+    
+    ventas_hoy_total = sum(v.precio for v in fichas_hoy_mt) + sum(o.precio for o in fichas_hoy_om)
+    
+    # Fichas Mikrotik vendidas este mes
+    fichas_mes_mt = Voucher.query.filter(
+        Voucher.vendedor_id == current_user.id,
+        db.func.extract('month', Voucher.fecha_creacion) == mes_actual,
+        db.func.extract('year', Voucher.fecha_creacion) == año_actual
+    ).all()
+    
+    # Fichas Omada vendidas este mes
+    fichas_mes_om = OmadaVoucher.query.filter(
+        OmadaVoucher.vendedor_id == current_user.id,
+        db.func.extract('month', OmadaVoucher.fecha_uso) == mes_actual,
+        db.func.extract('year', OmadaVoucher.fecha_uso) == año_actual,
+        OmadaVoucher.estado.in_(['usado', 'vencido'])
+    ).all()
+    
+    ventas_mes_total = sum(v.precio for v in fichas_mes_mt) + sum(o.precio for o in fichas_mes_om)
+    
+    # Calcular Ganancias
+    ganancias_mes = 0
+    if current_user.comision_tipo == 'porcentaje':
+        ganancias_mes = ventas_mes_total * (current_user.comision_valor / 100.0)
+    else:
+        # Fijo por ficha vendida
+        total_fichas_vendidas = len(fichas_mes_mt) + len(fichas_mes_om)
+        ganancias_mes = total_fichas_vendidas * current_user.comision_valor
+        
+    # Inventario actual
+    inventario_actual = 0
+    limite = current_user.limite_fichas or 0
+    if limite > 0:
+        fichas_activas_mt = Voucher.query.filter_by(vendedor_id=current_user.id, activo=True).count()
+        fichas_disponibles_om = OmadaVoucher.query.filter_by(vendedor_id=current_user.id, estado='disponible').count()
+        inventario_actual = limite - (fichas_activas_mt + fichas_disponibles_om)
+        if inventario_actual < 0:
+            inventario_actual = 0
+            
+    # Datos para gráfico (Últimos 7 días)
+    ventas_grafico = []
+    dias_grafico = []
+    for i in range(6, -1, -1):
+        dia = hoy - timedelta(days=i)
+        dias_grafico.append(dia.strftime('%d/%m'))
+        
+        v_mt = Voucher.query.filter(Voucher.vendedor_id == current_user.id, db.func.date(Voucher.fecha_creacion) == dia).all()
+        v_om = OmadaVoucher.query.filter(OmadaVoucher.vendedor_id == current_user.id, db.func.date(OmadaVoucher.fecha_uso) == dia, OmadaVoucher.estado.in_(['usado', 'vencido'])).all()
+        
+        total_dia = sum(v.precio for v in v_mt) + sum(o.precio for o in v_om)
+        ventas_grafico.append(total_dia)
     
     return render_template('vendedor_dashboard.html',
                            planes=planes,
                            router=router,
-                           vouchers=vouchers)
+                           vouchers=vouchers,
+                           ventas_hoy=ventas_hoy_total,
+                           ventas_mes=ventas_mes_total,
+                           ganancias_mes=ganancias_mes,
+                           inventario_actual=inventario_actual,
+                           limite_fichas=limite,
+                           dias_grafico=dias_grafico,
+                           ventas_grafico=ventas_grafico)
 
 
 @app.route('/api/hotspot/generar', methods=['POST'])

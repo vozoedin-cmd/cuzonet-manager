@@ -131,13 +131,13 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Nombre (Negocio)</th>
-                            <th>Usuario (Tel)</th>
-                            <th>Fichas Vendidas</th>
-                            <th>Total Vendido</th>
-                            <th>Abonos Recibidos</th>
+                            <th>#</th>
+                            <th>Vendedor</th>
+                            <th>Última Actividad</th>
+                            <th>Ventas (Mes / Total)</th>
+                            <th>Ganancias (Mes)</th>
+                            <th>Abonos</th>
                             <th>Deuda Pendiente</th>
-                            <th>Saldo TPV</th>
                             <th>Operaciones</th>
                         </tr>
                     </thead>
@@ -145,43 +145,57 @@
                         {% for item in vendedores_data %}
                         <tr>
                             <td>
+                                <div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; background: rgba(255,170,0,0.1); color: #ffaa00; border-radius:50%; font-weight:bold;">
+                                    {{ item.ranking }}
+                                </div>
+                            </td>
+                            <td>
                                 <div class="client-info">
                                     <div class="client-avatar">
+                                        {% if item.vendedor.foto_perfil %}
+                                        <img src="{{ url_for('static', filename='uploads/vendedores/' ~ item.vendedor.foto_perfil) }}" alt="Foto" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
+                                        {% else %}
                                         <i class="fas fa-user-tie"></i>
+                                        {% endif %}
                                     </div>
-                                    <span class="client-name">{{ item.vendedor.nombre }}</span>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span class="client-name" style="font-size: 1rem;">{{ item.vendedor.nombre }}</span>
+                                        <span style="color: var(--primary-light); font-size: 0.8rem;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> {{ item.vendedor.telefono or 'N/A' }}</span>
+                                    </div>
                                 </div>
                             </td>
                             <td>
-                                <div style="display: flex; flex-direction: column;">
-                                    <span style="color: var(--primary-light);">{{ item.vendedor.username }}</span>
-                                    {% if item.vendedor.router %}
-                                    <span class="stat-badge active" style="font-size: 0.65rem; margin-top: 4px; display: inline-block; width: fit-content;"><i class="fas fa-server"></i> {{ item.vendedor.router.nombre }}</span>
+                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
+                                    {% if item.vendedor.ultimo_acceso %}
+                                    <span style="color: #a5b4fc;"><i class="fas fa-clock"></i> {{ item.vendedor.ultimo_acceso.strftime('%d/%m/%Y %H:%M') }}</span>
+                                    {% else %}
+                                    <span style="color: #6b7280;">Nunca ingresó</span>
+                                    {% endif %}
+                                    {% if item.vendedor.ultima_ip %}
+                                    <span class="ip-badge"><i class="fas fa-globe"></i> {{ item.vendedor.ultima_ip }}</span>
                                     {% endif %}
                                 </div>
                             </td>
                             <td>
-                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                                    <span class="pro-badge badge-purple" style="color: #c084fc; border-color: #c084fc;">
-                                        Omada: {{ item.fichas_omada_vendidas }} / {{ item.fichas_omada }}
-                                    </span>
-                                    {% if item.fichas_mikrotik > 0 %}
-                                    <span class="pro-badge" style="font-size: 0.7rem; padding: 2px 6px; background: rgba(255,255,255,0.05); color: #888;">
-                                        + {{ item.fichas_mikrotik }} de MikroTik
-                                    </span>
-                                    {% endif %}
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <span class="pro-badge badge-green" style="font-size:0.9rem;">Q. {{ "%.2f"|format(item.ventas_mes or 0.0) }} (Mes)</span>
+                                    <span style="font-size: 0.75rem; color: #a5b4fc;">Total: Q. {{ "%.2f"|format(item.ventas_totales or 0.0) }}</span>
                                 </div>
                             </td>
-                            <td><span class="pro-badge badge-orange">Q. {{ "%.2f"|format(item.ventas_omada or 0.0) }}</span></td>
-                            <td><span class="pro-badge badge-green">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
+                            <td>
+                                <span class="pro-badge badge-purple" style="font-weight: bold;">Q. {{ "%.2f"|format(item.ganancias_mes or 0.0) }}</span>
+                                <div style="font-size:0.7rem; color:#888; margin-top:2px;">
+                                    {{ item.vendedor.comision_valor }}{% if item.vendedor.comision_tipo == 'porcentaje' %}%{% else %}Q{% endif %} / ficha
+                                </div>
+                            </td>
+                            <td><span class="pro-badge badge-blue">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
                             <td><span class="pro-badge badge-red" style="font-weight: 800;">Q. {{ "%.2f"|format(item.deuda_pendiente or 0.0) }}</span></td>
-                            <td><span class="pro-badge badge-blue">Q. {{ "%.2f"|format(item.vendedor.balance or 0.0) }}</span></td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
-                                    <a href="/admin/hotspot/omada-historial?vendedor_id={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #c084fc; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 0 5px rgba(168, 85, 247, 0.3);" title="Ver Fichas Omada" onmouseover="this.style.background='#c084fc'; this.style.color='#fff';" onmouseout="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.color='#c084fc';">
-                                        <i class="fas fa-ticket-alt"></i>
+                                    <a href="/admin/hotspot/omada-historial?vendedor_id={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #c084fc; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 0 5px rgba(168, 85, 247, 0.3);" title="Ver Historial" onmouseover="this.style.background='#c084fc'; this.style.color='#fff';" onmouseout="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.color='#c084fc';">
+                                        <i class="fas fa-list-alt"></i>
                                     </a>
-                                    <button class="btn-icon success" style="transition: all 0.3s; box-shadow: 0 0 5px rgba(3,167,134,0.3);" title="Abonar Saldo" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
+                                    <button class="btn-icon success" style="transition: all 0.3s; box-shadow: 0 0 5px rgba(3,167,134,0.3);" title="Abonar Saldo / Liquidar" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
                                         <i class="fas fa-hand-holding-usd"></i>
                                     </button>
                                     <a href="/admin/hotspot/vendedor/nuevo?edit={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 0 5px rgba(255,170,0,0.3);" title="Editar Vendedor" onmouseover="this.style.background='#ffaa00'; this.style.color='#fff';" onmouseout="this.style.background='rgba(255,170,0,0.2)'; this.style.color='#ffaa00';">
@@ -192,7 +206,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Aún no hay vendedores creados</td>
+                            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Aún no hay vendedores creados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
