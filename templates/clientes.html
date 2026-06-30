@@ -585,14 +585,21 @@
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label for="filtro_dia_pago"><i class="fas fa-calendar-day"></i> Filtrar por Día de Pago</label>
-                    <select id="filtro_dia_pago" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
-                        <option value="">Todos los días (No filtrar)</option>
-                        {% for d in range(1, 32) %}
-                        <option value="{{ d }}">Día {{ d }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="form-row" style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label for="filtro_mes"><i class="fas fa-calendar-alt"></i> Mes a Cobrar</label>
+                        <input type="month" id="filtro_mes" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                    </div>
+
+                    <div class="form-group" style="flex:1;">
+                        <label for="filtro_dia_pago"><i class="fas fa-calendar-day"></i> Día de Pago</label>
+                        <select id="filtro_dia_pago" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                            <option value="">Todos los días</option>
+                            {% for d in range(1, 32) %}
+                            <option value="{{ d }}">Día {{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="modal-footer" style="padding: 0; margin-top: 20px;">
@@ -786,6 +793,14 @@
         }
 
         function abrirAvisosCobro() {
+            // Set current month as default if empty
+            const now = new Date();
+            const monthInput = document.getElementById('filtro_mes');
+            if(!monthInput.value) {
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                monthInput.value = `${yyyy}-${mm}`;
+            }
             openModal('avisosCobroModal');
         }
 
@@ -795,8 +810,13 @@
             const routerId = activeTab ? activeTab.dataset.routerId : '';
             const filtro = document.getElementById('filtro_estado').value;
             const diaPago = document.getElementById('filtro_dia_pago').value;
+            const mes = document.getElementById('filtro_mes').value;
 
-            let url = `/avisos-cobro?filtro=${filtro}`;
+            let url = '/avisos-cobro';
+            if (mes) {
+                url += `/${mes}`;
+            }
+            url += `?filtro=${filtro}`;
             if (routerId && routerId !== 'all') {
                 url += `&router_id=${routerId}`;
             }

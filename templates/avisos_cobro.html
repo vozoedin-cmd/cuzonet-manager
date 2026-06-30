@@ -573,8 +573,8 @@
                 <!-- FOOTER WITH SCISSORS AND QR -->
                 <div class="aviso-footer">
                     <div class="qr-placeholder">
-                        <!-- We use an external fast QR generator for aesthetics (using client ID) -->
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=CuzoNet-{{ cliente.id }}-{{ mes }}&margin=0" alt="QR">
+                        <!-- We use an external fast QR generator for aesthetics (using client info) -->
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ ('CuzoNet | Cliente: ' ~ cliente.nombre ~ ' | A Pagar: Q' ~ '%.2f'|format(cliente.precio_mensual or 0) ~ ' | Mes: ' ~ mes_nombre)|urlencode }}&margin=0" alt="QR">
                     </div>
                     <div class="firma-box">
                         <div class="firma-line"></div>
