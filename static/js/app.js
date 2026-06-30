@@ -619,8 +619,17 @@ function imprimirMorosos() {
     if (!table) return;
 
     const hoy = new Date();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    const yyyy = hoy.getFullYear();
+    const hrs = hoy.getHours();
+    const ampm = hrs >= 12 ? 'PM' : 'AM';
+    const hrs12 = hrs % 12 || 12;
+    const mins = String(hoy.getMinutes()).padStart(2, '0');
+    const fechaHora = `${dd}/${mm}/${yyyy} - ${String(hrs12).padStart(2, '0')}:${mins} ${ampm}`;
     const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const fechaHoy = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+    const mesStr = meses[hoy.getMonth()];
+    
     const routerValue = window.currentRouterFilter || 'all';
     const activeTab = document.querySelector('.router-tab.active');
     const routerName = activeTab ? activeTab.textContent.trim() : '';
@@ -641,16 +650,12 @@ function imprimirMorosos() {
     let ultimoCorte = null;
     let contador = 0;
     rows.forEach((row) => {
-        const nombre  = row.dataset.nombre || '—';
-        const corte   = row.dataset.corte || '1';
-        const plan    = row.dataset.plan || '—';
-        const precio  = parseFloat(row.dataset.precio || 0).toFixed(2);
-        const estado  = row.dataset.estado || '—';
-        const estadoBadge = estado === 'cortado'
-            ? '<span style="color:#dc3545;font-weight:600;">Cortado</span>'
-            : estado === 'suspendido'
-                ? '<span style="color:#f59e0b;font-weight:600;">Suspendido</span>'
-                : '<span style="color:#10b981;font-weight:600;">Activo</span>';
+        const nombre    = row.dataset.nombre || '—';
+        const telefono  = row.dataset.telefono || '—';
+        const direccion = row.dataset.direccion || '—';
+        const corte     = row.dataset.corte || '1';
+        const plan      = row.dataset.plan || '—';
+        const precio    = parseFloat(row.dataset.precio || 0).toFixed(2);
 
         // Separador de grupo cuando cambia el día de corte
         if (corte !== ultimoCorte) {
@@ -668,9 +673,9 @@ function imprimirMorosos() {
         <tr style="background:${contador % 2 === 0 ? '#fff' : '#f8fafc'}">
             <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;">${contador}</td>
             <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;">${nombre}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;">${telefono}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;font-size:11px;">${direccion}</td>
             <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;color:#1e40af;">${corte}</td>
-            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;">${plan}</td>
-            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">${estadoBadge}</td>
             <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;text-align:right;color:#dc2626;font-weight:700;">Q${precio}</td>
         </tr>`;
     });
@@ -681,9 +686,9 @@ function imprimirMorosos() {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Clientes Pendientes de Pago - ${meses[hoy.getMonth()]} ${hoy.getFullYear()}</title>
+    <title>Clientes Pendientes de Pago - ${mesStr} ${yyyy}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #222; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #222; counter-reset: page; }
         .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #00d4ff; padding-bottom:16px; margin-bottom:20px; }
         .logo { font-size:22px; font-weight:800; color:#00d4ff; }
         .logo span { color:#222; font-size:14px; display:block; font-weight:400; }
@@ -694,20 +699,35 @@ function imprimirMorosos() {
         .res-item { display:flex; flex-direction:column; }
         .res-label { font-size:11px; color:#92400e; text-transform:uppercase; }
         .res-value { font-size:20px; font-weight:700; color:#92400e; }
-        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom: 20px; }
         thead tr { background:#00d4ff; color:#fff; }
         thead th { padding:10px 14px; text-align:left; font-weight:600; }
-        thead th:nth-child(3), thead th:nth-child(5), thead th:nth-child(6) { text-align:center; }
+        thead th:nth-child(5) { text-align:center; }
         thead th:nth-child(6) { text-align:right; }
-        tfoot tr { background:#fee2e2; }
-        tfoot td { padding:10px 14px; font-weight:700; color:#dc2626; border-top:2px solid #dc2626; }
-        .firma { margin-top:50px; display:flex; justify-content:space-around; }
-        .firma-box { text-align:center; width:200px; }
+        tfoot tr { background:#1e40af; }
+        tfoot td { padding:12px 14px; font-weight:800; color:#ffffff; font-size:16px; border-top:2px solid #1e3a8a; }
+        
+        .firma { margin-top:40px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 20px; page-break-inside: avoid; }
+        .firma-box { text-align:center; }
         .firma-box .linea { border-top:1px solid #222; margin-bottom:6px; }
         .firma-box p { margin:0; font-size:12px; color:#555; }
+        
+        #pageFooter { display: none; }
+        
         @media print {
-            body { padding:10px; }
+            body { padding:10mm 10mm 20mm 10mm; }
             .no-print { display:none; }
+            #pageFooter {
+                display: block;
+                position: fixed;
+                bottom: 5mm;
+                right: 10mm;
+                font-size: 11px;
+                color: #666;
+            }
+            #pageFooter:after {
+                content: "Página " counter(page);
+            }
         }
     </style>
 </head>
@@ -719,7 +739,7 @@ function imprimirMorosos() {
         </div>
         <div class="title">
             <h2>⚠ Clientes con Pago Pendiente</h2>
-            <p>${routerName ? routerName + ' &nbsp;|&nbsp; ' : ''}${meses[hoy.getMonth()]} ${hoy.getFullYear()} &nbsp;|&nbsp; Generado el ${fechaHoy}</p>
+            <p>${routerName ? routerName + ' &nbsp;|&nbsp; ' : ''}${mesStr} ${yyyy} &nbsp;|&nbsp; Generado: ${fechaHora}</p>
         </div>
     </div>
 
@@ -738,17 +758,17 @@ function imprimirMorosos() {
         <thead>
             <tr>
                 <th>#</th>
-                <th>Nombre Completo</th>
-                <th style="text-align:center;">D&iacute;a Corte</th>
-                <th>Plan</th>
-                <th style="text-align:center;">Estado</th>
-                <th style="text-align:right;">Precio/Mes</th>
+                <th>Cliente</th>
+                <th>Teléfono</th>
+                <th>Aldea</th>
+                <th style="text-align:center;">Corte</th>
+                <th style="text-align:right;">Debe</th>
             </tr>
         </thead>
         <tbody>${filas}</tbody>
         <tfoot>
             <tr>
-                <td colspan="5" style="text-align:right;">TOTAL A COBRAR:</td>
+                <td colspan="5" style="text-align:right;">TOTAL FINAL A COBRAR:</td>
                 <td style="text-align:right;">Q${totalQ}</td>
             </tr>
         </tfoot>
@@ -756,14 +776,24 @@ function imprimirMorosos() {
 
     <div class="firma">
         <div class="firma-box">
-            <div class="linea"></div>
+            <div class="linea" style="border-top:1px dashed #666; margin-top:20px;"></div>
+            <p>Fecha de Ruta</p>
+        </div>
+        <div class="firma-box">
+            <div class="linea" style="margin-top:20px;"></div>
             <p>Responsable de Cobro</p>
         </div>
         <div class="firma-box">
-            <div class="linea"></div>
+            <div class="linea" style="margin-top:20px;"></div>
+            <p>Firma del Cobrador</p>
+        </div>
+        <div class="firma-box">
+            <div class="linea" style="margin-top:20px;"></div>
             <p>Administración</p>
         </div>
     </div>
+    
+    <div id="pageFooter">Impreso ${fechaHora} - </div>
 
     <script>window.onload = function() { window.print(); }<\/script>
 </body>

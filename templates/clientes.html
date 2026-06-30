@@ -125,6 +125,7 @@
                             data-pagado-mes="{{ '1' if cliente.id in pagados_mes else '0' }}"
                             data-router-id="{{ cliente.router_id or '' }}"
                             data-telefono="{{ cliente.telefono or '' }}"
+                            data-direccion="{{ cliente.direccion or '' }}"
                             style="background: var(--bg-card); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                             
                             <td style="padding: 15px; border-radius: 8px 0 0 8px; border: 1px solid var(--border-color); border-right: none;"><input type="checkbox" class="row-checkbox" value="{{ cliente.id }}"></td>
