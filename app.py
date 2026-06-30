@@ -285,6 +285,17 @@ class Plan(db.Model):
     descripcion = db.Column(db.String(200))
 
 
+class ConfigUISP(db.Model):
+    """Configuración de la API de UISP (Ubiquiti)"""
+    __tablename__ = 'config_uisp'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(200), nullable=False) # e.g. https://unms.midominio.com
+    api_key = db.Column(db.String(255), nullable=False) # x-auth-token
+    activo = db.Column(db.Boolean, default=True)
+    fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Infraestructura(db.Model):
     """Infraestructura de red: Antenas sectoriales y estaciones"""
     __tablename__ = 'infraestructura'
@@ -298,6 +309,25 @@ class Infraestructura(db.Model):
     modelo = db.Column(db.String(100))
     notas = db.Column(db.String(500))
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Nuevos campos Integración UISP
+    uisp_id = db.Column(db.String(100), nullable=True)
+    mac = db.Column(db.String(50), nullable=True)
+    estado_online = db.Column(db.Boolean, default=False)
+    rssi = db.Column(db.Integer, nullable=True)
+    ccq = db.Column(db.Float, nullable=True)
+    airmax_quality = db.Column(db.Float, nullable=True)
+    trafico_tx = db.Column(db.Float, nullable=True) # Mbps
+    trafico_rx = db.Column(db.Float, nullable=True) # Mbps
+    temperatura = db.Column(db.Float, nullable=True)
+    cpu = db.Column(db.Float, nullable=True)
+    ram = db.Column(db.Float, nullable=True)
+    voltaje = db.Column(db.Float, nullable=True)
+    uptime = db.Column(db.String(100), nullable=True)
+    gps = db.Column(db.String(100), nullable=True)
+    firmware = db.Column(db.String(50), nullable=True)
+    clientes_conectados = db.Column(db.Integer, default=0)
+    ultima_sincronizacion = db.Column(db.DateTime, nullable=True)
     
     # Relación
     mikrotik = db.relationship('ConfigMikroTik', backref=db.backref('infraestructuras', lazy=True))
@@ -313,7 +343,24 @@ class Infraestructura(db.Model):
             'ubicacion': self.ubicacion,
             'modelo': self.modelo,
             'notas': self.notas,
-            'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d %H:%M') if self.fecha_registro else None
+            'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d %H:%M') if self.fecha_registro else None,
+            'uisp_id': self.uisp_id,
+            'mac': self.mac,
+            'estado_online': self.estado_online,
+            'rssi': self.rssi,
+            'ccq': self.ccq,
+            'airmax_quality': self.airmax_quality,
+            'trafico_tx': self.trafico_tx,
+            'trafico_rx': self.trafico_rx,
+            'temperatura': self.temperatura,
+            'cpu': self.cpu,
+            'ram': self.ram,
+            'voltaje': self.voltaje,
+            'uptime': self.uptime,
+            'gps': self.gps,
+            'firmware': self.firmware,
+            'clientes_conectados': self.clientes_conectados,
+            'ultima_sincronizacion': self.ultima_sincronizacion.strftime('%Y-%m-%d %H:%M:%S') if self.ultima_sincronizacion else None
         }
 
 
@@ -2240,7 +2287,104 @@ def antenas_view():
     """Página dedicada para gestionar antenas sectoriales y estaciones"""
     routers = ConfigMikroTik.query.all()
     infraestructuras = Infraestructura.query.all()
-    return render_template('antenas.html', routers=routers, infraestructuras=infraestructuras)
+    uisp_config = ConfigUISP.query.first()
+    return render_template('antenas.html', routers=routers, infraestructuras=infraestructuras, uisp_config=uisp_config)
+
+# ============== CONFIGURACION UISP API ==============
+
+@app.route('/api/uisp/config', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def config_uisp():
+    if request.method == 'GET':
+        config = ConfigUISP.query.first()
+        if config:
+            return jsonify({'success': True, 'url': config.url, 'api_key': config.api_key, 'activo': config.activo})
+        return jsonify({'success': False})
+        
+    data = request.json
+    config = ConfigUISP.query.first()
+    if not config:
+        config = ConfigUISP()
+        db.session.add(config)
+    
+    config.url = data.get('url', '').strip()
+    config.api_key = data.get('api_key', '').strip()
+    config.activo = data.get('activo', True)
+    
+    try:
+        from uisp_api import UISPAPI, MockUISPAPI
+        api = MockUISPAPI(config.url, config.api_key) if 'mock' in config.url.lower() else UISPAPI(config.url, config.api_key)
+        if api.ping():
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Configuración de UISP guardada y verificada'})
+        else:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'No se pudo conectar al servidor UISP. Verifica URL y Token.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/uisp/discover')
+@login_required
+def discover_uisp():
+    config = ConfigUISP.query.first()
+    if not config or not config.activo:
+        return jsonify({'success': False, 'error': 'UISP no está configurado o está inactivo'})
+        
+    try:
+        from uisp_api import UISPAPI, MockUISPAPI
+        api = MockUISPAPI(config.url, config.api_key) if 'mock' in config.url.lower() else UISPAPI(config.url, config.api_key)
+        data = api.get_cuzonet_sync_data()
+        return jsonify({'success': True, 'devices': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/uisp/sync', methods=['POST'])
+@login_required
+def sync_uisp():
+    config = ConfigUISP.query.first()
+    if not config or not config.activo:
+        return jsonify({'success': False, 'error': 'UISP no está configurado'})
+        
+    try:
+        from uisp_api import UISPAPI, MockUISPAPI
+        api = MockUISPAPI(config.url, config.api_key) if 'mock' in config.url.lower() else UISPAPI(config.url, config.api_key)
+        data = api.get_cuzonet_sync_data()
+        
+        antenas = Infraestructura.query.all()
+        synced_count = 0
+        
+        for antena in antenas:
+            match = data.get(antena.ip_address)
+            if not match and antena.mac:
+                match = data.get(antena.mac)
+                
+            if match:
+                antena.uisp_id = match['uisp_id']
+                if match['mac']: antena.mac = match['mac']
+                antena.estado_online = match['estado_online']
+                antena.rssi = match['rssi']
+                antena.ccq = match['ccq']
+                antena.airmax_quality = match['airmax_quality']
+                antena.trafico_tx = match['trafico_tx']
+                antena.trafico_rx = match['trafico_rx']
+                antena.temperatura = match['temperatura']
+                antena.cpu = match['cpu']
+                antena.ram = match['ram']
+                antena.voltaje = match['voltaje']
+                antena.uptime = match['uptime']
+                if match['gps']: antena.gps = match['gps']
+                if match['firmware']: antena.firmware = match['firmware']
+                antena.clientes_conectados = match['clientes_conectados']
+                antena.ultima_sincronizacion = datetime.utcnow()
+                synced_count += 1
+                
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Se sincronizaron {synced_count} antenas con UISP', 'synced': synced_count})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 # ============== CONFIGURACION IA API ==============
 

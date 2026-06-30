@@ -47,6 +47,14 @@
                 <p class="header-subtitle">Registra y gestiona las direcciones IP de tus antenas sectoriales y estaciones</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" onclick="abrirModalUISP()" style="background: rgba(3, 167, 134, 0.1); border-color: #03a786; color: #03a786; margin-right: 10px;">
+                    <i class="fas fa-satellite-dish"></i> Configurar UISP
+                </button>
+                {% if uisp_config and uisp_config.activo %}
+                <button class="btn btn-secondary" onclick="sincronizarUISP()" style="background: rgba(255, 170, 0, 0.1); border-color: #ffaa00; color: #ffaa00; margin-right: 10px;" title="Sincronizar telemetría desde UISP">
+                    <i class="fas fa-sync-alt" id="iconSyncUISP"></i> Sincronizar
+                </button>
+                {% endif %}
                 <button class="btn btn-primary" onclick="abrirModalInfraestructura()">
                     <i class="fas fa-plus"></i> Registrar Antena
                 </button>
@@ -83,45 +91,71 @@
                 <table class="data-table" id="antenasTable">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>IP Address</th>
-                            <th>Tipo</th>
-                            <th>Router MikroTik</th>
-                            <th>Modelo</th>
-                            <th>Ubicación / Torre</th>
-                            <th>Notas</th>
-                            <th>Acciones</th>
+                            <th style="width: 60px; text-align: center;">Estado</th>
+                            <th>Dispositivo</th>
+                            <th>Red e IP</th>
+                            <th>Señal / Enlace</th>
+                            <th>Ubicación / Notas</th>
+                            <th style="text-align: right;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="infraestructuraTbody">
                         {% for i in infraestructuras %}
                         <tr id="infra-row-{{ i.id }}">
-                            <td><strong>{{ i.nombre }}</strong></td>
+                            <td style="text-align: center;">
+                                {% if i.uisp_id %}
+                                    <div style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background-color: {{ '#10b981' if i.estado_online else '#ef4444' }}; box-shadow: 0 0 8px {{ '#10b981' if i.estado_online else '#ef4444' }};" title="{{ 'Online' if i.estado_online else 'Offline' }}"></div>
+                                {% else %}
+                                    <div style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background-color: #6b7280;" title="No vinculado a UISP"></div>
+                                {% endif %}
+                            </td>
                             <td>
-                                <a href="http://{{ i.ip_address }}" target="_blank" style="color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Abrir interfaz web del equipo">
+                                <div><strong>{{ i.nombre }}</strong></div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+                                    <span class="badge" style="background-color: {{ '#3b82f6' if i.tipo == 'Sectorial' else '#6b7280' }}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 6px;">{{ i.tipo }}</span>
+                                    {{ i.modelo or '-' }}
+                                </div>
+                            </td>
+                            <td>
+                                <a href="http://{{ i.ip_address }}" target="_blank" style="color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;" title="Abrir interfaz web">
                                     <code>{{ i.ip_address }}</code>
                                     <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
                                 </a>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    {% if i.mikrotik %}
+                                        <i class="fas fa-router" style="margin-right:4px;"></i>{{ i.mikrotik.nombre }}
+                                    {% else %}
+                                        <span style="font-style:italic;">Sin router asignado</span>
+                                    {% endif %}
+                                </div>
                             </td>
                             <td>
-                                <span class="badge" style="background-color: {{ '#3b82f6' if i.tipo == 'Sectorial' else '#6b7280' }}; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
-                                    {{ i.tipo }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if i.mikrotik %}
-                                <span style="font-size:0.9rem; color:var(--text-secondary);">
-                                    <i class="fas fa-router" style="margin-right:4px;"></i>{{ i.mikrotik.nombre }}
-                                </span>
+                                {% if i.uisp_id %}
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="font-size: 0.9rem;">
+                                        <i class="fas fa-signal" style="color: {{ '#10b981' if i.rssi and i.rssi > -65 else ('#ffaa00' if i.rssi and i.rssi > -75 else '#ef4444') }};"></i> 
+                                        <strong>{{ i.rssi or 'N/A' }} dBm</strong> 
+                                        {% if i.rssi and i.rssi < -75 %}<i class="fas fa-exclamation-triangle" style="color:#ef4444;" title="Señal débil"></i>{% endif %}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                        CCQ: <strong>{{ i.ccq or 'N/A' }}%</strong> | Clientes: <strong>{{ i.clientes_conectados }}</strong>
+                                    </div>
+                                </div>
                                 {% else %}
-                                <span style="font-size:0.9rem; color:var(--text-secondary); font-style:italic;">Ninguno</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); font-style: italic;">Sin telemetría (Sincroniza con UISP)</span>
                                 {% endif %}
                             </td>
-                            <td>{{ i.modelo or '-' }}</td>
-                            <td>{{ i.ubicacion or '-' }}</td>
-                            <td><span style="font-size:0.85rem; color:var(--text-secondary);" title="{{ i.notas }}">{{ i.notas or '-' }}</span></td>
                             <td>
-                                <div style="display:flex;gap:6px;">
+                                <div>{{ i.ubicacion or '-' }}</div>
+                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;" title="{{ i.notas }}">{{ (i.notas[:30] + '...') if i.notas and i.notas|length > 30 else (i.notas or '-') }}</div>
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display:flex; gap:6px; justify-content: flex-end;">
+                                    {% if i.uisp_id %}
+                                    <button class="btn btn-secondary btn-sm" onclick='verDetallesExtendidos({{ i.to_dict() | tojson | safe }})' title="Ver Estadísticas Extendidas" style="background-color:rgba(59, 130, 246, 0.1); border-color:#3b82f6; color:#3b82f6;">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </button>
+                                    {% endif %}
                                     <button class="btn btn-secondary btn-sm" 
                                             data-id="{{ i.id }}"
                                             data-nombre="{{ i.nombre }}"
@@ -170,6 +204,18 @@
             <form id="infraestructuraForm" class="config-form" style="padding:1.5rem;">
                 <input type="hidden" id="infra_id">
 
+                <div class="form-group" style="background: rgba(255, 170, 0, 0.05); border: 1px dashed rgba(255,170,0,0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.85rem; color:var(--text-secondary);"><i class="fas fa-magic"></i> Autocompletar desde UISP</span>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="buscarEquiposUISP()" id="btnBuscarUISP" style="background: rgba(255,170,0,0.1); border-color:#ffaa00; color:#ffaa00;">
+                            <i class="fas fa-search"></i> Buscar Equipos
+                        </button>
+                    </div>
+                    <select id="uisp_device_select" onchange="seleccionarEquipoUISP()" style="display:none; width: 100%; padding: 8px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); margin-top: 10px;">
+                        <option value="">-- Selecciona un equipo --</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="infra_nombre"><i class="fas fa-tag"></i> Nombre del Equipo *</label>
                     <input type="text" id="infra_nombre" placeholder="Ej: Sectorial Principal Norte" required>
@@ -216,14 +262,80 @@
                 </div>
 
                 <div class="form-actions" style="margin-top:1.5rem;">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('infraestructuraModal')">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('infraestructuraModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Registro</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal: Configuración UISP -->
+    <div class="modal-overlay" id="uispConfigModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-satellite-dish"></i> Configurar Conexión UISP</h3>
+                <button class="modal-close" onclick="closeModal('uispConfigModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="uispConfigForm" class="config-form" style="padding:1.5rem;" onsubmit="guardarConfigUISP(event)">
+                <div class="form-group">
+                    <label for="uisp_url"><i class="fas fa-link"></i> URL de UISP *</label>
+                    <input type="url" id="uisp_url" placeholder="https://unms.midominio.com" required value="{{ uisp_config.url if uisp_config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="uisp_api_key"><i class="fas fa-key"></i> API Key (x-auth-token) *</label>
+                    <input type="password" id="uisp_api_key" placeholder="Pega aquí el token" required value="{{ uisp_config.api_key if uisp_config else '' }}">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="uisp_activo" {% if uisp_config and uisp_config.activo %}checked{% endif %}>
+                    <label for="uisp_activo" style="margin: 0;">Activar Integración UISP</label>
+                </div>
+                <div class="modal-footer" style="padding: 0; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('uispConfigModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarUISP">Probar y Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Detalles Extendidos UISP -->
+    <div class="modal-overlay" id="uispDetailsModal">
+        <div class="modal modal-md">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Telemetría del Equipo: <span id="det_nombre" style="color:#10b981;"></span></h3>
+                <button class="modal-close" onclick="closeModal('uispDetailsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+                        <h4 style="margin-top:0; color:var(--text-secondary);"><i class="fas fa-microchip"></i> Hardware</h4>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>CPU:</span> <strong id="det_cpu"></strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>RAM:</span> <strong id="det_ram"></strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Temperatura:</span> <strong id="det_temp"></strong></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Voltaje:</span> <strong id="det_voltaje"></strong></div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+                        <h4 style="margin-top:0; color:var(--text-secondary);"><i class="fas fa-tachometer-alt"></i> Rendimiento</h4>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tráfico TX:</span> <strong id="det_tx" style="color:#ffaa00;"></strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tráfico RX:</span> <strong id="det_rx" style="color:#10b981;"></strong></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>AirMax Quality:</span> <strong id="det_amq"></strong></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Uptime:</span> <strong id="det_uptime"></strong></div>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-top:0; color:var(--text-secondary);"><i class="fas fa-info-circle"></i> Información del Sistema</h4>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>MAC Address:</span> <strong id="det_mac"></strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Firmware:</span> <strong id="det_firmware"></strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Coordenadas GPS:</span> <strong id="det_gps"></strong></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Última Sincronización:</span> <strong id="det_sync"></strong></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('uispDetailsModal')">Cerrar</button>
+            </div>
         </div>
     </div>
 
@@ -335,6 +447,159 @@
             } catch (error) {
                 showToast('Error de conexión con el servidor', 'error');
             }
+        }
+
+        // ============ INTEGRACION UISP ============
+        let uispDevices = null;
+
+        function abrirModalUISP() {
+            openModal('uispConfigModal');
+        }
+
+        async function guardarConfigUISP(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarUISP');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            const data = {
+                url: document.getElementById('uisp_url').value,
+                api_key: document.getElementById('uisp_api_key').value,
+                activo: document.getElementById('uisp_activo').checked
+            };
+
+            try {
+                const response = await fetch('/api/uisp/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error conectando al servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Probar y Guardar';
+            }
+        }
+
+        async function sincronizarUISP() {
+            const icon = document.getElementById('iconSyncUISP');
+            icon.classList.add('fa-spin');
+            showToast('Sincronizando telemetría con UISP...', 'info');
+
+            try {
+                const response = await fetch('/api/uisp/sync', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showToast(result.error, 'error');
+                    icon.classList.remove('fa-spin');
+                }
+            } catch (e) {
+                showToast('Error de conexión al sincronizar', 'error');
+                icon.classList.remove('fa-spin');
+            }
+        }
+
+        function verDetallesExtendidos(data) {
+            document.getElementById('det_nombre').textContent = data.nombre;
+            document.getElementById('det_cpu').textContent = data.cpu ? data.cpu + '%' : 'N/A';
+            document.getElementById('det_ram').textContent = data.ram ? data.ram + '%' : 'N/A';
+            document.getElementById('det_temp').textContent = data.temperatura ? data.temperatura + '°C' : 'N/A';
+            document.getElementById('det_voltaje').textContent = data.voltaje ? data.voltaje + 'V' : 'N/A';
+            
+            document.getElementById('det_tx').textContent = data.trafico_tx ? data.trafico_tx + ' Mbps' : '0 Mbps';
+            document.getElementById('det_rx').textContent = data.trafico_rx ? data.trafico_rx + ' Mbps' : '0 Mbps';
+            document.getElementById('det_amq').textContent = data.airmax_quality ? data.airmax_quality + '%' : 'N/A';
+            document.getElementById('det_uptime').textContent = data.uptime || 'N/A';
+            
+            document.getElementById('det_mac').textContent = data.mac || 'N/A';
+            document.getElementById('det_firmware').textContent = data.firmware || 'N/A';
+            document.getElementById('det_gps').textContent = data.gps || 'N/A';
+            document.getElementById('det_sync').textContent = data.ultima_sincronizacion || 'Nunca';
+
+            openModal('uispDetailsModal');
+        }
+
+        async function buscarEquiposUISP() {
+            const btn = document.getElementById('btnBuscarUISP');
+            const select = document.getElementById('uisp_device_select');
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/uisp/discover');
+                const result = await response.json();
+                
+                if (result.success) {
+                    uispDevices = result.devices;
+                    select.innerHTML = '<option value="">-- Selecciona el equipo para autocompletar --</option>';
+                    
+                    for (const [key, dev] of Object.entries(uispDevices)) {
+                        const opt = document.createElement('option');
+                        opt.value = key;
+                        opt.textContent = `${dev.nombre} (${dev.modelo}) - ${key}`;
+                        select.appendChild(opt);
+                    }
+                    
+                    select.style.display = 'block';
+                    showToast('Equipos cargados desde UISP', 'success');
+                } else {
+                    showToast(result.error || 'No se pudieron obtener equipos', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.innerHTML = '<i class="fas fa-search"></i> Buscar Equipos';
+                btn.disabled = false;
+            }
+        }
+
+        function seleccionarEquipoUISP() {
+            const key = document.getElementById('uisp_device_select').value;
+            if (!key || !uispDevices || !uispDevices[key]) return;
+            
+            const dev = uispDevices[key];
+            
+            // Autocompletar form
+            document.getElementById('infra_nombre').value = dev.nombre;
+            if (dev.mac && !key.includes('.')) {
+                // If key is MAC
+                document.getElementById('infra_ip').value = '';
+            } else {
+                document.getElementById('infra_ip').value = key;
+            }
+            
+            if (dev.modelo.toLowerCase().includes('sector') || dev.modelo.toLowerCase().includes('rocket') || dev.modelo.toLowerCase().includes('prism')) {
+                document.getElementById('infra_tipo').value = 'Sectorial';
+            } else {
+                document.getElementById('infra_tipo').value = 'Estación';
+            }
+            
+            document.getElementById('infra_modelo').value = dev.modelo;
+            
+            if (dev.gps) {
+                document.getElementById('infra_ubicacion').value = dev.gps;
+            }
+            
+            let notas = [];
+            if (dev.mac) notas.push(`MAC: ${dev.mac}`);
+            if (dev.firmware) notas.push(`Firmware: ${dev.firmware}`);
+            if (notas.length > 0) {
+                document.getElementById('infra_notas').value = notas.join(' | ');
+            }
+            
+            showToast('Formulario autocompletado', 'success');
         }
 
         // ============ FILTRADO DE TABLA ============
