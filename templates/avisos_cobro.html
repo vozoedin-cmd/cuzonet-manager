@@ -17,6 +17,7 @@
             --text-muted: #64748b;
             --border-light: #e2e8f0;
             --bg-light: #f8fafc;
+            --status-pending: #f59e0b;
         }
 
         * {
@@ -127,6 +128,13 @@
             height: 100%;
         }
 
+        /* Brand Top Bar */
+        .brand-bar {
+            height: 8px;
+            width: 100%;
+            background: var(--brand-orange);
+        }
+
         /* Watermark Background */
         .aviso::before {
             content: '';
@@ -134,13 +142,13 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
+            width: 80%;
+            height: 80%;
             background-image: url("{{ url_for('static', filename='img/logo.png') }}");
             background-repeat: no-repeat;
             background-position: center;
             background-size: contain;
-            opacity: 0.03; /* Extremely subtle */
+            opacity: 0.08; /* Slightly more visible as requested */
             pointer-events: none;
             z-index: 0;
         }
@@ -159,7 +167,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            padding: 20px;
+            padding: 15px 20px;
             border-bottom: 2px solid var(--bg-light);
         }
 
@@ -177,6 +185,21 @@
 
         .aviso-title-box {
             text-align: right;
+            position: relative;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: -5px;
+            right: 0;
+            background: var(--status-pending);
+            color: white;
+            padding: 2px 8px;
+            font-size: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+            border-radius: 4px;
+            letter-spacing: 1px;
         }
 
         .aviso-title-box h2 {
@@ -185,6 +208,7 @@
             color: var(--text-main);
             letter-spacing: -0.5px;
             text-transform: uppercase;
+            margin-top: 15px;
         }
 
         .aviso-title-box p {
@@ -193,13 +217,23 @@
             font-weight: 600;
         }
 
+        .fechas-box {
+            margin-top: 6px;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .fechas-box strong {
+            color: var(--text-main);
+        }
+
         /* Info Grid */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             padding: 15px 20px;
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.8);
         }
 
         .info-box {
@@ -212,7 +246,7 @@
         .info-box-title {
             font-size: 9px;
             text-transform: uppercase;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--text-muted);
             margin-bottom: 8px;
             letter-spacing: 0.5px;
@@ -238,6 +272,30 @@
             flex: 1;
         }
 
+        /* Financial Summary Box */
+        .financial-summary {
+            margin: 0 20px 10px 20px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            border: 1px dashed #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .financial-item {
+            text-align: center;
+        }
+
+        .financial-item strong {
+            display: block;
+            font-size: 11px;
+            color: var(--text-main);
+            margin-top: 2px;
+        }
+
         /* Table */
         .tabla-container {
             padding: 0 20px;
@@ -247,7 +305,6 @@
         .tabla-servicios {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
 
         .tabla-servicios th {
@@ -260,9 +317,9 @@
         }
 
         .tabla-servicios td {
-            padding: 12px 10px;
+            padding: 10px;
             border-bottom: 1px solid var(--bg-light);
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
         }
 
@@ -274,10 +331,10 @@
         .totals-area {
             display: flex;
             justify-content: space-between;
-            align-items: stretch;
+            align-items: flex-end;
             padding: 0 20px;
             margin-top: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .letras-box {
@@ -308,9 +365,9 @@
             background: var(--text-main);
             color: white;
             border-radius: 8px;
-            padding: 15px 25px;
+            padding: 15px 20px;
             text-align: right;
-            min-width: 180px;
+            min-width: 160px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
@@ -324,10 +381,20 @@
         }
 
         .total-box .monto {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 800;
             color: white;
             line-height: 1;
+        }
+
+        /* Warning text */
+        .warning-text {
+            text-align: center;
+            font-size: 8px;
+            color: var(--text-muted);
+            padding: 0 20px;
+            margin-bottom: 10px;
+            font-style: italic;
         }
 
         /* Footer & Tear line */
@@ -357,12 +424,15 @@
         }
 
         .qr-placeholder {
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             background: white;
             padding: 2px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .qr-placeholder img {
@@ -371,24 +441,38 @@
             display: block;
         }
 
+        .qr-text {
+            font-size: 7px;
+            text-align: center;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
         .firma-box {
             text-align: center;
             flex-grow: 1;
-            margin-left: 30px;
+            margin-left: 20px;
         }
 
         .firma-line {
-            width: 200px;
+            width: 180px;
             height: 1px;
-            background: var(--border-light);
-            margin: 0 auto 8px auto;
+            background: var(--text-muted);
+            margin: 0 auto 6px auto;
         }
 
         .firma-text {
-            font-size: 9px;
-            color: var(--text-muted);
+            font-size: 8px;
+            color: var(--text-main);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .firma-asesor {
+            font-size: 7px;
+            color: var(--text-muted);
+            margin-top: 4px;
         }
 
         /* Print Settings */
@@ -413,7 +497,7 @@
             .aviso {
                 border: 1px dashed #cbd5e1; /* Lighter border for print cut guides */
                 box-shadow: none;
-                height: 185mm; /* Fixed height for consistent vertical fit */
+                height: 195mm; /* Max height per row to fit perfectly */
             }
 
             .aviso:nth-child(2n) {
@@ -478,7 +562,13 @@
     <div class="avisos-container">
         {% if clientes %}
         {% for cliente in clientes %}
+        <!-- Calculate Values for Display -->
+        {% set saldo_ant = cliente.saldo_pendiente or 0 %}
+        {% set cuota = cliente.precio_mensual or 0 %}
+        {% set total_apagar = saldo_ant + cuota %}
+        
         <div class="aviso">
+            <div class="brand-bar"></div>
             <div class="aviso-content">
                 <!-- HEADER -->
                 <div class="aviso-header">
@@ -491,11 +581,13 @@
                         </div>
                     </div>
                     <div class="aviso-title-box">
+                        <div class="status-badge">PENDIENTE</div>
                         <h2>Aviso de Cobro</h2>
                         <p>#{{ '%04d' % cliente.id }}-{{ mes }}</p>
-                        <div style="margin-top:6px; font-size:9px; color:var(--text-muted);">
-                            <strong>Emisión:</strong> {{ fecha_emision }}<br>
-                            <strong>Mes a Cobrar:</strong> <span style="color:var(--text-main); font-weight:700;">{{ mes_nombre|upper }} {{ anio }}</span>
+                        <div class="fechas-box">
+                            Emisión: <strong>{{ fecha_emision }}</strong><br>
+                            Vencimiento: <strong style="color:var(--status-pending);">{{ calcular_vencimiento(mes, cliente.dia_corte) }}</strong><br>
+                            Mes a Cobrar: <strong>{{ mes_nombre|upper }} {{ anio }}</strong>
                         </div>
                     </div>
                 </div>
@@ -513,24 +605,40 @@
                             <span class="val">{{ cliente.direccion if cliente.direccion else 'No registrada' }}</span>
                         </div>
                         <div class="info-line">
-                            <i class="fas fa-phone-alt"></i>
-                            <span class="val">{{ cliente.telefono if cliente.telefono else 'No registrado' }}</span>
+                            <i class="fas fa-id-badge"></i>
+                            <span class="val">Cód. Cliente: CZN-{{ '%04d' % cliente.id }}</span>
                         </div>
                     </div>
                     <div class="info-box">
                         <div class="info-box-title">Detalles Técnicos</div>
                         <div class="info-line">
                             <i class="fas fa-wifi"></i>
-                            <span class="val">Plan {{ cliente.plan.split()[0] if cliente.plan else 'Básico' }}</span>
+                            <span class="val">Plan {{ cliente.plan.split()[0] if cliente.plan else 'Básico' }} <span style="font-size:8px; color:var(--text-muted);">({{ cliente.velocidad_download }} / {{ cliente.velocidad_upload }})</span></span>
                         </div>
                         <div class="info-line">
                             <i class="fas fa-network-wired"></i>
                             <span class="val">IP: {{ cliente.ip_address }}</span>
                         </div>
                         <div class="info-line">
-                            <i class="fas fa-tachometer-alt"></i>
-                            <span class="val">{{ cliente.velocidad_download }} / {{ cliente.velocidad_upload }}</span>
+                            <i class="fas fa-info-circle"></i>
+                            <span class="val">Último Pago: {{ cliente.fecha_ultimo_pago.strftime('%d-%m-%Y') if cliente.fecha_ultimo_pago else 'Sin registro' }}</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- FINANCIAL SUMMARY -->
+                <div class="financial-summary">
+                    <div class="financial-item">
+                        Saldo Anterior
+                        <strong>Q{{ "%.2f"|format(saldo_ant) }}</strong>
+                    </div>
+                    <div class="financial-item">
+                        Cuota Mes Actual
+                        <strong>Q{{ "%.2f"|format(cuota) }}</strong>
+                    </div>
+                    <div class="financial-item">
+                        Saldo Actualizado
+                        <strong style="color:var(--brand-orange);">Q{{ "%.2f"|format(total_apagar) }}</strong>
                     </div>
                 </div>
 
@@ -541,17 +649,22 @@
                             <tr>
                                 <th>Cant.</th>
                                 <th>Descripción</th>
-                                <th class="col-right">Precio Unitario</th>
                                 <th class="col-right">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>1</td>
-                                <td>Servicio de Internet Residencial (Mes: {{ mes_nombre }})</td>
-                                <td class="col-right">Q{{ "%.2f"|format(cliente.precio_mensual or 0) }}</td>
-                                <td class="col-right">Q{{ "%.2f"|format(cliente.precio_mensual or 0) }}</td>
+                                <td>Servicio de Internet Residencial ({{ mes_nombre }})</td>
+                                <td class="col-right">Q{{ "%.2f"|format(cuota) }}</td>
                             </tr>
+                            {% if saldo_ant > 0 %}
+                            <tr>
+                                <td>1</td>
+                                <td>Saldo pendiente meses anteriores</td>
+                                <td class="col-right" style="color:var(--status-pending);">Q{{ "%.2f"|format(saldo_ant) }}</td>
+                            </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -560,25 +673,34 @@
                 <div class="totals-area">
                     <div class="letras-box">
                         <div>
-                            <strong>Son:</strong>
-                            <p>{{ numero_a_letras(cliente.precio_mensual or 0) }}</p>
+                            <strong>Valor en letras:</strong>
+                            <p>{{ numero_a_letras(total_apagar) }}</p>
                         </div>
                     </div>
                     <div class="total-box">
                         <span>Total a Pagar</span>
-                        <div class="monto">Q{{ "%.2f"|format(cliente.precio_mensual or 0) }}</div>
+                        <div class="monto">Q{{ "%.2f"|format(total_apagar) }}</div>
                     </div>
+                </div>
+
+                <div class="warning-text">
+                    ¡Gracias por preferir CuzoNet! Aceptamos pagos en <strong>Efectivo, Transferencia y Depósito</strong>.<br>
+                    Recuerde realizar su pago antes de la fecha de vencimiento para evitar interrupciones en el servicio.
                 </div>
 
                 <!-- FOOTER WITH SCISSORS AND QR -->
                 <div class="aviso-footer">
-                    <div class="qr-placeholder">
-                        <!-- We use an external fast QR generator for aesthetics (using client info) -->
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ ('CuzoNet | Cliente: ' ~ cliente.nombre ~ ' | A Pagar: Q' ~ '%.2f'|format(cliente.precio_mensual or 0) ~ ' | Mes: ' ~ mes_nombre)|urlencode }}&margin=0" alt="QR">
+                    <div>
+                        <div class="qr-placeholder">
+                            {% set whatsapp_msg = "Hola CuzoNet, soy " ~ cliente.nombre ~ " (Cod: CZN-" ~ ('%04d' % cliente.id) ~ "). Quisiera consultar o enviar comprobante de mi pago de " ~ mes_nombre ~ "." %}
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ ('https://wa.me/50232472792?text=' ~ whatsapp_msg)|urlencode }}&margin=0" alt="QR">
+                        </div>
+                        <div class="qr-text">Escanea para pagar<br>o consultar en WP</div>
                     </div>
                     <div class="firma-box">
                         <div class="firma-line"></div>
                         <div class="firma-text">Firma de Recibido / Sello</div>
+                        <div class="firma-asesor">Atendido por: Asesor CuzoNet</div>
                     </div>
                 </div>
             </div>

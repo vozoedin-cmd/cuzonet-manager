@@ -2150,6 +2150,18 @@ def avisos_cobro(mes=None):
     except:
         anio = mes[:4]
         mes_nombre = mes
+        
+    def calcular_vencimiento(mes_str, dia_corte):
+        try:
+            a, m = map(int, mes_str.split('-'))
+            import calendar
+            _, last_day = calendar.monthrange(a, m)
+            dia = min(dia_corte or 1, last_day)
+            from datetime import timedelta
+            venc = datetime(a, m, dia) + timedelta(days=5)
+            return venc.strftime('%d-%m-%Y')
+        except:
+            return "5 días post-corte"
     
     return render_template('avisos_cobro.html',
                          clientes=clientes,
@@ -2160,7 +2172,8 @@ def avisos_cobro(mes=None):
                          filtro=filtro,
                          total_activos=len(clientes_activos),
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
-                         numero_a_letras=numero_a_letras)
+                         numero_a_letras=numero_a_letras,
+                         calcular_vencimiento=calcular_vencimiento)
 
 
 @app.route('/aviso-cobro/cliente/<int:cliente_id>')
