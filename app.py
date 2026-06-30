@@ -1601,6 +1601,7 @@ def stats_vendedores_omada():
         from sqlalchemy import func, case
         # Agrupar por vendedor_id, lote, duracion, precio
         stats = db.session.query(
+            Usuario.id,
             Usuario.nombre,
             OmadaVoucher.lote,
             OmadaVoucher.duracion_valor,
@@ -1616,7 +1617,7 @@ def stats_vendedores_omada():
         resultado = {}
         unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
         
-        for nombre, lote, d_val, d_un, precio, total, disp, vend in stats:
+        for u_id, nombre, lote, d_val, d_un, precio, total, disp, vend in stats:
             if nombre not in resultado:
                 resultado[nombre] = []
                 
@@ -1634,10 +1635,83 @@ def stats_vendedores_omada():
                 'total_fichas': total,
                 'disponibles': int(disp or 0),
                 'vendidas': int(vend or 0),
-                'total_dinero': float((total or 0) * (precio or 0.0))
+                'total_dinero': float((total or 0) * (precio or 0.0)),
+                'raw_data': {
+                    'vendedor_id': u_id,
+                    'lote': lote,
+                    'duracion_valor': d_val,
+                    'duracion_unidad': d_un,
+                    'precio': precio
+                }
             })
             
         return jsonify({'success': True, 'stats': resultado})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/ver_codigos', methods=['POST'])
+@login_required
+@admin_required
+def ver_codigos_omada():
+    try:
+        data = request.json
+        vendedor_id = data.get('vendedor_id')
+        lote = data.get('lote')
+        d_val = data.get('duracion_valor')
+        d_un = data.get('duracion_unidad')
+        precio = data.get('precio')
+        
+        query = OmadaVoucher.query.filter_by(
+            vendedor_id=vendedor_id,
+            duracion_valor=d_val,
+            duracion_unidad=d_un,
+            precio=precio
+        ).filter(OmadaVoucher.estado != 'eliminado')
+        
+        if lote:
+            query = query.filter_by(lote=lote)
+        else:
+            query = query.filter(OmadaVoucher.lote.is_(None))
+            
+        vouchers = query.all()
+        lista = []
+        for v in vouchers:
+            lista.append({
+                'id': v.id,
+                'codigo': v.codigo,
+                'estado': v.estado,
+                'fecha_creacion': v.fecha_creacion.strftime('%d/%m/%Y %H:%M') if v.fecha_creacion else '',
+                'fecha_uso': v.fecha_uso.strftime('%d/%m/%Y %H:%M') if v.fecha_uso else ''
+            })
+            
+        return jsonify({'success': True, 'vouchers': lista})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/eliminar_fichas', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_fichas_omada():
+    try:
+        data = request.json
+        ids = data.get('ids', [])
+        
+        if not ids:
+            return jsonify({'success': False, 'error': 'No se proporcionaron IDs para eliminar'})
+            
+        vouchers = OmadaVoucher.query.filter(OmadaVoucher.id.in_(ids)).all()
+        eliminados = 0
+        for v in vouchers:
+            if v.estado != 'eliminado':
+                v.estado = 'eliminado'
+                # Renombrar código para evitar unique constraint si se vuelve a generar
+                v.codigo = f"{v.codigo}_del_{v.id}"
+                eliminados += 1
+                
+        if eliminados > 0:
+            db.session.commit()
+            
+        return jsonify({'success': True, 'message': f'{eliminados} fichas marcadas como eliminadas localmente.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 

@@ -200,6 +200,31 @@
         </div>
     </div>
 
+    <!-- Modal Ver Códigos -->
+    <div class="modal-overlay" id="codesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div class="modal-content" style="background: rgba(20, 20, 25, 0.95); border: 1px solid #03a786; border-radius: 12px; padding: 30px; width: 700px; max-width: 95%; color: #fff; box-shadow: 0 0 30px rgba(3, 167, 134, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(3, 167, 134, 0.3); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: #03a786;"><i class="fas fa-list-ol"></i> Códigos del Lote</h3>
+                <div>
+                    <button onclick="copiarCodigos()" class="btn-modal-action" style="margin-right: 15px; border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar PINs</button>
+                    <button onclick="eliminarLoteCompleto()" class="btn-modal-action" style="margin-right: 15px; border-color: #e63946; color: #e63946;"><i class="fas fa-trash-alt"></i> Eliminar Todo el Lote</button>
+                    <button onclick="document.getElementById('codesModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+            </div>
+            
+            <!-- Controles y Filtros -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button onclick="filtrarCodigos('todos')" class="btn-modal-action" style="flex:1;">Todos</button>
+                <button onclick="filtrarCodigos('activo')" class="btn-modal-action" style="flex:1; border-color: #03a786; color: #03a786;">Activos</button>
+                <button onclick="filtrarCodigos('usado')" class="btn-modal-action" style="flex:1; border-color: #ffaa00; color: #ffaa00;">Usados</button>
+            </div>
+            
+            <div id="codesContent" style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
+                <div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x" style="color: #03a786;"></i></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function syncPrintFields() {
             const precio = parseFloat(document.getElementById('genPrecio').value || 0).toFixed(2);
@@ -356,7 +381,8 @@
                         html += `<h4 style="color: #fff; margin-top: 15px; margin-bottom: 5px; border-bottom: 1px solid rgba(255,102,0,0.5); padding-bottom: 5px;"><i class="fas fa-user-tie" style="color:#ffaa00;"></i> ${vendedor}</h4>`;
                         html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.9rem;">';
                         html += '<tr style="color: #ffaa00; text-align: left; background: rgba(255,255,255,0.05);">';
-                        html += '<th style="padding: 8px;">Plan / Lote</th><th style="padding: 8px; text-align:center;">Disponibles</th><th style="padding: 8px; text-align:center;">Vendidas</th><th style="padding: 8px; text-align:center;">Total Generadas</th><th style="padding: 8px; text-align:right;">Deuda Total (Q)</th></tr>';
+                        html += '<th style="padding: 8px;">Plan / Lote</th><th style="padding: 8px; text-align:center;">Disponibles</th><th style="padding: 8px; text-align:center;">Vendidas</th><th style="padding: 8px; text-align:center;">Total Generadas</th><th style="padding: 8px; text-align:right;">Deuda Total (Q)</th><th style="padding: 8px; text-align:center;">Acciones</th></tr>';
+                        
                         
                         let subFichas = 0;
                         let subDinero = 0;
@@ -380,6 +406,11 @@
                                     </div>
                                 </td>
                                 <td style="padding: 8px; text-align:right; color:#ffaa00; font-weight:bold;">Q ${l.total_dinero.toFixed(2)}</td>
+                                <td style="padding: 8px; text-align:center;">
+                                    <button class="btn-modal-action" onclick="abrirDetalleCodigos('${btoa(JSON.stringify(l.raw_data))}')" style="padding: 4px 8px; font-size: 0.8rem; min-width: auto; height: auto;">
+                                        <i class="fas fa-eye"></i> Ver
+                                    </button>
+                                </td>
                             </tr>`;
                             subFichas += l.total_fichas;
                             subDinero += l.total_dinero;
@@ -390,6 +421,7 @@
                             <td colspan="2"></td>
                             <td style="padding: 8px; text-align:center; font-weight:bold; color:#fff;">${subFichas}</td>
                             <td style="padding: 8px; text-align:right; font-weight:bold; color:#ffaa00;">Q ${subDinero.toFixed(2)}</td>
+                            <td></td>
                         </tr>`;
                         html += '</table>';
                         
@@ -472,6 +504,120 @@
                 html2pdf().set(opt).from(printArea).save();
             } else {
                 setTimeout(() => { window.print(); }, 500);
+            }
+        }
+        
+        // --- LOGICA DEL MODAL DE CODIGOS ---
+        let codigosActuales = [];
+        let filtroActual = 'todos';
+        
+        async function abrirDetalleCodigos(rawDataB64) {
+            const rawData = JSON.parse(atob(rawDataB64));
+            document.getElementById('codesModal').style.display = 'flex';
+            const content = document.getElementById('codesContent');
+            content.innerHTML = '<div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x" style="color: #03a786;"></i><br><span style="color:#03a786;">Cargando...</span></div>';
+            
+            try {
+                const r = await fetch('/api/omada/ver_codigos', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(rawData)
+                });
+                const res = await r.json();
+                
+                if (res.success) {
+                    codigosActuales = res.vouchers;
+                    renderCodigos();
+                } else {
+                    content.innerHTML = `<div style="color: #e63946; text-align: center;">Error: ${res.error}</div>`;
+                }
+            } catch (e) {
+                content.innerHTML = '<div style="color: #e63946; text-align: center;">Error de red.</div>';
+            }
+        }
+        
+        function renderCodigos() {
+            const content = document.getElementById('codesContent');
+            let filtrados = codigosActuales;
+            
+            if (filtroActual !== 'todos') {
+                filtrados = codigosActuales.filter(c => c.estado === filtroActual);
+            }
+            
+            if (filtrados.length === 0) {
+                content.innerHTML = '<div style="text-align:center; color:#aaa; margin-top: 20px;">No hay códigos para este filtro.</div>';
+                return;
+            }
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">';
+            html += '<tr style="color: #03a786; text-align: left; background: rgba(255,255,255,0.05);">';
+            html += '<th style="padding: 8px;">Código PIN</th><th style="padding: 8px;">Estado</th><th style="padding: 8px;">Uso</th><th style="padding: 8px; text-align:center;">Acción</th></tr>';
+            
+            filtrados.forEach(c => {
+                let badgeClass = 'badge-green';
+                let estadoStr = 'Activo';
+                if (c.estado === 'usado') { badgeClass = 'badge-red'; estadoStr = 'Usado'; }
+                else if (c.estado === 'vencido') { badgeClass = 'badge-gray'; estadoStr = 'Vencido'; }
+                
+                html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <td style="padding: 8px; font-weight:bold; color: #fff; font-family: monospace; font-size: 1.1rem; letter-spacing: 2px;">${c.codigo}</td>
+                    <td style="padding: 8px;"><span class="pro-badge ${badgeClass}">${estadoStr}</span></td>
+                    <td style="padding: 8px; color: #ccc; font-size: 0.8rem;">${c.fecha_uso || '-'}</td>
+                    <td style="padding: 8px; text-align:center;">
+                        <button onclick="eliminarFicha(${c.id})" style="background:none; border:none; color:#e63946; cursor:pointer;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+            content.innerHTML = html;
+        }
+        
+        function filtrarCodigos(estado) {
+            filtroActual = estado;
+            renderCodigos();
+        }
+        
+        function copiarCodigos() {
+            let filtrados = codigosActuales;
+            if (filtroActual !== 'todos') {
+                filtrados = codigosActuales.filter(c => c.estado === filtroActual);
+            }
+            const texto = filtrados.map(c => c.codigo).join('\\n');
+            navigator.clipboard.writeText(texto).then(() => {
+                showToast(`Se copiaron ${filtrados.length} PINs al portapapeles.`, 'success');
+            });
+        }
+        
+        async function eliminarFicha(id) {
+            if (!confirm('¿Seguro que quieres borrar esta ficha en Cuzonet? RECUERDA: También debes borrarla en tu panel Omada para que no la usen gratis.')) return;
+            await ejecutarEliminacion([id]);
+        }
+        
+        async function eliminarLoteCompleto() {
+            if (codigosActuales.length === 0) return;
+            if (!confirm(`¿Seguro que quieres borrar las ${codigosActuales.length} fichas de este lote en Cuzonet? RECUERDA: También debes borrarlas en tu panel Omada.`)) return;
+            const ids = codigosActuales.map(c => c.id);
+            await ejecutarEliminacion(ids);
+        }
+        
+        async function ejecutarEliminacion(ids) {
+            try {
+                const r = await fetch('/api/omada/eliminar_fichas', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ids: ids})
+                });
+                const res = await r.json();
+                
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    document.getElementById('codesModal').style.display = 'none';
+                    abrirStatsVendedores(); // Recargar stats principales
+                } else {
+                    showToast(res.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error de red al eliminar', 'error');
             }
         }
     </script>
