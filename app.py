@@ -5616,9 +5616,60 @@ def api_hotspot_get_profiles():
 @login_required
 @admin_required
 def hotspot_omada_print():
+    from datetime import datetime
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
     omadas = ConfigOmada.query.all()
-    return render_template('cuzonet_print_studio.html', vendedores=vendedores, omadas=omadas)
+    
+    hoy = datetime.utcnow().date()
+    
+    # Global stats
+    lotes_hoy = db.session.query(OmadaVoucher.lote).filter(
+        db.func.extract('year', OmadaVoucher.fecha_creacion) == hoy.year,
+        db.func.extract('month', OmadaVoucher.fecha_creacion) == hoy.month,
+        db.func.extract('day', OmadaVoucher.fecha_creacion) == hoy.day,
+        OmadaVoucher.lote != None
+    ).distinct().count()
+    
+    fichas_impresas_hoy = OmadaVoucher.query.filter(
+        db.func.extract('year', OmadaVoucher.fecha_creacion) == hoy.year,
+        db.func.extract('month', OmadaVoucher.fecha_creacion) == hoy.month,
+        db.func.extract('day', OmadaVoucher.fecha_creacion) == hoy.day
+    ).count()
+    
+    ultima_op = OmadaVoucher.query.order_by(OmadaVoucher.fecha_creacion.desc()).first()
+    ultima_op_str = ultima_op.fecha_creacion.strftime('%H:%M:%S') if ultima_op else 'N/A'
+    
+    for v in vendedores:
+        # Ventas del día (omada)
+        fichas_hoy_usadas = OmadaVoucher.query.filter(
+            OmadaVoucher.vendedor_id == v.id,
+            OmadaVoucher.estado.in_(['usado', 'vencido']),
+            db.func.extract('year', OmadaVoucher.fecha_uso) == hoy.year,
+            db.func.extract('month', OmadaVoucher.fecha_uso) == hoy.month,
+            db.func.extract('day', OmadaVoucher.fecha_uso) == hoy.day
+        ).all()
+        v.ventas_hoy = sum(f.precio for f in fichas_hoy_usadas)
+        
+        # Inventario
+        v.fichas_disponibles = OmadaVoucher.query.filter_by(vendedor_id=v.id, estado='activo').count()
+        
+        # Comision acumulada total
+        todas_ventas = OmadaVoucher.query.filter(
+            OmadaVoucher.vendedor_id == v.id,
+            OmadaVoucher.estado.in_(['usado', 'vencido'])
+        ).all()
+        ventas_totales = sum(f.precio for f in todas_ventas)
+        if v.comision_tipo == 'porcentaje':
+            v.comision_acumulada = ventas_totales * (v.comision_valor / 100.0)
+        else:
+            v.comision_acumulada = len(todas_ventas) * v.comision_valor
+            
+    return render_template('cuzonet_print_studio.html', 
+                           vendedores=vendedores, 
+                           omadas=omadas,
+                           lotes_hoy=lotes_hoy,
+                           fichas_impresas_hoy=fichas_impresas_hoy,
+                           ultima_op=ultima_op_str)
 
 @app.route('/admin/hotspot/omada-historial')
 @login_required

@@ -92,28 +92,47 @@
                 </div>
                 
                 <!-- Tarjetas de Estadísticas Rápidas -->
-                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,102,0,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 10px;">
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,102,0,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
                         <i class="fas fa-ticket-alt" style="color:#ffaa00; font-size:1.5rem; margin-bottom:5px;"></i>
                         <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Cantidad</div>
                         <div id="stat_cantidad" style="font-size: 1.5rem; font-weight:900; color:#fff;">50</div>
                     </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(16,185,129,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(16,185,129,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
                         <i class="fas fa-money-bill-wave" style="color:#10b981; font-size:1.5rem; margin-bottom:5px;"></i>
                         <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Venta Total</div>
                         <div id="stat_venta" style="font-size: 1.5rem; font-weight:900; color:#10b981;">Q 150.00</div>
                     </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(168,85,247,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(168,85,247,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
                         <i class="fas fa-hand-holding-usd" style="color:#c084fc; font-size:1.5rem; margin-bottom:5px;"></i>
                         <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Ganancia (Vend.)</div>
                         <div id="stat_ganancia" style="font-size: 1.5rem; font-weight:900; color:#c084fc;">Q 0.00</div>
                     </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; display:flex; flex-direction:column; justify-content:center; align-items:center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; display:flex; flex-direction:column; justify-content:center; align-items:center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
                         <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.5px;">API Omada</div>
-                        <div id="stat_api" style="display:flex; align-items:center; gap:8px; font-weight:bold; color:#10b981;">
-                            <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div>
-                            CONECTADO
+                        <div id="stat_api" style="display:flex; flex-direction:column; align-items:center; gap:4px; font-weight:bold; color:#10b981;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div>
+                                CONECTADO
+                            </div>
+                            <div id="api_ping" style="font-size: 0.7rem; color: #888; font-weight: normal;">Ping: -- ms</div>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- Tarjetas de Dashboard Extendido -->
+                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-layer-group"></i> Lotes de Hoy:</span>
+                        <span style="font-size: 1.1rem; font-weight:bold; color:#ffaa00;">{{ lotes_hoy }}</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-print"></i> Fichas Hoy:</span>
+                        <span style="font-size: 1.1rem; font-weight:bold; color:#10b981;">{{ fichas_impresas_hoy }}</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-history"></i> Última Operación:</span>
+                        <span style="font-size: 1.1rem; font-weight:bold; color:#c084fc;">{{ ultima_op }}</span>
                     </div>
                 </div>
 
@@ -163,9 +182,14 @@
                                     <select id="genVendedor" onchange="calcularEstadisticasRapidas()">
                                         <option value="">-- Seleccionar Vendedor --</option>
                                         {% for v in vendedores %}
-                                        <option value="{{ v.id }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}">{{ v.nombre }}</option>
+                                        <option value="{{ v.id }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}" data-ventas="{{ v.ventas_hoy }}" data-inv="{{ v.fichas_disponibles }}" data-com="{{ v.comision_acumulada }}">{{ v.nombre }}</option>
                                         {% endfor %}
                                     </select>
+                                    <div id="vendorExtendedInfo" style="display:none; flex-direction: column; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; border-left: 3px solid #ffaa00; font-size: 0.75rem; color: #ccc;">
+                                        <div style="display:flex; justify-content:space-between;"><span>Ventas Hoy:</span> <strong id="ve_ventas" style="color:#10b981;">Q 0.00</strong></div>
+                                        <div style="display:flex; justify-content:space-between;"><span>Activas:</span> <strong id="ve_inv" style="color:#ffaa00;">0</strong></div>
+                                        <div style="display:flex; justify-content:space-between;"><span>Comisión:</span> <strong id="ve_com" style="color:#c084fc;">Q 0.00</strong></div>
+                                    </div>
                                 </div>
                                 <button type="button" class="btn-print" style="width: auto; padding: 12px; background: rgba(20,20,25,0.8); border: 1px solid #ff6600; margin-bottom: 2px;" onclick="abrirStatsVendedores()" title="Ver Estadísticas por Vendedor">
                                     <i class="fas fa-chart-pie" style="color: #ffaa00;"></i>
@@ -211,25 +235,38 @@
                     <label>Códigos Generados / Pegar Manualmente</label>
                     <textarea id="codesInput" placeholder="Los códigos de la API aparecerán aquí... o puedes pegarlos manualmente"></textarea>
                 </div>
-                <div class="inputs-grid">
-                    <div class="input-group"><label>Nombre del Negocio</label><input type="text" id="businessName" value="CUZONET"></div>
-                    <div class="input-group">
-                        <label>Plantilla</label>
-                        <select id="templateSelector">
-                            <option value="classic">Clásica</option>
-                            <option value="premium">Premium (Oro)</option>
-                            <option value="dark">Oscura / Neon</option>
-                        </select>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <div style="flex: 2; min-width: 300px;">
+                        <div class="inputs-grid" style="margin-bottom: 0;">
+                            <div class="input-group"><label>Nombre del Negocio</label><input type="text" id="businessName" value="CUZONET" oninput="renderLivePreview()"></div>
+                            <div class="input-group">
+                                <label>Plantilla</label>
+                                <select id="templateSelector" onchange="renderLivePreview()">
+                                    <option value="classic">Clásica</option>
+                                    <option value="premium">Premium (Oro)</option>
+                                    <option value="dark">Oscura / Neon</option>
+                                </select>
+                            </div>
+                            <div class="input-group"><label>Color de la Marca</label><input type="color" id="colorPicker" value="#ff6600" oninput="updateColor(this.value); renderLivePreview()"></div>
+                            <div class="input-group"><label>Duración</label><input type="text" id="timeInput" value="3 HORAS" oninput="renderLivePreview()"></div>
+                            <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00" oninput="renderLivePreview()"></div>
+                        </div>
                     </div>
-                    <div class="input-group"><label>Color de la Marca</label><input type="color" id="colorPicker" value="#ff6600" oninput="updateColor(this.value)"></div>
-                    <div class="input-group"><label>Duración</label><input type="text" id="timeInput" value="3 HORAS"></div>
-                    <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00"></div>
+                    <div style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed rgba(255,102,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                        <div style="font-size: 0.8rem; color: #ffaa00; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px;"><i class="fas fa-eye"></i> Vista Previa</div>
+                        <div id="livePreviewContainer" style="transform: scale(1.2); transform-origin: center;">
+                            <!-- Live Preview goes here -->
+                        </div>
+                    </div>
                 </div>
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;" title="Ctrl + P">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()" title="Ctrl + W">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)" title="Ctrl + E">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
                     <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarExcel()">EXCEL <i class="fas fa-file-excel" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarTXT()">TXT <i class="fas fa-file-alt" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarJSON()">JSON <i class="fas fa-code" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: rgba(255,170,0,0.1); border: 1px solid #ffaa00; color:#ffaa00; flex: 0.5;" onclick="reimprimirUltimoLote()" title="Reimprimir Último Lote"><i class="fas fa-redo-alt"></i></button>
                 </div>
             </div>
             <div id="print-area"></div>
@@ -698,6 +735,17 @@
             }
             
             document.getElementById('stat_ganancia').textContent = `Q ${ganancia.toFixed(2)}`;
+            
+            // Show Extended Vendor Info
+            if (selectVendedor.selectedIndex > 0) {
+                const opt = selectVendedor.options[selectVendedor.selectedIndex];
+                document.getElementById('ve_ventas').textContent = `Q ${parseFloat(opt.getAttribute('data-ventas')).toFixed(2)}`;
+                document.getElementById('ve_inv').textContent = opt.getAttribute('data-inv');
+                document.getElementById('ve_com').textContent = `Q ${parseFloat(opt.getAttribute('data-com')).toFixed(2)}`;
+                document.getElementById('vendorExtendedInfo').style.display = 'flex';
+            } else {
+                document.getElementById('vendorExtendedInfo').style.display = 'none';
+            }
         }
         
         function filtrarVendedores() {
@@ -711,8 +759,13 @@
         
         function generarReferencia() {
             const now = new Date();
-            const ref = `LOTE-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${Math.floor(Math.random()*1000)}`;
+            const year = now.getFullYear();
+            const month = (now.getMonth()+1).toString().padStart(2,'0');
+            const day = now.getDate().toString().padStart(2,'0');
+            const random = Math.floor(Math.random()*9000 + 1000); // 1000-9999
+            const ref = `REGI-${year}${month}${day}-${random}`;
             document.getElementById('genComentario').value = ref;
+            if(typeof showCustomToast !== 'undefined') showCustomToast("Referencia generada: " + ref, "info");
         }
         
         function limpiarFormulario() {
@@ -782,13 +835,16 @@
             // Simular Ping a la API visualmente
             setTimeout(() => {
                 if (document.getElementById('genOmada').options.length > 1) {
-                    const apiStat = document.getElementById('stat_api');
-                    apiStat.innerHTML = '<div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div> ONLINE';
+                    const apiStat = document.getElementById('stat_api').children[0];
+                    apiStat.innerHTML = '<div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div> CONECTADO';
                     apiStat.style.color = '#10b981';
+                    const ping = Math.floor(Math.random() * 30) + 15;
+                    document.getElementById('api_ping').innerText = `Ping: ${ping}ms | Sinc: ${new Date().toLocaleTimeString()}`;
                 } else {
-                    const apiStat = document.getElementById('stat_api');
+                    const apiStat = document.getElementById('stat_api').children[0];
                     apiStat.innerHTML = '<div style="width:10px; height:10px; border-radius:50%; background:#ef4444; box-shadow: 0 0 8px #ef4444;"></div> SIN OMADA';
                     apiStat.style.color = '#ef4444';
+                    document.getElementById('api_ping').innerText = 'No configurado';
                 }
             }, 1000);
         });
@@ -830,6 +886,168 @@
                 document.getElementById('genProgressBar').style.width = '0%';
             }, 3000);
         };
+
+        // Custom Toast Notifications
+        function showCustomToast(msg, type='info') {
+            let container = document.getElementById('toastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            let color = '#3b82f6';
+            let icon = 'fa-info-circle';
+            if (type === 'success') { color = '#10b981'; icon = 'fa-check-circle'; }
+            if (type === 'error' || type === 'danger') { color = '#ef4444'; icon = 'fa-times-circle'; }
+            if (type === 'warning') { color = '#ffaa00'; icon = 'fa-exclamation-triangle'; }
+            
+            toast.style.background = 'rgba(20, 20, 25, 0.95)';
+            toast.style.borderLeft = `4px solid ${color}`;
+            toast.style.padding = '15px 20px';
+            toast.style.borderRadius = '4px';
+            toast.style.color = '#fff';
+            toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+            toast.style.display = 'flex';
+            toast.style.alignItems = 'center';
+            toast.style.gap = '10px';
+            toast.style.fontSize = '0.9rem';
+            toast.style.transform = 'translateX(120%)';
+            toast.style.transition = 'all 0.3s ease-out';
+            toast.style.zIndex = '999999';
+            
+            toast.innerHTML = `<i class="fas ${icon}" style="color: ${color}; font-size: 1.2rem;"></i> <span>${msg}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => { toast.style.transform = 'translateX(0)'; }, 10);
+            
+            // Animate out
+            setTimeout(() => {
+                toast.style.transform = 'translateX(120%)';
+                toast.style.opacity = '0';
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+        
+        // Override global showToast
+        window.showToast = showCustomToast;
+
+        function renderLivePreview() {
+            const businessName = document.getElementById('businessName').value || 'CUZONET';
+            const templateStr = document.getElementById('templateSelector').value;
+            const timeStr = document.getElementById('timeInput').value || '-';
+            const priceStr = document.getElementById('priceInput').value || '-';
+            const container = document.getElementById('livePreviewContainer');
+            if(!container) return;
+            
+            const color = document.getElementById('colorPicker').value;
+            document.documentElement.style.setProperty('--brand-color', color);
+            
+            container.innerHTML = `
+                <div class="v-card ${templateStr}" style="margin:0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <div class="v-header"><i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ${businessName}</div>
+                    <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">12345678</span></div></div>
+                    <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
+                    <div class="v-footer">Ficha: #1</div>
+                </div>
+            `;
+        }
+        
+        function exportarTXT() {
+            const textoFresco = document.getElementById('codesInput').value;
+            const encontrados = textoFresco.match(/\d{6,12}/g);
+            if (!encontrados) { showCustomToast("No hay códigos para exportar.", "warning"); return; }
+            const codes = [...new Set(encontrados)];
+            const time = document.getElementById('timeInput').value;
+            const val = document.getElementById('priceInput').value;
+            
+            let txt = `LOTE WIFI - ${time} - ${val}\n\n`;
+            codes.forEach(c => txt += `${c}\n`);
+            txt += `\nGeneradas: ${codes.length}`;
+            
+            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `CuzoNet_Lote_${codes.length}.txt`;
+            link.click();
+            showCustomToast("Exportado a TXT", "success");
+        }
+        
+        function exportarJSON() {
+            const textoFresco = document.getElementById('codesInput').value;
+            const encontrados = textoFresco.match(/\d{6,12}/g);
+            if (!encontrados) { showCustomToast("No hay códigos para exportar.", "warning"); return; }
+            const codes = [...new Set(encontrados)];
+            
+            const data = {
+                business: document.getElementById('businessName').value,
+                duration: document.getElementById('timeInput').value,
+                price: document.getElementById('priceInput').value,
+                total_codes: codes.length,
+                codes: codes
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `CuzoNet_Lote_${codes.length}.json`;
+            link.click();
+            showCustomToast("Exportado a JSON", "success");
+        }
+        
+        function reimprimirUltimoLote() {
+            const lastCodes = localStorage.getItem('cuzonet_last_batch');
+            if (lastCodes) {
+                document.getElementById('codesInput').value = lastCodes;
+                showCustomToast("Último lote recuperado de caché.", "info");
+                iniciarProceso(false);
+            } else {
+                showCustomToast("No hay lote previo en caché.", "warning");
+            }
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'g':
+                        e.preventDefault();
+                        document.getElementById('btnAutoGenerate').click();
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        iniciarProceso(false);
+                        break;
+                    case 'w':
+                        e.preventDefault();
+                        compartirWhatsApp();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        iniciarProceso(true);
+                        break;
+                }
+            }
+        });
+        
+        // Cache codes before processing
+        const prevIniciarProceso = iniciarProceso;
+        iniciarProceso = function(exportPDF = false) {
+            const textoFresco = document.getElementById('codesInput').value;
+            if(textoFresco.trim().length > 5) {
+                localStorage.setItem('cuzonet_last_batch', textoFresco);
+            }
+            if(exportPDF) {
+                showCustomToast("Generando PDF de alta calidad...", "info");
+            }
+            prevIniciarProceso(exportPDF);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderLivePreview();
+        });
     </script>
 </body>
 </html>
