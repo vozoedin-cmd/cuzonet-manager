@@ -2123,7 +2123,7 @@ def avisos_cobro(mes=None):
     if router_id:
         query = query.filter_by(router_id=router_id)
     if dia_pago_filtro:
-        query = query.filter_by(dia_pago=dia_pago_filtro)
+        query = query.filter_by(dia_corte=dia_pago_filtro)
         
     clientes_activos = query.order_by(Cliente.nombre).all()
 
