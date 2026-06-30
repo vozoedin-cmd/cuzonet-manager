@@ -90,6 +90,33 @@
                     <h2 style="color: #fff; margin-top: 0; text-shadow: 0 0 10px rgba(255,102,0,0.5);"><i class="fas fa-paint-brush" style="color: var(--brand-color);"></i> CuzoNet Omada Print Studio</h2>
                     <p style="color: #aaaaaa; font-size: 0.95rem;">Pega los códigos generados en tu controlador Omada para imprimirlos con este diseño.</p>
                 </div>
+                
+                <!-- Tarjetas de Estadísticas Rápidas -->
+                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,102,0,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <i class="fas fa-ticket-alt" style="color:#ffaa00; font-size:1.5rem; margin-bottom:5px;"></i>
+                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Cantidad</div>
+                        <div id="stat_cantidad" style="font-size: 1.5rem; font-weight:900; color:#fff;">50</div>
+                    </div>
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(16,185,129,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <i class="fas fa-money-bill-wave" style="color:#10b981; font-size:1.5rem; margin-bottom:5px;"></i>
+                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Venta Total</div>
+                        <div id="stat_venta" style="font-size: 1.5rem; font-weight:900; color:#10b981;">Q 150.00</div>
+                    </div>
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(168,85,247,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <i class="fas fa-hand-holding-usd" style="color:#c084fc; font-size:1.5rem; margin-bottom:5px;"></i>
+                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Ganancia (Vend.)</div>
+                        <div id="stat_ganancia" style="font-size: 1.5rem; font-weight:900; color:#c084fc;">Q 0.00</div>
+                    </div>
+                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; display:flex; flex-direction:column; justify-content:center; align-items:center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.5px;">API Omada</div>
+                        <div id="stat_api" style="display:flex; align-items:center; gap:8px; font-weight:bold; color:#10b981;">
+                            <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div>
+                            CONECTADO
+                        </div>
+                    </div>
+                </div>
+
                 <div style="background: rgba(255, 102, 0, 0.05); border: 1px solid rgba(255, 102, 0, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: inset 0 0 15px rgba(255, 102, 0, 0.1);">
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div class="input-group" style="flex: 1; min-width: 200px;">
@@ -112,7 +139,7 @@
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-ticket-alt"></i> Cantidad de Fichas</label>
-                            <input type="number" id="genAmount" value="50" min="1" max="500">
+                            <input type="number" id="genAmount" value="50" min="1" max="500" oninput="calcularEstadisticasRapidas()">
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-clock"></i> Tiempo (Valor)</label>
@@ -130,29 +157,53 @@
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-user-tag"></i> Vendedor Asignado</label>
-                            <div style="display: flex; gap: 10px;">
-                                <select id="genVendedor" style="flex: 1;">
-                                    <option value="">-- Seleccionar Vendedor --</option>
-                                    {% for v in vendedores %}
-                                    <option value="{{ v.id }}">{{ v.nombre }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="button" class="btn-print" style="width: auto; padding: 12px; background: rgba(20,20,25,0.8); border: 1px solid #ff6600;" onclick="abrirStatsVendedores()" title="Ver Estadísticas por Vendedor">
+                            <div style="display: flex; gap: 10px; align-items:flex-end;">
+                                <div style="flex: 1; display:flex; flex-direction:column; gap:5px;">
+                                    <input type="text" id="searchVendedor" placeholder="🔍 Buscar vendedor..." oninput="filtrarVendedores()" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,102,0,0.3); background: rgba(0,0,0,0.4); color: #fff;">
+                                    <select id="genVendedor" onchange="calcularEstadisticasRapidas()">
+                                        <option value="">-- Seleccionar Vendedor --</option>
+                                        {% for v in vendedores %}
+                                        <option value="{{ v.id }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}">{{ v.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="button" class="btn-print" style="width: auto; padding: 12px; background: rgba(20,20,25,0.8); border: 1px solid #ff6600; margin-bottom: 2px;" onclick="abrirStatsVendedores()" title="Ver Estadísticas por Vendedor">
                                     <i class="fas fa-chart-pie" style="color: #ffaa00;"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
-                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0" oninput="syncPrintFields()">
+                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0" oninput="syncPrintFields(); calcularEstadisticasRapidas();">
                         </div>
                         <div class="input-group" style="flex: 1;">
                             <label><i class="fas fa-comment"></i> Ref / Lote Omada</label>
-                            <input type="text" id="genComentario" placeholder="Opcional (Ej. Lote 5)">
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" id="genComentario" placeholder="Opcional" style="flex:1;">
+                                <button type="button" class="btn-print" style="padding: 12px; width:auto; background:rgba(0,0,0,0.5); border:1px solid #ff6600;" onclick="generarReferencia()" title="Auto Referencia">
+                                    <i class="fas fa-magic" style="color:#ffaa00;"></i>
+                                </button>
+                            </div>
                         </div>
-                        <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1.5; padding: 12px; margin-top: 24px;" onclick="autoGenerateVouchers()">
-                            GENERAR CON API <i class="fas fa-bolt"></i>
-                        </button>
+                        <div style="flex: 1.5; display: flex; flex-direction: column; gap: 10px; margin-top: 24px;">
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); padding: 12px; flex: 0.3;" onclick="limpiarFormulario()" title="Limpiar Formulario">
+                                    <i class="fas fa-broom"></i>
+                                </button>
+                                <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1; padding: 12px;" onclick="autoGenerateVouchers()">
+                                    GENERAR CON API <i class="fas fa-bolt"></i>
+                                </button>
+                            </div>
+                            <div id="genProgressContainer" style="display:none; width: 100%;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; margin-bottom:4px;">
+                                    <span>Progreso de Generación</span>
+                                    <span id="genProgressText">0%</span>
+                                </div>
+                                <div class="pro-progress-bg">
+                                    <div id="genProgressBar" class="pro-progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -174,9 +225,11 @@
                     <div class="input-group"><label>Duración</label><input type="text" id="timeInput" value="3 HORAS"></div>
                     <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00"></div>
                 </div>
-                <div style="display: flex; gap: 15px;">
-                    <button class="btn-print" onclick="iniciarProceso(false)">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background-color: #e63946;" onclick="iniciarProceso(true)">EXPORTAR A PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
+                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarExcel()">EXCEL <i class="fas fa-file-excel" style="margin-left: 8px;"></i></button>
                 </div>
             </div>
             <div id="print-area"></div>
@@ -620,6 +673,163 @@
                 showToast('Error de red al eliminar', 'error');
             }
         }
+        // --- LOGICA DE MEJORAS UX ---
+        function calcularEstadisticasRapidas() {
+            const cantidad = parseInt(document.getElementById('genAmount').value) || 0;
+            const precio = parseFloat(document.getElementById('genPrecio').value) || 0;
+            const selectVendedor = document.getElementById('genVendedor');
+            
+            const ventaTotal = cantidad * precio;
+            let ganancia = 0;
+            
+            document.getElementById('stat_cantidad').textContent = cantidad;
+            document.getElementById('stat_venta').textContent = `Q ${ventaTotal.toFixed(2)}`;
+            
+            if (selectVendedor.selectedIndex > 0) {
+                const opt = selectVendedor.options[selectVendedor.selectedIndex];
+                const tipo = opt.getAttribute('data-tipo');
+                const valor = parseFloat(opt.getAttribute('data-valor')) || 0;
+                
+                if (tipo === 'porcentaje') {
+                    ganancia = ventaTotal * (valor / 100);
+                } else {
+                    ganancia = cantidad * valor;
+                }
+            }
+            
+            document.getElementById('stat_ganancia').textContent = `Q ${ganancia.toFixed(2)}`;
+        }
+        
+        function filtrarVendedores() {
+            const query = document.getElementById('searchVendedor').value.toLowerCase();
+            const select = document.getElementById('genVendedor');
+            for (let i = 1; i < select.options.length; i++) { // Skip placeholder
+                const text = select.options[i].text.toLowerCase();
+                select.options[i].style.display = text.includes(query) ? '' : 'none';
+            }
+        }
+        
+        function generarReferencia() {
+            const now = new Date();
+            const ref = `LOTE-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${Math.floor(Math.random()*1000)}`;
+            document.getElementById('genComentario').value = ref;
+        }
+        
+        function limpiarFormulario() {
+            if(confirm('¿Seguro que deseas reiniciar todo el formulario?')) {
+                document.getElementById('genAmount').value = '50';
+                document.getElementById('genTimeVal').value = '3';
+                document.getElementById('genPrecio').value = '3.00';
+                document.getElementById('genComentario').value = '';
+                document.getElementById('codesInput').value = '';
+                document.getElementById('print-area').innerHTML = '';
+                document.getElementById('searchVendedor').value = '';
+                document.getElementById('genVendedor').selectedIndex = 0;
+                filtrarVendedores();
+                syncPrintFields();
+                calcularEstadisticasRapidas();
+                updateColor(document.getElementById('colorPicker').value);
+            }
+        }
+        
+        function compartirWhatsApp() {
+            const textoFresco = document.getElementById('codesInput').value;
+            const encontrados = textoFresco.match(/\d{6,12}/g);
+            if (!encontrados) {
+                alert("No hay códigos para compartir.");
+                return;
+            }
+            const codes = [...new Set(encontrados)];
+            const time = document.getElementById('timeInput').value;
+            const val = document.getElementById('priceInput').value;
+            
+            let msj = `*FICHAS WIFI (${time}) - ${val}*\n\n`;
+            codes.forEach(c => msj += `${c}\n`);
+            msj += `\n*Generadas:* ${codes.length} fichas`;
+            
+            const url = `https://wa.me/?text=${encodeURIComponent(msj)}`;
+            window.open(url, '_blank');
+        }
+        
+        function exportarExcel() {
+            const textoFresco = document.getElementById('codesInput').value;
+            const encontrados = textoFresco.match(/\d{6,12}/g);
+            if (!encontrados) {
+                alert("No hay códigos para exportar.");
+                return;
+            }
+            const codes = [...new Set(encontrados)];
+            
+            let csv = "Código,Estado,Duración,Precio\n";
+            codes.forEach(c => {
+                csv += `${c},Activo,${document.getElementById('timeInput').value},${document.getElementById('priceInput').value}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `CuzoNet_Lote_${codes.length}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            calcularEstadisticasRapidas();
+            
+            // Simular Ping a la API visualmente
+            setTimeout(() => {
+                if (document.getElementById('genOmada').options.length > 1) {
+                    const apiStat = document.getElementById('stat_api');
+                    apiStat.innerHTML = '<div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div> ONLINE';
+                    apiStat.style.color = '#10b981';
+                } else {
+                    const apiStat = document.getElementById('stat_api');
+                    apiStat.innerHTML = '<div style="width:10px; height:10px; border-radius:50%; background:#ef4444; box-shadow: 0 0 8px #ef4444;"></div> SIN OMADA';
+                    apiStat.style.color = '#ef4444';
+                }
+            }, 1000);
+        });
+
+        // Reemplazar autoGenerateVouchers original para añadir barra de progreso
+        const originalAutoGenerate = autoGenerateVouchers;
+        autoGenerateVouchers = async function() {
+            const omada_id = document.getElementById('genOmada').value;
+            const vendedor_id = document.getElementById('genVendedor').value;
+            if(!omada_id || !vendedor_id) {
+                typeof showToast !== 'undefined' ? showToast('Falta Omada o Vendedor.', 'error') : alert('Faltan datos');
+                return;
+            }
+            
+            const btn = document.getElementById('btnAutoGenerate');
+            btn.disabled = true;
+            document.getElementById('genProgressContainer').style.display = 'block';
+            document.getElementById('genProgressBar').style.width = '10%';
+            document.getElementById('genProgressText').innerText = 'Conectando...';
+            
+            // Simulamos avance mientras responde la API
+            let simProgress = 10;
+            const progressInterval = setInterval(() => {
+                if (simProgress < 85) {
+                    simProgress += 10;
+                    document.getElementById('genProgressBar').style.width = simProgress + '%';
+                    document.getElementById('genProgressText').innerText = 'Generando: ' + simProgress + '%';
+                }
+            }, 500);
+
+            await originalAutoGenerate();
+
+            clearInterval(progressInterval);
+            document.getElementById('genProgressBar').style.width = '100%';
+            document.getElementById('genProgressText').innerText = '¡Listo!';
+            
+            setTimeout(() => {
+                document.getElementById('genProgressContainer').style.display = 'none';
+                document.getElementById('genProgressBar').style.width = '0%';
+            }, 3000);
+        };
     </script>
 </body>
 </html>
