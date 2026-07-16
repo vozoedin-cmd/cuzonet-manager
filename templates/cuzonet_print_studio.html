@@ -690,7 +690,7 @@
                 const card = document.createElement('div');
                 card.className = `v-card ${templateStr}`;
                 card.innerHTML = `
-                    ${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}
+                    <div class="v-header">${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}</div>
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">${code}</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
                     <div class="v-footer">Ficha: #${index + 1}</div>
@@ -1080,7 +1080,7 @@
             
             container.innerHTML = `
                 <div class="v-card ${templateStr}" style="margin:0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                    ${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}
+                    <div class="v-header">${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}</div>
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">12345678</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
                     <div class="v-footer">Ficha: #1</div>
