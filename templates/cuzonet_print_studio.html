@@ -5,7 +5,60 @@
     <title>CuzoNet Print Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js">
+        async function abrirModalHistorial() {
+            document.getElementById('historialModal').style.display = 'flex';
+            document.getElementById('historialList').innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:#ffaa00;"></i></div>';
+            try {
+                const res = await fetch('/api/omada/historial_lotes').then(r => r.json());
+                if(res.success && res.lotes.length > 0) {
+                    let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+                    html += '<tr style="border-bottom: 1px solid #ff6600; font-size:0.9rem;"><th>Referencia</th><th>Cantidad</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr>';
+                    res.lotes.forEach(l => {
+                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <td style="padding: 12px 10px; font-weight:bold; color:#ffaa00;">${l.lote}</td>
+                            <td style="padding: 12px 10px;">${l.cantidad} fichas</td>
+                            <td style="padding: 12px 10px;">Q ${parseFloat(l.precio_unitario).toFixed(2)}</td>
+                            <td style="padding: 12px 10px; font-size:0.85rem; color:#aaa;">${l.fecha}</td>
+                            <td style="padding: 12px 10px;"><button class="btn-modal-action" style="padding:5px 10px;" onclick="cargarLoteHistorial('${l.lote}')"><i class="fas fa-download"></i> Cargar</button></td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                    document.getElementById('historialList').innerHTML = html;
+                } else {
+                    document.getElementById('historialList').innerHTML = '<p>No hay lotes recientes.</p>';
+                }
+            } catch(e) {
+                document.getElementById('historialList').innerHTML = '<p style="color:red;">Error cargando historial</p>';
+            }
+        }
+        
+        async function cargarLoteHistorial(loteNombre) {
+            document.getElementById('historialModal').style.display = 'none';
+            if(typeof showToast !== 'undefined') showToast("Cargando lote: " + loteNombre, "info");
+            try {
+                const res = await fetch('/api/omada/lote/' + encodeURIComponent(loteNombre)).then(r => r.json());
+                if(res.success) {
+                    const txt = res.pines.join('\n');
+                    document.getElementById('codesInput').value = txt;
+                    
+                    if(res.duracion && res.unidad !== undefined) {
+                        const unidadStr = res.unidad == 0 ? 'MINUTOS' : (res.unidad == 1 ? 'HORAS' : 'DÍAS');
+                        document.getElementById('timeInput').value = `${res.duracion} ${unidadStr}`;
+                    }
+                    if(res.precio !== undefined) {
+                        document.getElementById('priceInput').value = `Q ${parseFloat(res.precio).toFixed(2)}`;
+                    }
+                    renderLivePreview();
+                    if(typeof showToast !== 'undefined') showToast(`Se cargaron ${res.pines.length} fichas de la base de datos.`, "success");
+                } else {
+                    if(typeof showToast !== 'undefined') showToast("Error: " + res.error, "error");
+                }
+            } catch(e) {
+                if(typeof showToast !== 'undefined') showToast("Error de conexión", "error");
+            }
+        }
+</script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         :root { --brand-color: #ff6600; --neon-glow: 0 0 15px rgba(255, 102, 0, 0.4); }
@@ -33,6 +86,9 @@
         .v-time { font-size: 0.4rem; font-weight: 700; text-transform: uppercase; margin-top: 1px; }
         .v-footer { font-size: 0.4rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; margin-top: auto; }
         
+        
+        .v-header-logo { max-width: 100%; max-height: 12px; display: block; margin: 0 auto; object-fit: contain; }
+
         /* Plantilla Premium */
         .v-card.premium { border: 2px solid #d4af37; background: linear-gradient(135deg, #fff, #fdfbf1); box-shadow: 0 2px 5px rgba(212,175,55,0.2); }
         .v-card.premium .v-header { border-bottom: 1px solid #d4af37; color: #d4af37; }
@@ -182,7 +238,7 @@
                                     <select id="genVendedor" onchange="calcularEstadisticasRapidas()">
                                         <option value="">-- Seleccionar Vendedor --</option>
                                         {% for v in vendedores %}
-                                        <option value="{{ v.id }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}" data-ventas="{{ v.ventas_hoy }}" data-inv="{{ v.fichas_disponibles }}" data-com="{{ v.comision_acumulada }}">{{ v.nombre }}</option>
+                                        <option value="{{ v.id }}" data-tel="{{ v.telefono or '' }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}" data-ventas="{{ v.ventas_hoy }}" data-inv="{{ v.fichas_disponibles }}" data-com="{{ v.comision_acumulada }}">{{ v.nombre }}</option>
                                         {% endfor %}
                                     </select>
                                     <div id="vendorExtendedInfo" style="display:none; flex-direction: column; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; border-left: 3px solid #ffaa00; font-size: 0.75rem; color: #ccc;">
@@ -238,7 +294,15 @@
                 <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
                     <div style="flex: 2; min-width: 300px;">
                         <div class="inputs-grid" style="margin-bottom: 0;">
-                            <div class="input-group"><label>Nombre del Negocio</label><input type="text" id="businessName" value="CUZONET" oninput="renderLivePreview()"></div>
+                            <div class="input-group">
+    <label>Nombre del Negocio / Logo</label>
+    <input type="text" id="businessName" value="CUZONET" oninput="renderLivePreview()">
+    <input type="file" id="logoUpload" accept="image/*" style="display:none;" onchange="handleLogoUpload(event)">
+    <div style="display:flex; gap:5px; margin-top:5px;">
+        <button type="button" class="btn-modal-action" style="flex:1; font-size:0.75rem; padding:4px;" onclick="document.getElementById('logoUpload').click()"><i class="fas fa-image"></i> Subir Logo</button>
+        <button type="button" class="btn-modal-action" id="btnRemoveLogo" style="flex:1; font-size:0.75rem; padding:4px; display:none; border-color:#ef4444; color:#ef4444;" onclick="removeLogo()"><i class="fas fa-trash"></i> Quitar</button>
+    </div>
+</div>
                             <div class="input-group">
                                 <label>Plantilla</label>
                                 <select id="templateSelector" onchange="renderLivePreview()">
@@ -252,21 +316,25 @@
                             <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00" oninput="renderLivePreview()"></div>
                         </div>
                     </div>
-                    <div style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed rgba(255,102,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                    <div style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed rgba(255,102,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; position: sticky; top: 20px; align-self: flex-start; overflow: hidden;">
                         <div style="font-size: 0.8rem; color: #ffaa00; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px;"><i class="fas fa-eye"></i> Vista Previa</div>
                         <div id="livePreviewContainer" style="transform: scale(1.2); transform-origin: center;">
                             <!-- Live Preview goes here -->
                         </div>
                     </div>
                 </div>
-                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;" title="Ctrl + P">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()" title="Ctrl + W">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)" title="Ctrl + E">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarExcel()">EXCEL <i class="fas fa-file-excel" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarTXT()">TXT <i class="fas fa-file-alt" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1;" onclick="exportarJSON()">JSON <i class="fas fa-code" style="margin-left: 8px;"></i></button>
-                    <button class="btn-print" style="background: rgba(255,170,0,0.1); border: 1px solid #ffaa00; color:#ffaa00; flex: 0.5;" onclick="reimprimirUltimoLote()" title="Reimprimir Último Lote"><i class="fas fa-redo-alt"></i></button>
+                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;" title="Ctrl + P">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
+                        <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()" title="Ctrl + W">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
+                        <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)" title="Ctrl + E">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarExcel()">EXCEL <i class="fas fa-file-excel" style="margin-left: 8px;"></i></button>
+                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarTXT()">TXT <i class="fas fa-file-alt" style="margin-left: 8px;"></i></button>
+                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarJSON()">JSON <i class="fas fa-code" style="margin-left: 8px;"></i></button>
+                        <button class="btn-print" style="background: rgba(255,170,0,0.1); border: 1px solid #ffaa00; color:#ffaa00; flex: 0.5; padding: 10px;" onclick="reimprimirUltimoLote()" title="Reimprimir Último Lote"><i class="fas fa-redo-alt"></i></button>
+                    </div>
                 </div>
             </div>
             <div id="print-area"></div>
@@ -316,6 +384,54 @@
     </div>
 
     <script>
+
+        window.logoBase64 = localStorage.getItem('omadaLogo') || null;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            if(window.logoBase64) {
+                document.getElementById('btnRemoveLogo').style.display = 'block';
+            }
+        });
+        
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Resize image to max 200px width
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const max = 200;
+                    if (width > max) { height *= max / width; width = max; }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const resized = canvas.toDataURL('image/png', 0.8);
+                    
+                    window.logoBase64 = resized;
+                    localStorage.setItem('omadaLogo', resized);
+                    document.getElementById('btnRemoveLogo').style.display = 'block';
+                    if(typeof showToast !== 'undefined') showToast("Logo guardado", "success");
+                    renderLivePreview();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function removeLogo() {
+            window.logoBase64 = null;
+            localStorage.removeItem('omadaLogo');
+            document.getElementById('btnRemoveLogo').style.display = 'none';
+            document.getElementById('logoUpload').value = '';
+            if(typeof showToast !== 'undefined') showToast("Logo eliminado", "info");
+            renderLivePreview();
+        }
+
         function syncPrintFields() {
             const precio = parseFloat(document.getElementById('genPrecio').value || 0).toFixed(2);
             document.getElementById('priceInput').value = `Q ${precio}`;
@@ -574,7 +690,7 @@
                 const card = document.createElement('div');
                 card.className = `v-card ${templateStr}`;
                 card.innerHTML = `
-                    <div class="v-header"><i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ${businessName}</div>
+                    ${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">${code}</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
                     <div class="v-footer">Ficha: #${index + 1}</div>
@@ -789,7 +905,7 @@
             const textoFresco = document.getElementById('codesInput').value;
             const encontrados = textoFresco.match(/\d{6,12}/g);
             if (!encontrados) {
-                alert("No hay códigos para compartir.");
+                if(typeof showToast !== 'undefined') showToast("No hay códigos para compartir.", "warning");
                 return;
             }
             const codes = [...new Set(encontrados)];
@@ -800,7 +916,23 @@
             codes.forEach(c => msj += `${c}\n`);
             msj += `\n*Generadas:* ${codes.length} fichas`;
             
-            const url = `https://wa.me/?text=${encodeURIComponent(msj)}`;
+            const selectVendedor = document.getElementById('genVendedor');
+            let phone = '';
+            if (selectVendedor && selectVendedor.selectedIndex > 0) {
+                const opt = selectVendedor.options[selectVendedor.selectedIndex];
+                phone = opt.getAttribute('data-tel') || '';
+            }
+            
+            const encoded = encodeURIComponent(msj);
+            let url = `https://wa.me/?text=${encoded}`;
+            if (phone) {
+                phone = phone.replace(/\D/g, '');
+                url = `https://wa.me/${phone}?text=${encoded}`;
+                if(typeof showToast !== 'undefined') showToast(`Abriendo chat con el vendedor...`, "info");
+            } else {
+                if(typeof showToast !== 'undefined') showToast(`El vendedor no tiene teléfono. Abriendo WhatsApp libre.`, "info");
+            }
+            
             window.open(url, '_blank');
         }
         
@@ -948,7 +1080,7 @@
             
             container.innerHTML = `
                 <div class="v-card ${templateStr}" style="margin:0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                    <div class="v-header"><i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ${businessName}</div>
+                    ${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">12345678</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
                     <div class="v-footer">Ficha: #1</div>
@@ -1048,6 +1180,70 @@
         document.addEventListener('DOMContentLoaded', () => {
             renderLivePreview();
         });
-    </script>
+    
+        async function abrirModalHistorial() {
+            document.getElementById('historialModal').style.display = 'flex';
+            document.getElementById('historialList').innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:#ffaa00;"></i></div>';
+            try {
+                const res = await fetch('/api/omada/historial_lotes').then(r => r.json());
+                if(res.success && res.lotes.length > 0) {
+                    let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+                    html += '<tr style="border-bottom: 1px solid #ff6600; font-size:0.9rem;"><th>Referencia</th><th>Cantidad</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr>';
+                    res.lotes.forEach(l => {
+                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <td style="padding: 12px 10px; font-weight:bold; color:#ffaa00;">${l.lote}</td>
+                            <td style="padding: 12px 10px;">${l.cantidad} fichas</td>
+                            <td style="padding: 12px 10px;">Q ${parseFloat(l.precio_unitario).toFixed(2)}</td>
+                            <td style="padding: 12px 10px; font-size:0.85rem; color:#aaa;">${l.fecha}</td>
+                            <td style="padding: 12px 10px;"><button class="btn-modal-action" style="padding:5px 10px;" onclick="cargarLoteHistorial('${l.lote}')"><i class="fas fa-download"></i> Cargar</button></td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                    document.getElementById('historialList').innerHTML = html;
+                } else {
+                    document.getElementById('historialList').innerHTML = '<p>No hay lotes recientes.</p>';
+                }
+            } catch(e) {
+                document.getElementById('historialList').innerHTML = '<p style="color:red;">Error cargando historial</p>';
+            }
+        }
+        
+        async function cargarLoteHistorial(loteNombre) {
+            document.getElementById('historialModal').style.display = 'none';
+            if(typeof showToast !== 'undefined') showToast("Cargando lote: " + loteNombre, "info");
+            try {
+                const res = await fetch('/api/omada/lote/' + encodeURIComponent(loteNombre)).then(r => r.json());
+                if(res.success) {
+                    const txt = res.pines.join('\n');
+                    document.getElementById('codesInput').value = txt;
+                    
+                    if(res.duracion && res.unidad !== undefined) {
+                        const unidadStr = res.unidad == 0 ? 'MINUTOS' : (res.unidad == 1 ? 'HORAS' : 'DÍAS');
+                        document.getElementById('timeInput').value = `${res.duracion} ${unidadStr}`;
+                    }
+                    if(res.precio !== undefined) {
+                        document.getElementById('priceInput').value = `Q ${parseFloat(res.precio).toFixed(2)}`;
+                    }
+                    renderLivePreview();
+                    if(typeof showToast !== 'undefined') showToast(`Se cargaron ${res.pines.length} fichas de la base de datos.`, "success");
+                } else {
+                    if(typeof showToast !== 'undefined') showToast("Error: " + res.error, "error");
+                }
+            } catch(e) {
+                if(typeof showToast !== 'undefined') showToast("Error de conexión", "error");
+            }
+        }
+</script>
+
+    <!-- Modal Historial de Lotes -->
+    <div class="modal-overlay" id="historialModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div class="modal-content" style="background: rgba(20, 20, 25, 0.95); border: 1px solid #ff6600; border-radius: 12px; padding: 30px; width: 800px; max-width: 95%; color: #fff; box-shadow: 0 0 30px rgba(255, 102, 0, 0.3); max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: #ffaa00;"><i class="fas fa-history"></i> Historial de Lotes</h3>
+                <button type="button" onclick="document.getElementById('historialModal').style.display='none'" style="background: transparent; border: none; color: #ef4444; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div id="historialList">Cargando...</div>
+        </div>
+    </div>
 </body>
 </html>

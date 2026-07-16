@@ -1511,6 +1511,60 @@ def get_omada_sites_by_id(id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
+@app.route('/api/omada/historial_lotes', methods=['GET'])
+@login_required
+def obtener_historial_lotes():
+    from sqlalchemy import func
+    try:
+        # Get last 10 distinct batches
+        # We group by lote and get the max date, count of vouchers and the price of the first one
+        lotes = db.session.query(
+            OmadaVoucher.lote,
+            func.count(OmadaVoucher.id).label('cantidad'),
+            func.max(OmadaVoucher.fecha_creacion).label('fecha'),
+            func.max(OmadaVoucher.precio).label('precio')
+        ).filter(OmadaVoucher.lote.isnot(None), OmadaVoucher.lote != '') \
+         .group_by(OmadaVoucher.lote) \
+         .order_by(func.max(OmadaVoucher.fecha_creacion).desc()) \
+         .limit(10).all()
+         
+        resultado = []
+        for l in lotes:
+            if l.lote:
+                resultado.append({
+                    'lote': l.lote,
+                    'cantidad': l.cantidad,
+                    'fecha': l.fecha.strftime('%Y-%m-%d %H:%M') if l.fecha else '',
+                    'precio_unitario': l.precio
+                })
+        return jsonify({'success': True, 'lotes': resultado})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/lote/<path:nombre_lote>', methods=['GET'])
+@login_required
+def obtener_pines_lote(nombre_lote):
+    try:
+        vouchers = OmadaVoucher.query.filter_by(lote=nombre_lote).all()
+        if not vouchers:
+            return jsonify({'success': False, 'error': 'Lote no encontrado'})
+            
+        pines = [v.codigo for v in vouchers]
+        # Get duration info from the first voucher
+        v0 = vouchers[0]
+        return jsonify({
+            'success': True, 
+            'pines': pines,
+            'duracion': v0.duracion_valor,
+            'unidad': v0.duracion_unidad,
+            'precio': v0.precio,
+            'vendedor_id': v0.vendedor_id,
+            'omada_id': v0.omada_id
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/omada/generar', methods=['POST'])
 @login_required
 @admin_required
