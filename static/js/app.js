@@ -1098,3 +1098,115 @@ window.filterByRouter = function(routerId) {
     });
     filterTable();
 };
+
+
+// ================= API TOKENS =================
+
+async function cargarTokens() {
+    const tbody = document.getElementById('tokensTbody');
+    if (!tbody) return; // Not on the config page
+    
+    try {
+        const response = await fetch('/api/tokens');
+        if (response.status === 401 || response.status === 403) return;
+        const result = await response.json();
+        
+        if (result.success) {
+            tbody.innerHTML = '';
+            if (result.tokens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay tokens generados</td></tr>';
+                return;
+            }
+            
+            result.tokens.forEach(t => {
+                // Show only the first 8 chars of the token for security, then asterisks
+                const maskedToken = t.token.substring(0, 8) + '************************';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${t.nombre}</strong><br><small style="color:var(--text-muted)">Por: ${t.user}</small></td>
+                        <td><code style="background: rgba(0,0,0,0.2); padding: 3px 6px; border-radius: 4px;">${maskedToken}</code></td>
+                        <td>${t.fecha}</td>
+                        <td>
+                            <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" onclick="eliminarApiToken(${t.id})" title="Eliminar/Revocar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (e) {
+        console.error("Error cargando tokens:", e);
+    }
+}
+
+function abrirModalApiToken() {
+    document.getElementById('formApiToken').reset();
+    document.getElementById('tokenResultContainer').style.display = 'none';
+    document.getElementById('modalApiTokenFooter').style.display = 'block';
+    document.getElementById('btnGuardarApiToken').style.display = 'inline-block';
+    document.getElementById('modalApiToken').classList.add('active');
+}
+
+function cerrarModalApiToken() {
+    document.getElementById('modalApiToken').classList.remove('active');
+    cargarTokens();
+}
+
+async function guardarApiToken(e) {
+    e.preventDefault();
+    const nombre = document.getElementById('token_nombre').value;
+    
+    try {
+        const response = await fetch('/api/tokens', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById('tokenResultContainer').style.display = 'block';
+            document.getElementById('generatedTokenText').value = result.token;
+            
+            // Hide the submit button so they don't click it again
+            document.getElementById('btnGuardarApiToken').style.display = 'none';
+        } else {
+            showToast(result.error || 'Error al generar token', 'error');
+        }
+    } catch (e) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+function copiarToken() {
+    const copyText = document.getElementById("generatedTokenText");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+    showToast("Token copiado al portapapeles", "success");
+}
+
+async function eliminarApiToken(id) {
+    if (!confirm('¿Estás seguro de revocar este token? Las aplicaciones que lo usen dejarán de funcionar inmediatamente.')) return;
+    
+    try {
+        const response = await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Token revocado exitosamente', 'success');
+            cargarTokens();
+        } else {
+            showToast(result.error || 'Error al revocar', 'error');
+        }
+    } catch (e) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+// Ensure tokens are loaded when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    cargarTokens();
+});

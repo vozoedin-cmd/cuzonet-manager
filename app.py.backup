@@ -85,19 +85,6 @@ login_manager.login_message_category = 'warning'
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
-
-@login_manager.request_loader
-def load_user_from_request(request):
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ', 1)[1]
-        api_token = ApiToken.query.filter_by(token=token).first()
-        if api_token:
-            user = Usuario.query.get(api_token.user_id)
-            if user:
-                return user
-    return None
-
 def admin_required(f):
     """Decorador que requiere rol admin"""
     from functools import wraps
@@ -151,19 +138,6 @@ class Usuario(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-
-
-class ApiToken(db.Model):
-    """Modelo de Tokens API para conexiones de n8n o terceros"""
-    __tablename__ = 'api_tokens'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    token = db.Column(db.String(64), unique=True, nullable=False)
-    nombre = db.Column(db.String(100), default='API Key')
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    usuario = db.relationship('Usuario', backref='api_tokens', lazy=True)
 
 class Cliente(db.Model):
     """Modelo de Cliente con campos adicionales para pagos y corte"""
@@ -1997,7 +1971,6 @@ def reportes_view():
 
 
 @app.route('/api/recibo/<int:pago_id>')
-@login_required
 def ver_recibo(pago_id):
     """Ver recibo individual de un pago"""
     pago = Pago.query.get_or_404(pago_id)
@@ -2344,7 +2317,6 @@ def aviso_cobro_individual(cliente_id, mes=None):
 
 
 @app.route('/api/recibos/meses')
-@login_required
 def obtener_meses_con_pagos():
     """Obtener lista de meses que tienen pagos registrados"""
     from sqlalchemy import distinct
@@ -2615,7 +2587,6 @@ def ai_diagnostics():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/ai/collection_msg', methods=['POST'])
-@login_required
 def ai_collection_msg():
     """Redacta mensaje de cobro"""
     try:
@@ -2704,7 +2675,6 @@ def clientes_live_status():
     return jsonify(resultados)
 
 @app.route('/api/mikrotik/status')
-@login_required
 def mikrotik_status():
     """Verificar estado de conexión a MikroTik (con caché)"""
     global _mikrotik_status_cache
@@ -2784,7 +2754,6 @@ def mikrotik_status():
 # ============== API CLIENTES ==============
 
 @app.route('/api/cliente', methods=['POST'])
-@login_required
 def crear_cliente():
     """Crear nuevo cliente y Simple Queue en MikroTik"""
     try:
@@ -2915,7 +2884,6 @@ def crear_cliente():
 
 
 @app.route('/api/cliente/<int:id>', methods=['GET'])
-@login_required
 def obtener_cliente(id):
     """Obtener un cliente específico"""
     cliente = Cliente.query.get_or_404(id)
@@ -2923,7 +2891,6 @@ def obtener_cliente(id):
 
 
 @app.route('/api/cliente/<int:id>', methods=['PUT'])
-@login_required
 def actualizar_cliente(id):
     """Actualizar cliente existente"""
     try:
@@ -3043,7 +3010,6 @@ def actualizar_cliente(id):
 
 
 @app.route('/api/cliente/<int:id>', methods=['DELETE'])
-@login_required
 def eliminar_cliente(id):
     """Eliminar cliente y su queue de MikroTik"""
     try:
@@ -3072,7 +3038,6 @@ def eliminar_cliente(id):
 
 
 @app.route('/api/cliente/<int:id>/suspender', methods=['POST'])
-@login_required
 def suspender_cliente(id):
     """Suspender cliente (deshabilitar queue)"""
     try:
@@ -3096,7 +3061,6 @@ def suspender_cliente(id):
 
 
 @app.route('/api/cliente/<int:id>/activar', methods=['POST'])
-@login_required
 def activar_cliente(id):
     """Activar cliente (habilitar queue y remover de address list)"""
     try:
@@ -3125,7 +3089,6 @@ def activar_cliente(id):
 
 
 @app.route('/api/cliente/<int:id>/cortar', methods=['POST'])
-@login_required
 def cortar_cliente(id):
     """Cortar cliente por medio de Address List (bloqueo por firewall)"""
     try:
@@ -3154,7 +3117,6 @@ def cortar_cliente(id):
 
 
 @app.route('/api/clientes', methods=['GET'])
-@login_required
 def obtener_clientes():
     """Obtener lista de clientes"""
     clientes = Cliente.query.order_by(Cliente.fecha_registro.desc()).all()
@@ -3167,7 +3129,6 @@ def obtener_clientes():
 # ============== API PAGOS ==============
 
 @app.route('/api/pago', methods=['POST'])
-@login_required
 def registrar_pago():
     """Registrar un nuevo pago"""
     try:
@@ -3275,7 +3236,6 @@ def eliminar_pago(pago_id):
 
 
 @app.route('/api/pagos', methods=['GET'])
-@login_required
 def obtener_pagos():
     """Obtener lista de pagos"""
     cliente_id = request.args.get('cliente_id')
@@ -3294,7 +3254,6 @@ def obtener_pagos():
 
 
 @app.route('/api/pagos/cliente/<int:cliente_id>', methods=['GET'])
-@login_required
 def obtener_pagos_cliente(cliente_id):
     """Obtener historial de pagos de un cliente"""
     pagos = Pago.query.filter_by(cliente_id=cliente_id).order_by(Pago.fecha_pago.desc()).all()
@@ -3307,7 +3266,6 @@ def obtener_pagos_cliente(cliente_id):
 # ============== IMPORTAR/EXPORTAR EXCEL ==============
 
 @app.route('/api/clientes/exportar', methods=['GET'])
-@login_required
 def exportar_clientes():
     """Exportar clientes a Excel"""
     try:
@@ -3427,7 +3385,6 @@ def exportar_clientes_csv(router_id=None):
 
 
 @app.route('/api/clientes/importar', methods=['POST'])
-@login_required
 def importar_clientes():
     """Importar clientes desde archivo Excel o CSV"""
     try:
@@ -3669,7 +3626,6 @@ def importar_clientes():
 # ============== REPORTES ==============
 
 @app.route('/api/reportes/resumen', methods=['GET'])
-@login_required
 def reporte_resumen():
     """Reporte resumen general"""
     try:
@@ -3715,7 +3671,6 @@ def reporte_resumen():
 
 
 @app.route('/api/reportes/pagos-mensuales', methods=['GET'])
-@login_required
 def reporte_pagos_mensuales():
     """Reporte de pagos por mes"""
     try:
@@ -3748,7 +3703,6 @@ def reporte_pagos_mensuales():
 # ============== RECIBOS ==============
 
 @app.route('/api/recibo/<int:pago_id>', methods=['GET'])
-@login_required
 def generar_recibo(pago_id):
     """Generar recibo de pago (HTML para imprimir)"""
     try:
@@ -4001,7 +3955,6 @@ def eliminar_infraestructura(infra_id):
 
 
 @app.route('/api/planes', methods=['GET'])
-@login_required
 def obtener_planes():
     """Obtener lista de planes"""
     planes = Plan.query.all()
@@ -4018,7 +3971,6 @@ def obtener_planes():
 
 
 @app.route('/api/plan', methods=['POST'])
-@login_required
 def crear_plan():
     """Crear nuevo plan"""
     try:
@@ -4043,7 +3995,6 @@ def crear_plan():
 
 
 @app.route('/api/plan/<int:id>', methods=['PUT'])
-@login_required
 def editar_plan(id):
     """Editar plan existente"""
     try:
@@ -4064,7 +4015,6 @@ def editar_plan(id):
 
 
 @app.route('/api/plan/<int:id>', methods=['DELETE'])
-@login_required
 def eliminar_plan(id):
     """Eliminar plan"""
     try:
@@ -4080,7 +4030,6 @@ def eliminar_plan(id):
 # ============== SINCRONIZACIÓN MIKROTIK ==============
 
 @app.route('/api/sync/queues', methods=['GET'])
-@login_required
 def sincronizar_queues():
     """Obtener queues de MikroTik para sincronización"""
     try:
@@ -4100,7 +4049,6 @@ def sincronizar_queues():
 
 
 @app.route('/api/sync/import-queues', methods=['POST'])
-@login_required
 def importar_queues_mikrotik():
     """Importa los queues de MikroTik como clientes en la base de datos"""
     try:
@@ -5585,7 +5533,6 @@ def add_inventario_manual():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/force-update-db')
-@login_required
 def force_update_db():
     from sqlalchemy import text
     resultados = []
