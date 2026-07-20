@@ -5,60 +5,7 @@
     <title>CuzoNet Print Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js">
-        async function abrirModalHistorial() {
-            document.getElementById('historialModal').style.display = 'flex';
-            document.getElementById('historialList').innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin fa-2x" style="color:#ffaa00;"></i></div>';
-            try {
-                const res = await fetch('/api/omada/historial_lotes').then(r => r.json());
-                if(res.success && res.lotes.length > 0) {
-                    let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-                    html += '<tr style="border-bottom: 1px solid #ff6600; font-size:0.9rem;"><th>Referencia</th><th>Cantidad</th><th>Precio</th><th>Fecha</th><th>Acción</th></tr>';
-                    res.lotes.forEach(l => {
-                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <td style="padding: 12px 10px; font-weight:bold; color:#ffaa00;">${l.lote}</td>
-                            <td style="padding: 12px 10px;">${l.cantidad} fichas</td>
-                            <td style="padding: 12px 10px;">Q ${parseFloat(l.precio_unitario).toFixed(2)}</td>
-                            <td style="padding: 12px 10px; font-size:0.85rem; color:#aaa;">${l.fecha}</td>
-                            <td style="padding: 12px 10px;"><button class="btn-modal-action" style="padding:5px 10px;" onclick="cargarLoteHistorial('${l.lote}')"><i class="fas fa-download"></i> Cargar</button></td>
-                        </tr>`;
-                    });
-                    html += '</table>';
-                    document.getElementById('historialList').innerHTML = html;
-                } else {
-                    document.getElementById('historialList').innerHTML = '<p>No hay lotes recientes.</p>';
-                }
-            } catch(e) {
-                document.getElementById('historialList').innerHTML = '<p style="color:red;">Error cargando historial</p>';
-            }
-        }
-        
-        async function cargarLoteHistorial(loteNombre) {
-            document.getElementById('historialModal').style.display = 'none';
-            if(typeof showToast !== 'undefined') showToast("Cargando lote: " + loteNombre, "info");
-            try {
-                const res = await fetch('/api/omada/lote/' + encodeURIComponent(loteNombre)).then(r => r.json());
-                if(res.success) {
-                    const txt = res.pines.join('\n');
-                    document.getElementById('codesInput').value = txt;
-                    
-                    if(res.duracion && res.unidad !== undefined) {
-                        const unidadStr = res.unidad == 0 ? 'MINUTOS' : (res.unidad == 1 ? 'HORAS' : 'DÍAS');
-                        document.getElementById('timeInput').value = `${res.duracion} ${unidadStr}`;
-                    }
-                    if(res.precio !== undefined) {
-                        document.getElementById('priceInput').value = `Q ${parseFloat(res.precio).toFixed(2)}`;
-                    }
-                    renderLivePreview();
-                    if(typeof showToast !== 'undefined') showToast(`Se cargaron ${res.pines.length} fichas de la base de datos.`, "success");
-                } else {
-                    if(typeof showToast !== 'undefined') showToast("Error: " + res.error, "error");
-                }
-            } catch(e) {
-                if(typeof showToast !== 'undefined') showToast("Error de conexión", "error");
-            }
-        }
-</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         :root { --brand-color: #ff6600; --neon-glow: 0 0 15px rgba(255, 102, 0, 0.4); }
@@ -130,6 +77,8 @@
         .btn-modal-action { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-size: 0.9rem; font-family: 'Inter'; font-weight: 600; }
         .btn-modal-action:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); border-color: #ffaa00; color: #ffaa00; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cuzonet_print_studio.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cuzonet_print_studio_refinements.css') }}">
 </head>
 <body>
     <div class="bg-animation">
@@ -141,202 +90,7 @@
 
     <main class="main-content">
         <div class="print-wrapper">
-            <div class="control-panel">
-                <div class="panel-header" style="margin-bottom: 20px; text-align: center;">
-                    <h2 style="color: #fff; margin-top: 0; text-shadow: 0 0 10px rgba(255,102,0,0.5);"><i class="fas fa-paint-brush" style="color: var(--brand-color);"></i> CuzoNet Omada Print Studio</h2>
-                    <p style="color: #aaaaaa; font-size: 0.95rem;">Pega los códigos generados en tu controlador Omada para imprimirlos con este diseño.</p>
-                </div>
-                
-                <!-- Tarjetas de Estadísticas Rápidas -->
-                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 10px;">
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,102,0,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-                        <i class="fas fa-ticket-alt" style="color:#ffaa00; font-size:1.5rem; margin-bottom:5px;"></i>
-                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Cantidad</div>
-                        <div id="stat_cantidad" style="font-size: 1.5rem; font-weight:900; color:#fff;">50</div>
-                    </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(16,185,129,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-                        <i class="fas fa-money-bill-wave" style="color:#10b981; font-size:1.5rem; margin-bottom:5px;"></i>
-                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Venta Total</div>
-                        <div id="stat_venta" style="font-size: 1.5rem; font-weight:900; color:#10b981;">Q 150.00</div>
-                    </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(168,85,247,0.2); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-                        <i class="fas fa-hand-holding-usd" style="color:#c084fc; font-size:1.5rem; margin-bottom:5px;"></i>
-                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; letter-spacing:0.5px;">Ganancia (Vend.)</div>
-                        <div id="stat_ganancia" style="font-size: 1.5rem; font-weight:900; color:#c084fc;">Q 0.00</div>
-                    </div>
-                    <div style="background: rgba(20,20,25,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; display:flex; flex-direction:column; justify-content:center; align-items:center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-                        <div style="font-size: 0.8rem; color:#aaa; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.5px;">API Omada</div>
-                        <div id="stat_api" style="display:flex; flex-direction:column; align-items:center; gap:4px; font-weight:bold; color:#10b981;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div>
-                                CONECTADO
-                            </div>
-                            <div id="api_ping" style="font-size: 0.7rem; color: #888; font-weight: normal;">Ping: -- ms</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Tarjetas de Dashboard Extendido -->
-                <div class="stats-cards-print" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
-                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-layer-group"></i> Lotes de Hoy:</span>
-                        <span style="font-size: 1.1rem; font-weight:bold; color:#ffaa00;">{{ lotes_hoy }}</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-print"></i> Fichas Hoy:</span>
-                        <span style="font-size: 1.1rem; font-weight:bold; color:#10b981;">{{ fichas_impresas_hoy }}</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,102,0,0.3); padding: 10px; border-radius: 8px; text-align: center; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size: 0.8rem; color:#aaa; text-transform:uppercase;"><i class="fas fa-history"></i> Última Operación:</span>
-                        <span style="font-size: 1.1rem; font-weight:bold; color:#c084fc;">{{ ultima_op }}</span>
-                    </div>
-                </div>
-
-                <div style="background: rgba(255, 102, 0, 0.05); border: 1px solid rgba(255, 102, 0, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: inset 0 0 15px rgba(255, 102, 0, 0.1);">
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-                        <div class="input-group" style="flex: 1; min-width: 200px;">
-                            <label><i class="fas fa-wifi"></i> Controlador Omada</label>
-                            <select id="genOmada" onchange="cargarSitiosPrint()">
-                                {% for om in omadas %}
-                                <option value="{{ om.id }}" data-default-site="{{ om.site_id }}">{{ om.nombre }} ({{ om.site_id }})</option>
-                                {% else %}
-                                <option value="">No hay Omadas configurados</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="input-group" style="flex: 1; min-width: 200px;">
-                            <label><i class="fas fa-sitemap"></i> Seleccionar Sitio</label>
-                            <select id="genOmadaSite">
-                                <option value="">-- Automático (Sitio por Defecto) --</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-                        <div class="input-group" style="flex: 1;">
-                            <label><i class="fas fa-ticket-alt"></i> Cantidad de Fichas</label>
-                            <input type="number" id="genAmount" value="50" min="1" max="500" oninput="calcularEstadisticasRapidas()">
-                        </div>
-                        <div class="input-group" style="flex: 1;">
-                            <label><i class="fas fa-clock"></i> Tiempo (Valor)</label>
-                            <input type="number" id="genTimeVal" value="3" min="1" oninput="syncPrintFields()">
-                        </div>
-                        <div class="input-group" style="flex: 1;">
-                            <label>Unidad de Tiempo</label>
-                            <select id="genTimeUnidad" onchange="syncPrintFields()">
-                                <option value="0">Minutos</option>
-                                <option value="1" selected>Horas</option>
-                                <option value="2">Días</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <div class="input-group" style="flex: 1;">
-                            <label><i class="fas fa-user-tag"></i> Vendedor Asignado</label>
-                            <div style="display: flex; gap: 10px; align-items:flex-end;">
-                                <div style="flex: 1; display:flex; flex-direction:column; gap:5px;">
-                                    <input type="text" id="searchVendedor" placeholder="🔍 Buscar vendedor..." oninput="filtrarVendedores()" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,102,0,0.3); background: rgba(0,0,0,0.4); color: #fff;">
-                                    <select id="genVendedor" onchange="calcularEstadisticasRapidas()">
-                                        <option value="">-- Seleccionar Vendedor --</option>
-                                        {% for v in vendedores %}
-                                        <option value="{{ v.id }}" data-tel="{{ v.telefono or '' }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}" data-ventas="{{ v.ventas_hoy }}" data-inv="{{ v.fichas_disponibles }}" data-com="{{ v.comision_acumulada }}">{{ v.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div id="vendorExtendedInfo" style="display:none; flex-direction: column; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; border-left: 3px solid #ffaa00; font-size: 0.75rem; color: #ccc;">
-                                        <div style="display:flex; justify-content:space-between;"><span>Ventas Hoy:</span> <strong id="ve_ventas" style="color:#10b981;">Q 0.00</strong></div>
-                                        <div style="display:flex; justify-content:space-between;"><span>Activas:</span> <strong id="ve_inv" style="color:#ffaa00;">0</strong></div>
-                                        <div style="display:flex; justify-content:space-between;"><span>Comisión:</span> <strong id="ve_com" style="color:#c084fc;">Q 0.00</strong></div>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn-print" style="width: auto; padding: 12px; background: rgba(20,20,25,0.8); border: 1px solid #ff6600; margin-bottom: 2px;" onclick="abrirStatsVendedores()" title="Ver Estadísticas por Vendedor">
-                                    <i class="fas fa-chart-pie" style="color: #ffaa00;"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="input-group" style="flex: 1;">
-                            <label><i class="fas fa-money-bill-wave"></i> Precio Unitario (Q)</label>
-                            <input type="number" id="genPrecio" value="3.00" step="0.50" min="0" oninput="syncPrintFields(); calcularEstadisticasRapidas();">
-                        </div>
-                        <div class="input-group" style="flex: 1;">
-                            <label><i class="fas fa-comment"></i> Ref / Lote Omada</label>
-                            <div style="display:flex; gap:5px;">
-                                <input type="text" id="genComentario" placeholder="Opcional" style="flex:1;">
-                                <button type="button" class="btn-print" style="padding: 12px; width:auto; background:rgba(0,0,0,0.5); border:1px solid #ff6600;" onclick="generarReferencia()" title="Auto Referencia">
-                                    <i class="fas fa-magic" style="color:#ffaa00;"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div style="flex: 1.5; display: flex; flex-direction: column; gap: 10px; margin-top: 24px;">
-                            <div style="display: flex; gap: 10px;">
-                                <button type="button" class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); padding: 12px; flex: 0.3;" onclick="limpiarFormulario()" title="Limpiar Formulario">
-                                    <i class="fas fa-broom"></i>
-                                </button>
-                                <button type="button" class="btn-print" id="btnAutoGenerate" style="flex: 1; padding: 12px;" onclick="autoGenerateVouchers()">
-                                    GENERAR CON API <i class="fas fa-bolt"></i>
-                                </button>
-                            </div>
-                            <div id="genProgressContainer" style="display:none; width: 100%;">
-                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; margin-bottom:4px;">
-                                    <span>Progreso de Generación</span>
-                                    <span id="genProgressText">0%</span>
-                                </div>
-                                <div class="pro-progress-bg">
-                                    <div id="genProgressBar" class="pro-progress-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="input-group" style="margin-bottom: 15px; position: relative;">
-                    <label>Códigos Generados / Pegar Manualmente</label>
-                    <textarea id="codesInput" placeholder="Los códigos de la API aparecerán aquí... o puedes pegarlos manualmente"></textarea>
-                </div>
-                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
-                    <div style="flex: 2; min-width: 300px;">
-                        <div class="inputs-grid" style="margin-bottom: 0;">
-                            <div class="input-group">
-    <label>Nombre del Negocio / Logo</label>
-    <input type="text" id="businessName" value="CUZONET" oninput="renderLivePreview()">
-    <input type="file" id="logoUpload" accept="image/*" style="display:none;" onchange="handleLogoUpload(event)">
-    <div style="display:flex; gap:5px; margin-top:5px;">
-        <button type="button" class="btn-modal-action" style="flex:1; font-size:0.75rem; padding:4px;" onclick="document.getElementById('logoUpload').click()"><i class="fas fa-image"></i> Subir Logo</button>
-        <button type="button" class="btn-modal-action" id="btnRemoveLogo" style="flex:1; font-size:0.75rem; padding:4px; display:none; border-color:#ef4444; color:#ef4444;" onclick="removeLogo()"><i class="fas fa-trash"></i> Quitar</button>
-    </div>
-</div>
-                            <div class="input-group">
-                                <label>Plantilla</label>
-                                <select id="templateSelector" onchange="renderLivePreview()">
-                                    <option value="classic">Clásica</option>
-                                    <option value="premium">Premium (Oro)</option>
-                                    <option value="dark">Oscura / Neon</option>
-                                </select>
-                            </div>
-                            <div class="input-group"><label>Color de la Marca</label><input type="color" id="colorPicker" value="#ff6600" oninput="updateColor(this.value); renderLivePreview()"></div>
-                            <div class="input-group"><label>Duración</label><input type="text" id="timeInput" value="3 HORAS" oninput="renderLivePreview()"></div>
-                            <div class="input-group"><label>Precio</label><input type="text" id="priceInput" value="Q 3.00" oninput="renderLivePreview()"></div>
-                        </div>
-                    </div>
-                    <div style="flex: 1; min-width: 250px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed rgba(255,102,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; position: sticky; top: 20px; align-self: flex-start; overflow: hidden;">
-                        <div style="font-size: 0.8rem; color: #ffaa00; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px;"><i class="fas fa-eye"></i> Vista Previa</div>
-                        <div id="livePreviewContainer" style="transform: scale(1.2); transform-origin: center;">
-                            <!-- Live Preview goes here -->
-                        </div>
-                    </div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-print" onclick="iniciarProceso(false)" style="flex: 1;" title="Ctrl + P">IMPRIMIR FICHAS <i class="fas fa-print" style="margin-left: 8px;"></i></button>
-                        <button class="btn-print" style="background: linear-gradient(90deg, #10b981, #059669); flex: 1;" onclick="compartirWhatsApp()" title="Ctrl + W">WHATSAPP <i class="fab fa-whatsapp" style="margin-left: 8px;"></i></button>
-                        <button class="btn-print" style="background-color: #e63946; flex: 1;" onclick="iniciarProceso(true)" title="Ctrl + E">EXPORTAR PDF <i class="fas fa-file-pdf" style="margin-left: 8px;"></i></button>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarExcel()">EXCEL <i class="fas fa-file-excel" style="margin-left: 8px;"></i></button>
-                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarTXT()">TXT <i class="fas fa-file-alt" style="margin-left: 8px;"></i></button>
-                        <button class="btn-print" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color:#fff; flex: 1; padding: 10px; font-size: 0.9rem;" onclick="exportarJSON()">JSON <i class="fas fa-code" style="margin-left: 8px;"></i></button>
-                        <button class="btn-print" style="background: rgba(255,170,0,0.1); border: 1px solid #ffaa00; color:#ffaa00; flex: 0.5; padding: 10px;" onclick="reimprimirUltimoLote()" title="Reimprimir Último Lote"><i class="fas fa-redo-alt"></i></button>
-                    </div>
-                </div>
-            </div>
+            {% include '_cuzonet_print_studio_panel.html' %}
             <div id="print-area"></div>
         </div>
     </main>
@@ -1245,5 +999,7 @@
             <div id="historialList">Cargando...</div>
         </div>
     </div>
+    <script src="{{ url_for('static', filename='js/cuzonet_print_studio_ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/cuzonet_print_studio_state_sync.js') }}"></script>
 </body>
 </html>

@@ -1,0 +1,235 @@
+<div class="control-panel studio-shell">
+    <header class="studio-header">
+        <div>
+            <div class="studio-kicker"><i class="fas fa-bolt"></i> Omada Print Studio</div>
+            <h1>Genera, diseña e imprime tus fichas WiFi</h1>
+            <p>Configura el lote, genera los códigos desde Omada y prepara la impresión desde un solo lugar.</p>
+        </div>
+        <div class="api-pill" id="stat_api" aria-live="polite">
+            <div class="api-status-line">
+                <span class="api-dot" aria-hidden="true"></span>
+                <span>VERIFICANDO</span>
+            </div>
+            <span id="api_ping">Comprobando conexión…</span>
+        </div>
+    </header>
+
+    <section class="metric-grid" aria-label="Resumen del lote">
+        <article class="metric-card">
+            <span class="metric-icon"><i class="fas fa-ticket-alt"></i></span>
+            <div>
+                <div class="metric-label">Cantidad</div>
+                <div class="metric-value" id="stat_cantidad">50</div>
+            </div>
+        </article>
+        <article class="metric-card green">
+            <span class="metric-icon"><i class="fas fa-money-bill-wave"></i></span>
+            <div>
+                <div class="metric-label">Venta total</div>
+                <div class="metric-value" id="stat_venta">Q 150.00</div>
+            </div>
+        </article>
+        <article class="metric-card purple">
+            <span class="metric-icon"><i class="fas fa-hand-holding-usd"></i></span>
+            <div>
+                <div class="metric-label">Ganancia estimada</div>
+                <div class="metric-value" id="stat_ganancia">Q 0.00</div>
+            </div>
+        </article>
+    </section>
+
+    <section class="activity-strip" aria-label="Actividad de hoy">
+        <div class="activity-item">
+            <span><i class="fas fa-layer-group"></i> Lotes de hoy</span>
+            <strong>{{ lotes_hoy }}</strong>
+        </div>
+        <div class="activity-item">
+            <span><i class="fas fa-print"></i> Fichas hoy</span>
+            <strong>{{ fichas_impresas_hoy }}</strong>
+        </div>
+        <div class="activity-item">
+            <span><i class="fas fa-history"></i> Última operación</span>
+            <strong>{{ ultima_op }}</strong>
+        </div>
+    </section>
+
+    <section class="studio-section">
+        <h2 class="section-heading"><span class="section-number">1</span> Conexión Omada</h2>
+        <div class="field-grid two">
+            <div class="input-group">
+                <label for="genOmada"><i class="fas fa-wifi"></i> Controlador</label>
+                <select id="genOmada" onchange="cargarSitiosPrint()">
+                    {% for om in omadas %}
+                    <option value="{{ om.id }}" data-default-site="{{ om.site_id }}">{{ om.nombre }} ({{ om.site_id }})</option>
+                    {% else %}
+                    <option value="">No hay Omadas configurados</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="genOmadaSite"><i class="fas fa-sitemap"></i> Sitio</label>
+                <select id="genOmadaSite">
+                    <option value="">Automático · sitio predeterminado</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <section class="studio-section">
+        <h2 class="section-heading"><span class="section-number">2</span> Configuración del lote</h2>
+        <div class="field-grid three">
+            <div class="input-group">
+                <label for="genAmount"><i class="fas fa-ticket-alt"></i> Cantidad de fichas</label>
+                <input type="number" id="genAmount" value="50" min="1" max="500" oninput="calcularEstadisticasRapidas()">
+            </div>
+            <div class="input-group">
+                <label for="genTimeVal"><i class="fas fa-clock"></i> Duración</label>
+                <input type="number" id="genTimeVal" value="3" min="1" oninput="syncPrintFields()">
+            </div>
+            <div class="input-group">
+                <label for="genTimeUnidad">Unidad de tiempo</label>
+                <select id="genTimeUnidad" onchange="syncPrintFields()">
+                    <option value="0">Minutos</option>
+                    <option value="1" selected>Horas</option>
+                    <option value="2">Días</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="field-grid four" style="margin-top: 14px;">
+            <div class="input-group">
+                <label for="genVendedor"><i class="fas fa-user-tag"></i> Vendedor asignado</label>
+                <div class="vendor-picker">
+                    <div class="vendor-inputs">
+                        <input type="search" id="searchVendedor" placeholder="Buscar vendedor…" oninput="filtrarVendedores()" aria-label="Buscar vendedor">
+                        <select id="genVendedor" onchange="calcularEstadisticasRapidas()">
+                            <option value="">Seleccionar vendedor</option>
+                            {% for v in vendedores %}
+                            <option value="{{ v.id }}" data-tel="{{ v.telefono or '' }}" data-tipo="{{ v.comision_tipo }}" data-valor="{{ v.comision_valor }}" data-ventas="{{ v.ventas_hoy }}" data-inv="{{ v.fichas_disponibles }}" data-com="{{ v.comision_acumulada }}">{{ v.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" class="icon-button" onclick="abrirStatsVendedores()" title="Ver estadísticas por vendedor" aria-label="Ver estadísticas por vendedor">
+                        <i class="fas fa-chart-pie"></i>
+                    </button>
+                </div>
+                <div id="vendorExtendedInfo" style="display: none;">
+                    <span>Ventas hoy <strong id="ve_ventas">Q 0.00</strong></span>
+                    <span>Activas <strong id="ve_inv">0</strong></span>
+                    <span>Comisión <strong id="ve_com">Q 0.00</strong></span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="genPrecio"><i class="fas fa-coins"></i> Precio unitario (Q)</label>
+                <input type="number" id="genPrecio" value="3.00" step="0.50" min="0" oninput="syncPrintFields(); calcularEstadisticasRapidas();">
+            </div>
+            <div class="input-group">
+                <label for="genComentario"><i class="fas fa-tag"></i> Referencia</label>
+                <div style="display: flex; gap: 7px;">
+                    <input type="text" id="genComentario" placeholder="Opcional">
+                    <button type="button" class="icon-button accent" onclick="generarReferencia()" title="Generar referencia" aria-label="Generar referencia">
+                        <i class="fas fa-magic"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="generation-actions">
+                <button type="button" class="btn-secondary" onclick="limpiarFormulario()" title="Limpiar formulario">
+                    <i class="fas fa-broom"></i> Limpiar
+                </button>
+                <button type="button" class="btn-primary" id="btnAutoGenerate" onclick="autoGenerateVouchers()">
+                    Generar con API <i class="fas fa-bolt"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="genProgressContainer" style="display: none;">
+            <div style="display: flex; justify-content: space-between; color: #aaa; font-size: .72rem; margin-bottom: 5px;">
+                <span>Generando fichas</span>
+                <span id="genProgressText">0%</span>
+            </div>
+            <div class="pro-progress-bg">
+                <div id="genProgressBar" class="pro-progress-fill" style="width: 0;"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="studio-section">
+        <div class="codes-header">
+            <h2 class="section-heading"><span class="section-number">3</span> Códigos del lote</h2>
+            <div class="codes-status" id="codesSummary" aria-live="polite">
+                <strong><span id="codesDetected">0</span> códigos</strong> · <span id="codesDetail">Esperando códigos</span>
+            </div>
+        </div>
+        <div class="input-group">
+            <label class="sr-only" for="codesInput">Códigos generados o pegados manualmente</label>
+            <textarea id="codesInput" placeholder="Los códigos generados aparecerán aquí. También puedes pegarlos manualmente, uno por línea."></textarea>
+        </div>
+        <div class="codes-tools">
+            <button type="button" class="btn-secondary" onclick="pegarCodigosStudio()"><i class="fas fa-paste"></i> Pegar</button>
+            <button type="button" class="btn-secondary" onclick="limpiarCodigosStudio()"><i class="fas fa-eraser"></i> Vaciar</button>
+        </div>
+    </section>
+
+    <section class="studio-section">
+        <h2 class="section-heading"><span class="section-number">4</span> Diseño de la ficha</h2>
+        <div class="design-layout">
+            <div class="design-fields">
+                <div class="input-group">
+                    <label for="businessName">Nombre del negocio / logo</label>
+                    <input type="text" id="businessName" value="CUZONET" oninput="renderLivePreview()">
+                    <input type="file" id="logoUpload" accept="image/*" hidden onchange="handleLogoUpload(event)">
+                    <div class="logo-actions">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('logoUpload').click()"><i class="fas fa-image"></i> Subir logo</button>
+                        <button type="button" class="btn-secondary" id="btnRemoveLogo" style="display: none;" onclick="removeLogo()"><i class="fas fa-trash"></i> Quitar</button>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="templateSelector">Plantilla</label>
+                    <select id="templateSelector" onchange="renderLivePreview()">
+                        <option value="classic">Clásica</option>
+                        <option value="premium">Premium · oro</option>
+                        <option value="dark">Oscura · neón</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="colorPicker">Color de la marca</label>
+                    <input type="color" id="colorPicker" value="#ff6600" oninput="updateColor(this.value); renderLivePreview()">
+                </div>
+                <div class="input-group">
+                    <label for="timeInput">Texto de duración</label>
+                    <input type="text" id="timeInput" value="3 HORAS" oninput="renderLivePreview()">
+                </div>
+                <div class="input-group">
+                    <label for="priceInput">Texto de precio</label>
+                    <input type="text" id="priceInput" value="Q 3.00" oninput="renderLivePreview()">
+                </div>
+            </div>
+            <aside class="preview-panel" aria-label="Vista previa de la ficha">
+                <div class="preview-label"><i class="fas fa-eye"></i> Vista previa en vivo</div>
+                <div id="livePreviewContainer"></div>
+            </aside>
+        </div>
+    </section>
+
+    <div class="main-actions">
+        <button class="btn-primary" onclick="iniciarProceso(false)" title="Ctrl + P" data-requires-codes>
+            <i class="fas fa-print"></i> Imprimir fichas
+        </button>
+        <button class="btn-success" onclick="compartirWhatsApp()" title="Ctrl + W" data-requires-codes>
+            <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
+        </button>
+        <button class="btn-secondary" onclick="iniciarProceso(true)" title="Ctrl + E" data-requires-codes>
+            <i class="fas fa-file-pdf"></i> Exportar PDF
+        </button>
+    </div>
+
+    <div class="export-row">
+        <span class="keyboard-hint">Atajos: Ctrl+G generar · Ctrl+P imprimir · Ctrl+W WhatsApp · Ctrl+E PDF</span>
+        <div class="export-options">
+            <button class="btn-secondary" onclick="exportarExcel()" data-requires-codes><i class="fas fa-file-excel"></i> CSV</button>
+            <button class="btn-secondary" onclick="exportarTXT()" data-requires-codes><i class="fas fa-file-alt"></i> TXT</button>
+            <button class="btn-secondary" onclick="exportarJSON()" data-requires-codes><i class="fas fa-code"></i> JSON</button>
+            <button class="btn-secondary" onclick="reimprimirUltimoLote()" title="Recuperar último lote"><i class="fas fa-redo-alt"></i></button>
+        </div>
+    </div>
+</div>
