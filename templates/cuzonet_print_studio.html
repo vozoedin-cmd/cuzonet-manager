@@ -48,12 +48,12 @@
         .v-card.dark .v-val { color: var(--brand-color); }
         .v-card.dark .v-footer { color: #888; }
         
-        @media print { 
-            @page { margin: 0; } 
-            body { padding: 10mm; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-            .control-panel, .sidebar, .header, .bg-animation, #cuzobot-container, #toastContainer, .toast { display: none !important; } 
+        @media print {
+            @page { margin: 10mm; }
+            body { padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .control-panel, .sidebar, .header, .bg-animation, #cuzobot-container, #toastContainer, .toast { display: none !important; }
             .main-content { margin-left: 0 !important; padding: 0 !important; }
-            #print-area { width: 100%; max-width: none; } 
+            #print-area { width: 100%; max-width: none; }
         }
 
         /* PRO Modal Styles */
