@@ -2165,6 +2165,7 @@ def avisos_cobro(mes=None):
     from datetime import datetime
 
     filtro = request.args.get('filtro', 'todos')  # 'todos' o 'morosos'
+    estado_pago = request.args.get('estado_pago', 'pendiente')  # 'pendiente' o 'pagado'
 
     # Función para convertir número a letras en español
     def numero_a_letras(numero):
@@ -2284,6 +2285,7 @@ def avisos_cobro(mes=None):
                          mes_nombre=mes_nombre,
                          anio=anio,
                          filtro=filtro,
+                         estado_pago=estado_pago,
                          total_activos=len(clientes_activos),
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
                          numero_a_letras=numero_a_letras,
@@ -2295,7 +2297,9 @@ def avisos_cobro(mes=None):
 def aviso_cobro_individual(cliente_id, mes=None):
     """Generar aviso de cobro individual para un cliente"""
     from datetime import datetime
-    
+
+    estado_pago = request.args.get('estado_pago', 'pendiente')  # 'pendiente' o 'pagado'
+
     def numero_a_letras(numero):
         unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE']
         decenas = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 
@@ -2384,13 +2388,14 @@ def aviso_cobro_individual(cliente_id, mes=None):
         except:
             return "5 días post-corte"
     
-    return render_template('avisos_cobro.html', 
-                         clientes=[cliente], 
-                         total=cliente.precio_mensual or 0, 
+    return render_template('avisos_cobro.html',
+                         clientes=[cliente],
+                         total=cliente.precio_mensual or 0,
                          mes=mes,
                          mes_nombre=mes_nombre,
                          anio=anio,
                          filtro='individual',
+                         estado_pago=estado_pago,
                          total_activos=1,
                          fecha_emision=datetime.now().strftime('%d-%m-%Y'),
                          numero_a_letras=numero_a_letras,

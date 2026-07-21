@@ -223,7 +223,7 @@
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <div class="dropdown-content" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--bg-card); min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.8); z-index: 9999; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; text-align: left;">
-                                            <a href="/aviso-cobro/cliente/{{ cliente.id }}" target="_blank" style="color: var(--text-primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-print w-20px" style="margin-right: 5px;"></i> Imprimir Aviso</a>
+                                            <a href="#" onclick="abrirAvisoIndividual(event, {{ cliente.id }})" style="color: var(--text-primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-print w-20px" style="margin-right: 5px;"></i> Imprimir Aviso</a>
                                             <a href="#" onclick="suspenderCliente({{ cliente.id }})" style="color: var(--warning); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-pause w-20px" style="margin-right: 5px;"></i> Suspender</a>
                                             <a href="#" onclick="activarCliente({{ cliente.id }})" style="color: var(--success); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-play w-20px"></i> Reactivar</a>
                                             <a href="#" style="color: var(--primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-map-marker-alt w-20px"></i> Ver ubicación</a>
@@ -603,11 +603,51 @@
                         </select>
                     </div>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="filtro_estado_pago"><i class="fas fa-tag"></i> Estado a Mostrar en el Recibo</label>
+                    <select id="filtro_estado_pago" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="pagado">Pagado</option>
+                    </select>
+                </div>
+
                 <div class="modal-footer" style="padding: 0; margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('avisosCobroModal')">Cancelar</button>
                     <button type="submit" class="btn btn-warning" style="background: #e67e22; color: white;">
                         <i class="fas fa-print"></i> Generar Recibos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Imprimir Aviso Individual -->
+    <div class="modal-overlay" id="avisoIndividualModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-invoice-dollar"></i> Imprimir Aviso de Cobro</h3>
+                <button class="modal-close" onclick="closeModal('avisoIndividualModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="avisoIndividualForm" class="config-form" style="padding:1.5rem;" onsubmit="generarAvisoIndividual(event)">
+                <input type="hidden" id="ai_cliente_id">
+                <div class="form-group">
+                    <label for="ai_mes"><i class="fas fa-calendar-alt"></i> Mes a Cobrar</label>
+                    <input type="month" id="ai_mes" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                    <label for="ai_estado_pago"><i class="fas fa-tag"></i> Estado a Mostrar en el Recibo</label>
+                    <select id="ai_estado_pago" style="width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="pagado">Pagado</option>
+                    </select>
+                </div>
+                <div class="modal-footer" style="padding: 0; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('avisoIndividualModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-warning" style="background: #e67e22; color: white;">
+                        <i class="fas fa-print"></i> Generar Recibo
                     </button>
                 </div>
             </form>
@@ -813,6 +853,7 @@
             const filtro = document.getElementById('filtro_estado').value;
             const diaPago = document.getElementById('filtro_dia_pago').value;
             const mes = document.getElementById('filtro_mes').value;
+            const estadoPago = document.getElementById('filtro_estado_pago').value;
 
             let url = '/avisos-cobro';
             if (mes) {
@@ -825,8 +866,36 @@
             if (diaPago) {
                 url += `&dia_pago=${diaPago}`;
             }
-            
+            url += `&estado_pago=${estadoPago}`;
+
             closeModal('avisosCobroModal');
+            window.open(url, '_blank');
+        }
+
+        function abrirAvisoIndividual(e, clienteId) {
+            e.preventDefault();
+            document.getElementById('ai_cliente_id').value = clienteId;
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('ai_mes').value = `${yyyy}-${mm}`;
+            document.getElementById('ai_estado_pago').value = 'pendiente';
+            openModal('avisoIndividualModal');
+        }
+
+        function generarAvisoIndividual(e) {
+            e.preventDefault();
+            const clienteId = document.getElementById('ai_cliente_id').value;
+            const mes = document.getElementById('ai_mes').value;
+            const estadoPago = document.getElementById('ai_estado_pago').value;
+
+            let url = `/aviso-cobro/cliente/${clienteId}`;
+            if (mes) {
+                url += `/${mes}`;
+            }
+            url += `?estado_pago=${estadoPago}`;
+
+            closeModal('avisoIndividualModal');
             window.open(url, '_blank');
         }
     </script>

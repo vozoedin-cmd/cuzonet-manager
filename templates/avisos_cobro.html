@@ -18,6 +18,7 @@
             --border-light: #e2e8f0;
             --bg-light: #f8fafc;
             --status-pending: #f59e0b;
+            --status-paid: #22c55e;
         }
 
         * {
@@ -581,7 +582,7 @@
                         </div>
                     </div>
                     <div class="aviso-title-box">
-                        <div class="status-badge">PENDIENTE</div>
+                        <div class="status-badge" style="background: {{ 'var(--status-paid)' if estado_pago == 'pagado' else 'var(--status-pending)' }};">{{ 'PAGADO' if estado_pago == 'pagado' else 'PENDIENTE' }}</div>
                         <h2>Aviso de Cobro</h2>
                         <p>#{{ '%04d' % cliente.id }}-{{ mes }}</p>
                         <div class="fechas-box">
