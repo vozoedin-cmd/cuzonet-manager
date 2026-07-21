@@ -30,6 +30,7 @@
 
     const updateGenerateState = () => {
         const button = document.getElementById("btnAutoGenerate");
+        const hint = document.getElementById("genHint");
         if (!button) return;
 
         const omada = document.getElementById("genOmada")?.value;
@@ -37,12 +38,24 @@
         const amount = Number(document.getElementById("genAmount")?.value);
         const time = Number(document.getElementById("genTimeVal")?.value);
         const price = Number(document.getElementById("genPrecio")?.value);
-        const ready = Boolean(omada && vendor && amount > 0 && time > 0 && price >= 0);
 
+        const faltantes = [];
+        if (!omada) faltantes.push("un controlador Omada");
+        if (!vendor) faltantes.push("un vendedor");
+        if (!(amount > 0)) faltantes.push("una cantidad válida");
+        if (!(time > 0)) faltantes.push("una duración válida");
+        if (!(price >= 0)) faltantes.push("un precio válido");
+
+        const ready = faltantes.length === 0;
         button.disabled = !ready;
         button.title = ready
             ? "Generar fichas en Omada"
-            : "Selecciona controlador, vendedor y completa los valores";
+            : `Falta seleccionar/completar: ${faltantes.join(", ")}`;
+
+        if (hint) {
+            hint.style.display = ready ? "none" : "block";
+            hint.textContent = ready ? "" : `Falta seleccionar/completar: ${faltantes.join(", ")}.`;
+        }
     };
 
     window.pegarCodigosStudio = async function () {

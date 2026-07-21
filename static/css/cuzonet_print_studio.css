@@ -285,6 +285,16 @@
     margin-top: 16px;
 }
 
+.gen-hint {
+    grid-column: 1 / -1;
+    display: block;
+    text-align: right;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #ffad33;
+}
+
 .studio-shell .btn-primary,
 .studio-shell .btn-secondary,
 .studio-shell .btn-success {

@@ -5566,12 +5566,31 @@ def hotspot_vendedores():
 @login_required
 @admin_required
 def hotspot_vendedor_nuevo():
+    import json
     routers = ConfigMikroTik.query.filter_by(activo=True).all()
     vendedor_id = request.args.get('edit')
     vendedor = None
+    direccion_data = {'depto': '', 'muni': '', 'aldea': ''}
+    permisos_data = {
+        'vender_fichas': True, 'ver_reportes': True, 'imprimir': True,
+        'solicitar_inventario': True, 'editar_clientes': False,
+        'ver_ganancias': True, 'administrar_omada': False
+    }
     if vendedor_id:
         vendedor = Usuario.query.get(vendedor_id)
-    return render_template('hotspot_vendedor_crear.html', routers=routers, vendedor=vendedor)
+        if vendedor:
+            if vendedor.direccion:
+                try:
+                    direccion_data.update(json.loads(vendedor.direccion))
+                except (ValueError, TypeError):
+                    pass
+            if vendedor.permisos:
+                try:
+                    permisos_data.update(json.loads(vendedor.permisos))
+                except (ValueError, TypeError):
+                    pass
+    return render_template('hotspot_vendedor_crear.html', routers=routers, vendedor=vendedor,
+                           direccion_data=direccion_data, permisos_data=permisos_data)
 
 @app.route('/admin/hotspot/control-vendedores')
 @login_required

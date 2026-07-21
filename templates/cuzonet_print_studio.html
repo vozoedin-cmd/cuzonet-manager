@@ -140,8 +140,10 @@
     <script>
 
         window.logoBase64 = localStorage.getItem('omadaLogo') || null;
-        
+
         document.addEventListener('DOMContentLoaded', () => {
+            cargarConfigStudio();
+            syncPrintFields();
             if(window.logoBase64) {
                 document.getElementById('btnRemoveLogo').style.display = 'block';
             }
@@ -189,11 +191,39 @@
         function syncPrintFields() {
             const precio = parseFloat(document.getElementById('genPrecio').value || 0).toFixed(2);
             document.getElementById('priceInput').value = `Q ${precio}`;
-            
+
             const tiempo = document.getElementById('genTimeVal').value || 0;
             const unidadVal = document.getElementById('genTimeUnidad').value;
             const tText = unidadVal == 0 ? 'MINUTOS' : (unidadVal == 1 ? 'HORAS' : 'DIAS');
             document.getElementById('timeInput').value = `${tiempo} ${tText}`;
+            guardarConfigStudio();
+        }
+
+        // --- RECORDAR CONFIGURACION DEL LOTE (duración, precio, plantilla, color, negocio) ---
+        const STUDIO_CONFIG_KEY = 'cuzonet_studio_config';
+        const STUDIO_CONFIG_FIELDS = ['genTimeVal', 'genTimeUnidad', 'genPrecio', 'templateSelector', 'colorPicker', 'businessName'];
+
+        function guardarConfigStudio() {
+            const config = {};
+            STUDIO_CONFIG_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) config[id] = el.value;
+            });
+            localStorage.setItem(STUDIO_CONFIG_KEY, JSON.stringify(config));
+        }
+
+        function cargarConfigStudio() {
+            const raw = localStorage.getItem(STUDIO_CONFIG_KEY);
+            if (!raw) return;
+            try {
+                const config = JSON.parse(raw);
+                STUDIO_CONFIG_FIELDS.forEach(id => {
+                    if (config[id] !== undefined && config[id] !== '') {
+                        const el = document.getElementById(id);
+                        if (el) el.value = config[id];
+                    }
+                });
+            } catch (e) { /* config guardada inválida, se ignora */ }
         }
 
         async function cargarSitiosPrint() {
@@ -642,15 +672,21 @@
             if(confirm('¿Seguro que deseas reiniciar todo el formulario?')) {
                 document.getElementById('genAmount').value = '50';
                 document.getElementById('genTimeVal').value = '3';
+                document.getElementById('genTimeUnidad').value = '1';
                 document.getElementById('genPrecio').value = '3.00';
                 document.getElementById('genComentario').value = '';
                 document.getElementById('codesInput').value = '';
                 document.getElementById('print-area').innerHTML = '';
                 document.getElementById('searchVendedor').value = '';
                 document.getElementById('genVendedor').selectedIndex = 0;
+                document.getElementById('businessName').value = 'CUZONET';
+                document.getElementById('templateSelector').value = 'classic';
+                document.getElementById('colorPicker').value = '#ff6600';
+                localStorage.removeItem(STUDIO_CONFIG_KEY);
                 filtrarVendedores();
                 syncPrintFields();
                 calcularEstadisticasRapidas();
+                renderLivePreview();
                 updateColor(document.getElementById('colorPicker').value);
             }
         }
@@ -840,6 +876,7 @@
                     <div class="v-footer">Ficha: #1</div>
                 </div>
             `;
+            guardarConfigStudio();
         }
         
         function exportarTXT() {

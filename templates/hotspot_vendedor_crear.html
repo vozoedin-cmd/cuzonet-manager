@@ -341,18 +341,18 @@
                 <div class="form-row">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-map-marker-alt"></i> Departamento</label>
-                        <input type="text" name="direccion_depto" class="pro-input" placeholder="Ej: Alta Verapaz">
+                        <input type="text" name="direccion_depto" class="pro-input" placeholder="Ej: Alta Verapaz" value="{{ direccion_data.depto if direccion_data else '' }}">
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-map-marker"></i> Municipio</label>
-                        <input type="text" name="direccion_muni" class="pro-input" placeholder="Ej: Cobán">
+                        <input type="text" name="direccion_muni" class="pro-input" placeholder="Ej: Cobán" value="{{ direccion_data.muni if direccion_data else '' }}">
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-home"></i> Aldea / Zona</label>
-                        <input type="text" name="direccion_aldea" class="pro-input" placeholder="Ej: Zona 1">
+                        <input type="text" name="direccion_aldea" class="pro-input" placeholder="Ej: Zona 1" value="{{ direccion_data.aldea if direccion_data else '' }}">
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-camera"></i> Foto del Vendedor (Opcional)</label>
@@ -433,19 +433,25 @@
                 <h3 class="section-title"><i class="fas fa-shield-alt"></i> Permisos del Vendedor en su Panel</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
                     <label class="pro-checkbox-container">
-                        <input type="checkbox" name="vender_fichas" class="pro-checkbox" checked> Vender Fichas
+                        <input type="checkbox" name="vender_fichas" class="pro-checkbox" {% if permisos_data.vender_fichas %}checked{% endif %}> Vender Fichas
                     </label>
                     <label class="pro-checkbox-container">
-                        <input type="checkbox" name="ver_reportes" class="pro-checkbox" checked> Ver Reportes
+                        <input type="checkbox" name="ver_reportes" class="pro-checkbox" {% if permisos_data.ver_reportes %}checked{% endif %}> Ver Reportes
                     </label>
                     <label class="pro-checkbox-container">
-                        <input type="checkbox" name="imprimir" class="pro-checkbox" checked> Imprimir Vouchers
+                        <input type="checkbox" name="imprimir" class="pro-checkbox" {% if permisos_data.imprimir %}checked{% endif %}> Imprimir Vouchers
                     </label>
                     <label class="pro-checkbox-container">
-                        <input type="checkbox" name="solicitar_inventario" class="pro-checkbox" checked> Solicitar Inventario
+                        <input type="checkbox" name="solicitar_inventario" class="pro-checkbox" {% if permisos_data.solicitar_inventario %}checked{% endif %}> Solicitar Inventario
                     </label>
                     <label class="pro-checkbox-container">
-                        <input type="checkbox" name="ver_ganancias" class="pro-checkbox" checked> Ver Ganancias
+                        <input type="checkbox" name="ver_ganancias" class="pro-checkbox" {% if permisos_data.ver_ganancias %}checked{% endif %}> Ver Ganancias
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="editar_clientes" class="pro-checkbox" {% if permisos_data.editar_clientes %}checked{% endif %}> Editar Clientes
+                    </label>
+                    <label class="pro-checkbox-container">
+                        <input type="checkbox" name="administrar_omada" class="pro-checkbox" {% if permisos_data.administrar_omada %}checked{% endif %}> Administrar Omada
                     </label>
                 </div>
 
