@@ -4438,27 +4438,17 @@ def migrate_db():
                         print(f"[MIGRATION] Error vouchers 2: {e}")
             if 'clientes' in inspector.get_table_names():
                 try:
-                    humber_router = ConfigMikroTik.query.filter(ConfigMikroTik.nombre.ilike('%humber%')).first()
-                    if humber_router:
+                    first_r = ConfigMikroTik.query.first()
+                    if first_r:
                         with db.engine.connect() as conn:
-                            res = conn.execute(text(f"SELECT COUNT(*) FROM clientes WHERE router_id IS NULL OR router_id != {humber_router.id}"))
+                            res = conn.execute(text("SELECT COUNT(*) FROM clientes WHERE router_id IS NULL"))
                             count = res.scalar()
                             if count > 0:
-                                conn.execute(text(f"UPDATE clientes SET router_id = {humber_router.id}"))
+                                conn.execute(text(f"UPDATE clientes SET router_id = {first_r.id} WHERE router_id IS NULL"))
                                 conn.commit()
-                                print(f"[MIGRATION] Se migraron {count} clientes al router Humber (ID {humber_router.id})")
-                    else:
-                        first_r = ConfigMikroTik.query.first()
-                        if first_r:
-                            with db.engine.connect() as conn:
-                                res = conn.execute(text("SELECT COUNT(*) FROM clientes WHERE router_id IS NULL"))
-                                count = res.scalar()
-                                if count > 0:
-                                    conn.execute(text(f"UPDATE clientes SET router_id = {first_r.id} WHERE router_id IS NULL"))
-                                    conn.commit()
-                                    print(f"[MIGRATION] Se asignaron {count} clientes al router por defecto ID {first_r.id}")
+                                print(f"[MIGRATION] Se asignaron {count} clientes sin router al router por defecto ID {first_r.id}")
                 except Exception as db_e:
-                    print(f"[MIGRATION] Error al verificar/migrar clientes a router Humber: {db_e}")
+                    print(f"[MIGRATION] Error al verificar/migrar clientes sin router: {db_e}")
         except Exception as e:
             print(f"[MIGRATION] Error general: {e}")
 
