@@ -56,12 +56,12 @@ def utility_processor():
             a_cobro, m_cobro = map(int, mes_str.split('-'))
             a_prox = cliente.fecha_proximo_pago.year
             m_prox = cliente.fecha_proximo_pago.month
-            
+
             diff = (a_cobro - a_prox) * 12 + (m_cobro - m_prox)
             return diff if diff > 0 else 0
         except:
             return 0
-            
+
     def calcular_deuda_total(cliente, mes_str=None):
         """Calcula la deuda acumulada real incluyendo meses atrasados y el saldo pendiente previo."""
         meses = calcular_meses_atrasados(cliente, mes_str)
@@ -71,7 +71,7 @@ def utility_processor():
         return saldo_base + (meses * cuota)
 
     return dict(
-        calcular_meses_atrasados=calcular_meses_atrasados, 
+        calcular_meses_atrasados=calcular_meses_atrasados,
         calcular_deuda_total=calcular_deuda_total
     )
 
@@ -3252,36 +3252,38 @@ def registrar_pago():
         monto = float(data.get('monto', 0))
         if monto <= 0:
             return jsonify({'success': False, 'error': 'Monto debe ser mayor a 0'}), 400
-        
+
+        mes_pago = data.get('mes_correspondiente', datetime.now().strftime('%Y-%m'))
+        precio = cliente.precio_mensual or 0
+
+        # ¿Ya había algún pago registrado para este mismo mes? Si es el primer pago del mes,
+        # la deuda a cubrir es el saldo que arrastraba + la cuota de este mes. Si es un abono
+        # adicional al mismo mes (ya iniciado), no se vuelve a sumar la cuota (ya quedó reflejada
+        # en el saldo_pendiente que dejó el abono anterior).
+        ya_pago_este_mes = Pago.query.filter_by(cliente_id=cliente_id, mes_correspondiente=mes_pago).first() is not None
+        saldo_previo = cliente.saldo_pendiente or 0
+        deuda_total = saldo_previo if ya_pago_este_mes else saldo_previo + precio
+        saldo_restante = round(deuda_total - monto, 2)
+
         # Crear pago
         pago = Pago(
             cliente_id=cliente_id,
             monto=monto,
-            mes_correspondiente=data.get('mes_correspondiente', datetime.now().strftime('%Y-%m')),
+            mes_correspondiente=mes_pago,
             metodo_pago=data.get('metodo_pago', 'efectivo'),
             referencia=data.get('referencia', ''),
             notas=data.get('notas', ''),
             registrado_por=data.get('registrado_por', 'admin')
         )
-        
+
         db.session.add(pago)
-
-        # Calcular total pagado este mes para este cliente (incluyendo el pago actual)
-        mes_pago = data.get('mes_correspondiente', datetime.now().strftime('%Y-%m'))
-        from sqlalchemy import func
-        total_pagado_mes = db.session.query(
-            func.sum(Pago.monto)
-        ).filter_by(cliente_id=cliente_id, mes_correspondiente=mes_pago).scalar() or 0
-        total_pagado_mes += monto  # sumar el pago actual (aún no commiteado)
-
-        precio = cliente.precio_mensual or 0
 
         # Actualizar cliente
         cliente.fecha_ultimo_pago = datetime.now()
 
-        if precio > 0 and total_pagado_mes < precio:
-            # Pago parcial: queda saldo pendiente
-            cliente.saldo_pendiente = round(precio - total_pagado_mes, 2)
+        if precio > 0 and saldo_restante > 0:
+            # Pago parcial: queda saldo pendiente (incluye deuda anterior no cubierta)
+            cliente.saldo_pendiente = saldo_restante
             # No avanzar fecha_proximo_pago hasta pagar completo
         else:
             # Pago completo
