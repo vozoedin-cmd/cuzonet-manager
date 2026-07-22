@@ -185,7 +185,7 @@
                                         <i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> {{ cliente.dias_vencidos }} días vencido
                                     </span>
                                     <span style="color: #f59e0b; font-size: 0.9rem; font-weight: bold;">
-                                        <i class="fas fa-coins"></i> Q{{ "%.2f"|format(calcular_deuda_total(cliente) + (cliente.precio_mensual or 0)) }}
+                                        <i class="fas fa-coins"></i> Q{{ "%.2f"|format(cliente.deuda_actual) }}
                                     </span>
                                     {% else %}
                                     <span style="color: #10b981; font-weight: bold; font-size: 0.95rem;">Al día</span>
@@ -520,9 +520,10 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-calendar"></i> Mes correspondiente</label>
-                        <input type="month" id="pr_mes">
+                        <select id="pr_mes" onchange="actualizarMontoPagoRapido()"></select>
                     </div>
                 </div>
+                <div class="form-group" id="pr_saldo_nota" style="display:none; color: var(--warning); font-size: 0.85rem;"></div>
                 <div class="form-row">
                     <div class="form-group">
                         <label><i class="fas fa-credit-card"></i> Método de pago</label>
@@ -657,18 +658,53 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
         // ===== PAGO RÁPIDO =====
-        function abrirPagoRapido(clienteId, nombre, precio) {
+        let mesesPendientesPagoRapido = [];
+
+        function actualizarMontoPagoRapido() {
+            const sel = document.getElementById('pr_mes');
+            const mesInfo = mesesPendientesPagoRapido.find(m => m.value === sel.value);
+            if (mesInfo) {
+                document.getElementById('pr_monto').value = mesInfo.monto.toFixed(2);
+            }
+        }
+
+        async function abrirPagoRapido(clienteId, nombre, precio) {
             document.getElementById('pr_cliente_id').value = clienteId;
             document.getElementById('pr_cliente_nombre').value = nombre;
             document.getElementById('pr_monto').value = precio > 0 ? precio.toFixed(2) : '';
-            document.getElementById('pr_mes').value = new Date().toISOString().slice(0, 7);
             document.getElementById('pr_metodo').value = 'efectivo';
             document.getElementById('pr_referencia').value = '';
             document.getElementById('pr_activar').checked = true;
+
+            const selMes = document.getElementById('pr_mes');
+            const notaSaldo = document.getElementById('pr_saldo_nota');
+            selMes.innerHTML = '<option value="">Cargando meses...</option>';
+            notaSaldo.style.display = 'none';
+
             const btn = document.getElementById('pr_submitBtn');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-save"></i> Registrar Pago';
             openModal('pagoRapidoModal');
+
+            try {
+                const r = await fetch(`/api/cliente/${clienteId}/meses-pendientes`);
+                const d = await r.json();
+                if (d.success && d.meses.length > 0) {
+                    mesesPendientesPagoRapido = d.meses;
+                    selMes.innerHTML = d.meses.map(m => `<option value="${m.value}">${m.label} (Q${m.monto.toFixed(2)})</option>`).join('');
+                    // Seleccionar el mes más atrasado (el primero) y su monto sugerido
+                    selMes.value = d.meses[0].value;
+                    document.getElementById('pr_monto').value = d.meses[0].monto.toFixed(2);
+                    if (d.saldo_pendiente > 0) {
+                        notaSaldo.style.display = 'block';
+                        notaSaldo.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Además debe Q${d.saldo_pendiente.toFixed(2)} de saldo anterior no cubierto.`;
+                    }
+                } else {
+                    selMes.innerHTML = `<option value="${new Date().toISOString().slice(0,7)}">Mes actual</option>`;
+                }
+            } catch (e) {
+                selMes.innerHTML = `<option value="${new Date().toISOString().slice(0,7)}">Mes actual</option>`;
+            }
         }
 
         document.getElementById('pagoRapidoForm').addEventListener('submit', async function(e) {

@@ -42,34 +42,34 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
+# ============== CALCULO DE DEUDA DE CLIENTES ==============
+def calcular_meses_atrasados(cliente, mes_str=None):
+    """Calcula cuántos meses completos han pasado desde la fecha_proximo_pago hasta el mes a cobrar."""
+    if not cliente.fecha_proximo_pago:
+        return 0
+    if not mes_str:
+        mes_str = datetime.now().strftime('%Y-%m')
+    try:
+        a_cobro, m_cobro = map(int, mes_str.split('-'))
+        a_prox = cliente.fecha_proximo_pago.year
+        m_prox = cliente.fecha_proximo_pago.month
+
+        diff = (a_cobro - a_prox) * 12 + (m_cobro - m_prox)
+        return diff if diff > 0 else 0
+    except:
+        return 0
+
+def calcular_deuda_total(cliente, mes_str=None):
+    """Calcula la deuda acumulada real incluyendo meses atrasados y el saldo pendiente previo."""
+    meses = calcular_meses_atrasados(cliente, mes_str)
+    cuota = cliente.precio_mensual or 0
+    saldo_base = cliente.saldo_pendiente or 0
+    # La deuda es: saldo anterior + (meses atrasados * cuota)
+    return saldo_base + (meses * cuota)
+
 # ============== CONTEXT PROCESSOR ==============
 @app.context_processor
 def utility_processor():
-    def calcular_meses_atrasados(cliente, mes_str=None):
-        """Calcula cuántos meses han pasado desde la fecha_proximo_pago hasta el mes a cobrar."""
-        if not cliente.fecha_proximo_pago:
-            return 0
-        from datetime import datetime
-        if not mes_str:
-            mes_str = datetime.now().strftime('%Y-%m')
-        try:
-            a_cobro, m_cobro = map(int, mes_str.split('-'))
-            a_prox = cliente.fecha_proximo_pago.year
-            m_prox = cliente.fecha_proximo_pago.month
-
-            diff = (a_cobro - a_prox) * 12 + (m_cobro - m_prox)
-            return diff if diff > 0 else 0
-        except:
-            return 0
-
-    def calcular_deuda_total(cliente, mes_str=None):
-        """Calcula la deuda acumulada real incluyendo meses atrasados y el saldo pendiente previo."""
-        meses = calcular_meses_atrasados(cliente, mes_str)
-        cuota = cliente.precio_mensual or 0
-        saldo_base = cliente.saldo_pendiente or 0
-        # La deuda es: saldo anterior + (meses atrasados * cuota)
-        return saldo_base + (meses * cuota)
-
     return dict(
         calcular_meses_atrasados=calcular_meses_atrasados,
         calcular_deuda_total=calcular_deuda_total
@@ -2019,6 +2019,20 @@ def listar_clientes():
         else:
             c.dias_vencidos = 0
 
+        # Deuda real actual: si el mes que se está rastreando (fecha_proximo_pago) ya tiene
+        # algún pago registrado, saldo_pendiente ya refleja lo que falta de ese mes y no hay
+        # que volver a sumarle la cuota (evita mostrar el doble de lo que realmente se debe).
+        if c.dias_vencidos > 0:
+            mes_tracking = c.fecha_proximo_pago.strftime('%Y-%m')
+            ya_pago_mes_tracking = db.session.query(Pago.id).filter_by(
+                cliente_id=c.id, mes_correspondiente=mes_tracking
+            ).first() is not None
+            meses_extra = calcular_meses_atrasados(c)
+            base = (c.saldo_pendiente or 0) + meses_extra * (c.precio_mensual or 0)
+            c.deuda_actual = base if ya_pago_mes_tracking else base + (c.precio_mensual or 0)
+        else:
+            c.deuda_actual = 0
+
     # Solo marca como pagado si el total acumulado del mes >= precio_mensual
     from sqlalchemy import func
     pagos_mes = db.session.query(
@@ -3234,6 +3248,47 @@ def obtener_clientes():
 
 # ============== API PAGOS ==============
 
+@app.route('/api/cliente/<int:id>/meses-pendientes')
+@login_required
+def meses_pendientes_cliente(id):
+    """Devuelve los meses que el cliente tiene pendientes de pago, para elegir en Registrar Pago."""
+    cliente = Cliente.query.get_or_404(id)
+    meses_nombres = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+        7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    hoy = datetime.now()
+    precio = cliente.precio_mensual or 0
+    meses = []
+
+    if cliente.fecha_proximo_pago and cliente.fecha_proximo_pago <= hoy:
+        anio, mes = cliente.fecha_proximo_pago.year, cliente.fecha_proximo_pago.month
+        while (anio, mes) <= (hoy.year, hoy.month):
+            meses.append({
+                'value': f"{anio}-{mes:02d}",
+                'label': f"{meses_nombres[mes]} {anio}",
+                'monto': round(precio, 2)
+            })
+            mes += 1
+            if mes > 12:
+                mes = 1
+                anio += 1
+
+    if not meses:
+        # Cliente al día: se ofrece el mes actual por si se quiere registrar un pago adelantado
+        meses.append({
+            'value': hoy.strftime('%Y-%m'),
+            'label': f"{meses_nombres[hoy.month]} {hoy.year}",
+            'monto': round(precio, 2)
+        })
+
+    return jsonify({
+        'success': True,
+        'meses': meses,
+        'saldo_pendiente': round(cliente.saldo_pendiente or 0, 2)
+    })
+
+
 @app.route('/api/pago', methods=['POST'])
 @login_required
 def registrar_pago():
@@ -3256,10 +3311,24 @@ def registrar_pago():
         mes_pago = data.get('mes_correspondiente', datetime.now().strftime('%Y-%m'))
         precio = cliente.precio_mensual or 0
 
+        # Si hay meses completos ya vencidos entre la fecha de próximo pago y el mes que se
+        # está pagando (ej. el cliente eligió pagar julio pero junio también sigue debiéndose),
+        # se incorporan al saldo pendiente y se sincroniza fecha_proximo_pago con ese mes, para
+        # que esos meses no se vuelvan a contar en un cálculo futuro.
+        meses_atrasados = calcular_meses_atrasados(cliente, mes_pago)
+        if meses_atrasados > 0:
+            cliente.saldo_pendiente = (cliente.saldo_pendiente or 0) + meses_atrasados * precio
+            anio_fp = cliente.fecha_proximo_pago.year
+            mes_fp = cliente.fecha_proximo_pago.month + meses_atrasados
+            while mes_fp > 12:
+                mes_fp -= 12
+                anio_fp += 1
+            cliente.fecha_proximo_pago = datetime(anio_fp, mes_fp, min(cliente.dia_corte, 28))
+
         # ¿Ya había algún pago registrado para este mismo mes? Si es el primer pago del mes,
-        # la deuda a cubrir es el saldo que arrastraba + la cuota de este mes. Si es un abono
-        # adicional al mismo mes (ya iniciado), no se vuelve a sumar la cuota (ya quedó reflejada
-        # en el saldo_pendiente que dejó el abono anterior).
+        # la deuda a cubrir es el saldo que arrastraba (ya incluye meses atrasados) + la cuota
+        # de este mes. Si es un abono adicional al mismo mes (ya iniciado), no se vuelve a sumar
+        # la cuota (ya quedó reflejada en el saldo_pendiente que dejó el abono anterior).
         ya_pago_este_mes = Pago.query.filter_by(cliente_id=cliente_id, mes_correspondiente=mes_pago).first() is not None
         saldo_previo = cliente.saldo_pendiente or 0
         deuda_total = saldo_previo if ya_pago_este_mes else saldo_previo + precio
