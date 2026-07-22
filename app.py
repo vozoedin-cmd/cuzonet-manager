@@ -3286,13 +3286,22 @@ def registrar_pago():
             cliente.saldo_pendiente = saldo_restante
             # No avanzar fecha_proximo_pago hasta pagar completo
         else:
-            # Pago completo
+            # Pago completo: el próximo pago vence el mes siguiente al que se está pagando
+            # (usar mes_pago, no la fecha de hoy, para no saltarse meses si se registra un
+            # pago atrasado/retroactivo de un mes anterior mientras el mes actual sigue debiendo)
             cliente.saldo_pendiente = 0
-            hoy = datetime.now()
-            next_month = hoy.month + 1 if hoy.month < 12 else 1
-            next_year = hoy.year if hoy.month < 12 else hoy.year + 1
+            try:
+                anio_pago, mes_num_pago = map(int, mes_pago.split('-'))
+            except (ValueError, AttributeError):
+                hoy = datetime.now()
+                anio_pago, mes_num_pago = hoy.year, hoy.month
+            next_month = mes_num_pago + 1 if mes_num_pago < 12 else 1
+            next_year = anio_pago if mes_num_pago < 12 else anio_pago + 1
             dia = min(cliente.dia_corte, 28)
-            cliente.fecha_proximo_pago = datetime(next_year, next_month, dia)
+            nueva_fecha_proximo = datetime(next_year, next_month, dia)
+            # Nunca retroceder la fecha si ya estaba más adelante (ej. pagos adelantados previos)
+            if not cliente.fecha_proximo_pago or nueva_fecha_proximo > cliente.fecha_proximo_pago:
+                cliente.fecha_proximo_pago = nueva_fecha_proximo
         
         # Si estaba cortado o suspendido y pagó, activar automáticamente
         if cliente.estado in ['suspendido', 'cortado'] and data.get('activar_automatico', True):
