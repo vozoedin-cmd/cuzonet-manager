@@ -3055,11 +3055,12 @@ def actualizar_cliente(id):
                     api.update_simple_queue(cliente.mikrotik_id, target=data['ip_address'])
         
         # Actualizar Router si cambió y migrar queue en MikroTik
+        router_warning = None
         if 'router_id' in data and data['router_id'] is not None and str(data['router_id']).strip() != "":
             new_router_id = int(data['router_id'])
             if new_router_id != cliente.router_id:
                 old_router_id = cliente.router_id
-                
+
                 # Si el cliente tiene un queue en el MikroTik viejo, eliminarlo
                 if cliente.mikrotik_id and old_router_id:
                     try:
@@ -3068,10 +3069,10 @@ def actualizar_cliente(id):
                             old_api.delete_simple_queue(cliente.mikrotik_id)
                     except Exception as ex:
                         print(f"[WARNING] No se pudo eliminar queue viejo: {ex}")
-                
+
                 cliente.router_id = new_router_id
                 cliente.mikrotik_id = None  # Resetear ID temporalmente
-                
+
                 # Crear queue en el MikroTik nuevo
                 try:
                     new_api = get_mikrotik_api(new_router_id)
@@ -3080,7 +3081,7 @@ def actualizar_cliente(id):
                         nombre_limpio = cliente.nombre.replace(' ', '-').lower()[:30]
                         queue_name = f"cliente-{nombre_limpio}-{cliente.ip_address.replace('.', '-')}"
                         cliente.queue_name = queue_name
-                        
+
                         success, result = new_api.create_simple_queue(
                             name=queue_name,
                             target=cliente.ip_address,
@@ -3090,11 +3091,19 @@ def actualizar_cliente(id):
                         )
                         if success:
                             cliente.mikrotik_id = result
+                        else:
+                            router_warning = 'El cliente se movió de router, pero no se pudo crear su queue en el MikroTik nuevo. Verifica la conexión y revisa el queue manualmente.'
+                    else:
+                        router_warning = 'El cliente se movió de router, pero no se pudo conectar al MikroTik nuevo para crear su queue. Verifica que el router esté en línea.'
                 except Exception as ex:
                     print(f"[WARNING] No se pudo crear queue nuevo: {ex}")
-        
+                    router_warning = 'El cliente se movió de router, pero ocurrió un error al crear su queue en el MikroTik nuevo. Verifica el queue manualmente.'
+
         db.session.commit()
-        return jsonify({'success': True, 'cliente': cliente.to_dict()})
+        response = {'success': True, 'cliente': cliente.to_dict()}
+        if router_warning:
+            response['warning'] = router_warning
+        return jsonify(response)
         
     except Exception as e:
         db.session.rollback()

@@ -1082,7 +1082,16 @@
             // Forzar recalculo del tama�o del mapa despu�s de que el DOM est� listo
             setTimeout(function() { map.invalidateSize(); }, 100);
             setTimeout(function() { map.invalidateSize(); }, 500);
-            cargarClientes();
+            cargarClientes().then(function() {
+                var focusId = new URLSearchParams(window.location.search).get('cliente_id');
+                if (!focusId) return;
+                focusId = parseInt(focusId);
+                if (markersMap[focusId]) {
+                    volarACliente(focusId);
+                } else {
+                    showToast('Este cliente no tiene ubicación guardada en el mapa', 'warning');
+                }
+            });
             cargarClientesSelect();
         });
     </script>

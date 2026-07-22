@@ -226,7 +226,7 @@
                                             <a href="#" onclick="abrirAvisoIndividual(event, {{ cliente.id }})" style="color: var(--text-primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-print w-20px" style="margin-right: 5px;"></i> Imprimir Aviso</a>
                                             <a href="#" onclick="suspenderCliente({{ cliente.id }})" style="color: var(--warning); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-pause w-20px" style="margin-right: 5px;"></i> Suspender</a>
                                             <a href="#" onclick="activarCliente({{ cliente.id }})" style="color: var(--success); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-play w-20px"></i> Reactivar</a>
-                                            <a href="#" style="color: var(--primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-map-marker-alt w-20px"></i> Ver ubicación</a>
+                                            <a href="/mapa?cliente_id={{ cliente.id }}" style="color: var(--primary); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05);"><i class="fas fa-map-marker-alt w-20px"></i> Ver ubicación</a>
                                             <a href="#" onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')" style="color: var(--danger); padding: 10px 15px; text-decoration: none; display: block; font-size: 0.9rem;"><i class="fas fa-trash w-20px"></i> Eliminar</a>
                                         </div>
                                     </div>
@@ -758,9 +758,13 @@
                 const r = await fetch(`/api/cliente/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
                 const d = await r.json();
                 if (d.success) {
-                    showToast('Cliente actualizado', 'success');
+                    if (d.warning) {
+                        showToast(d.warning, 'warning');
+                    } else {
+                        showToast('Cliente actualizado', 'success');
+                    }
                     closeModal('editClienteModal');
-                    setTimeout(() => location.reload(), 1000);
+                    setTimeout(() => location.reload(), d.warning ? 2500 : 1000);
                 } else {
                     showToast(d.error || 'Error al guardar', 'error');
                 }
