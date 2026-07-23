@@ -178,6 +178,7 @@
                 <h3 style="margin: 0; color: #03a786; white-space: nowrap;"><i class="fas fa-list-ol"></i> Códigos del Lote <span id="codesLoteNombre" style="color: #fff; font-weight: 700;"></span></h3>
                 <input type="text" id="codesSearch" class="stats-search" style="max-width: 260px;" placeholder="&#128269; Buscar PIN..." oninput="renderCodigos()">
                 <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="btnEnviarLoteWa" onclick="enviarLoteWhatsapp()" class="btn-modal-action" style="border-color: #25d366; color: #25d366; font-weight: 700;"><i class="fab fa-whatsapp"></i> Enviar al Vendedor</button>
                     <button onclick="copiarCodigos()" class="btn-modal-action" style="border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar PINs</button>
                     <button onclick="eliminarLoteCompleto()" class="btn-modal-action" style="border-color: #e63946; color: #e63946;"><i class="fas fa-trash-alt"></i> Eliminar Todo el Lote</button>
                     <button onclick="document.getElementById('codesModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; line-height: 1;">&times;</button>
@@ -813,6 +814,7 @@
         
         async function abrirDetalleCodigos(rawDataB64) {
             const rawData = JSON.parse(atob(rawDataB64));
+            window.__codesRawData = rawData;
             document.getElementById('codesModal').style.display = 'flex';
             document.getElementById('codesLoteNombre').textContent = rawData.lote ? `· ${rawData.lote}` : '';
             document.getElementById('codesSearch').value = '';
@@ -900,6 +902,40 @@
         function filtrarCodigos(estado) {
             filtroActual = estado;
             renderCodigos();
+        }
+
+        async function enviarLoteWhatsapp() {
+            if (!window.__codesRawData) return;
+            const activos = codigosActuales.filter(c => c.estado === 'activo').length;
+            if (activos === 0) {
+                showToast('Este lote no tiene fichas activas para enviar.', 'error');
+                return;
+            }
+            if (!confirm(`Se enviarán los ${activos} PINs ACTIVOS (disponibles) de este lote al WhatsApp del vendedor asignado.\n\n¿Enviar ahora?`)) return;
+
+            const btn = document.getElementById('btnEnviarLoteWa');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+            btn.disabled = true;
+
+            try {
+                const r = await fetch('/api/omada/enviar_lote_whatsapp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(window.__codesRawData)
+                });
+                const res = await r.json();
+                if (res.success) {
+                    showToast(res.message, 'success');
+                } else {
+                    showToast(res.error || 'Error al enviar el lote', 'error');
+                }
+            } catch (e) {
+                showToast('Error de red al enviar el lote.', 'error');
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
         }
 
         function copiarCodigos() {
