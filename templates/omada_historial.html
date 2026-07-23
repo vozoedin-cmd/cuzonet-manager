@@ -83,6 +83,13 @@
                 </div>
             </div>
             <div class="stat-card">
+                <div class="stat-icon" style="color: #ff6600;"><i class="fas fa-fire"></i></div>
+                <div class="stat-details">
+                    <h3>Vendidas Hoy</h3>
+                    <p>{{ vendidas_hoy }}</p>
+                </div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-icon" style="color: #28a745;"><i class="fas fa-hand-holding-usd"></i></div>
                 <div class="stat-details">
                     <h3>Ingresos Hoy</h3>
@@ -187,7 +194,7 @@
                                         {% if v.estado == 'activo' %}
                                             <span class="badge" style="background-color: #28a745;">Activa</span>
                                         {% elif v.estado == 'usado' %}
-                                            <span class="badge" style="background-color: #ffc107; color: #000;">Sin usar</span>
+                                            <span class="badge" style="background-color: #ffc107; color: #000;">Usada</span>
                                         {% elif v.estado == 'vencido' %}
                                             <span class="badge" style="background-color: #dc3545;">Vencida</span>
                                         {% else %}
@@ -441,12 +448,21 @@
             }
         }
 
-        function limpiarHistorial() {
-            if(confirm('ATENCIÓN: ¿Estás seguro de que quieres eliminar todo el historial? Esta acción marcará todas las fichas como eliminadas y no se puede deshacer.')) {
-                // Here we would typically call a backend endpoint to clear all, 
-                // but since we only have individual status updates, we can either
-                // implement the backend or alert the user.
-                alert('Funcionalidad de limpieza masiva pendiente de implementar en el backend.');
+        async function limpiarHistorial() {
+            if (!confirm('ATENCIÓN: Esto marcará TODAS las fichas del historial como eliminadas y no se puede deshacer.\n\nLas fichas NO se borran en Omada: si quieres que dejen de funcionar, bórralas también en tu panel Omada.\n\n¿Continuar?')) return;
+            if (!confirm('Última confirmación: ¿limpiar TODO el historial de fichas?')) return;
+
+            try {
+                const r = await fetch('/api/omada/limpiar_historial', { method: 'POST' });
+                const res = await r.json();
+                if (res.success) {
+                    alert(res.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + res.error);
+                }
+            } catch (e) {
+                alert('Error de red al limpiar el historial.');
             }
         }
     </script>

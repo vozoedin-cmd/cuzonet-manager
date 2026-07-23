@@ -1931,9 +1931,31 @@ def eliminar_fichas_omada():
                 
         if eliminados > 0:
             db.session.commit()
-            
+
         return jsonify({'success': True, 'message': f'{eliminados} fichas marcadas como eliminadas localmente.'})
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/omada/limpiar_historial', methods=['POST'])
+@login_required
+@admin_required
+def limpiar_historial_omada():
+    """Marca TODAS las fichas como eliminadas (limpieza total del historial).
+    Renombra los codigos igual que el borrado individual, para que la proxima
+    sincronizacion con Omada no las resucite."""
+    try:
+        from sqlalchemy import cast, String
+        n = db.session.query(OmadaVoucher)\
+            .filter(OmadaVoucher.estado != 'eliminado')\
+            .update({
+                OmadaVoucher.estado: 'eliminado',
+                OmadaVoucher.codigo: OmadaVoucher.codigo + '_del_' + cast(OmadaVoucher.id, String)
+            }, synchronize_session=False)
+        db.session.commit()
+        registrar_auditoria('limpiar_historial_omada', 'omada_vouchers', None, f'{n} fichas marcadas como eliminadas')
+        return jsonify({'success': True, 'message': f'{n} fichas marcadas como eliminadas.'})
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 # ============== BOT DE INTELIGENCIA ARTIFICIAL ==============
@@ -6155,28 +6177,35 @@ def hotspot_omada_historial():
     
     hoy = datetime.utcnow().date()
     fichas_hoy = 0
-    ingresos_hoy = 0.0
+    vendidas_hoy = 0
+    ingresos_hoy = 0.0  # Q de fichas vendidas (usadas) hoy, no de las generadas
     estado_counts = {'activo': 0, 'usado': 0, 'vencido': 0, 'eliminado': 0}
-    
+
     for v in vouchers:
         # Contar estados
         if v.estado in estado_counts:
             estado_counts[v.estado] += 1
-            
-        # Calcular hoy
+
+        # Generadas hoy
         if v.fecha_creacion.date() == hoy:
             fichas_hoy += 1
+
+        # Vendidas hoy (por fecha de uso)
+        if v.fecha_uso and v.estado in ('usado', 'vencido') and v.fecha_uso.date() == hoy:
+            vendidas_hoy += 1
             ingresos_hoy += v.precio
 
-    # Datos para gráfico: ventas de los últimos 7 días
+    # Datos para gráfico: ventas reales (por fecha de uso) de los últimos 7 días
     ventas_7_dias = {}
     for i in range(7):
         d = hoy - timedelta(days=i)
         ventas_7_dias[d.strftime('%d/%m')] = 0
-        
+
     for v in vouchers:
-        fecha_str = v.fecha_creacion.strftime('%d/%m')
-        if fecha_str in ventas_7_dias and v.estado != 'eliminado':
+        if not v.fecha_uso or v.estado not in ('usado', 'vencido'):
+            continue
+        fecha_str = v.fecha_uso.strftime('%d/%m')
+        if fecha_str in ventas_7_dias:
             ventas_7_dias[fecha_str] += v.precio
             
     # Ordenar chronológicamente para el gráfico
@@ -6186,9 +6215,10 @@ def hotspot_omada_historial():
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
     return render_template(
         'omada_historial.html', 
-        vouchers=vouchers, 
+        vouchers=vouchers,
         vendedores=vendedores,
         fichas_hoy=fichas_hoy,
+        vendidas_hoy=vendidas_hoy,
         ingresos_hoy=ingresos_hoy,
         estado_counts=estado_counts,
         labels_grafico=labels_grafico,
