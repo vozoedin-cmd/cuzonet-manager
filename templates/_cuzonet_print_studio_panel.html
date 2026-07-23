@@ -53,6 +53,8 @@
         </div>
     </section>
 
+    <div class="studio-columns">
+    <div class="studio-main-col">
     <section class="studio-section">
         <h2 class="section-heading"><span class="section-number">1</span> Conexión Omada</h2>
         <div class="field-grid two">
@@ -155,33 +157,6 @@
     </section>
 
     <section class="studio-section">
-        <div class="codes-header">
-            <h2 class="section-heading"><span class="section-number">3</span> Códigos del lote</h2>
-            <div class="codes-status" id="codesSummary" aria-live="polite">
-                <strong><span id="codesDetected">0</span> códigos</strong> · <span id="codesDetail">Esperando códigos</span>
-            </div>
-        </div>
-        <div class="input-group">
-            <label class="sr-only" for="codesInput">Códigos generados o pegados manualmente</label>
-            <textarea id="codesInput" placeholder="Los códigos generados aparecerán aquí. También puedes pegarlos manualmente, uno por línea."></textarea>
-        </div>
-        <div class="codes-tools">
-            <button type="button" class="btn-secondary" onclick="pegarCodigosStudio()"><i class="fas fa-paste"></i> Pegar</button>
-            <button type="button" class="btn-secondary" onclick="limpiarCodigosStudio()"><i class="fas fa-eraser"></i> Vaciar</button>
-        </div>
-    </section>
-
-    <section class="studio-section">
-        <div class="codes-header">
-            <h2 class="section-heading"><i class="fas fa-history"></i> Lotes recientes</h2>
-            <button type="button" class="btn-secondary" onclick="cargarLotesRecientes()" title="Actualizar" aria-label="Actualizar lotes recientes"><i class="fas fa-sync-alt"></i></button>
-        </div>
-        <div id="recentLotsList">
-            <div style="color:#888; font-size:0.85rem; padding: 10px 0;">Cargando…</div>
-        </div>
-    </section>
-
-    <section class="studio-section">
         <h2 class="section-heading"><span class="section-number">4</span> Diseño de la ficha</h2>
         <div class="design-layout">
             <div class="design-fields">
@@ -221,6 +196,37 @@
             </aside>
         </div>
     </section>
+    </div><!-- /.studio-main-col -->
+
+    <div class="studio-side-col">
+    <section class="studio-section">
+        <div class="codes-header">
+            <h2 class="section-heading"><span class="section-number">3</span> Códigos del lote</h2>
+            <div class="codes-status" id="codesSummary" aria-live="polite">
+                <strong><span id="codesDetected">0</span> códigos</strong> · <span id="codesDetail">Esperando códigos</span>
+            </div>
+        </div>
+        <div class="input-group">
+            <label class="sr-only" for="codesInput">Códigos generados o pegados manualmente</label>
+            <textarea id="codesInput" placeholder="Los códigos generados aparecerán aquí. También puedes pegarlos manualmente, uno por línea."></textarea>
+        </div>
+        <div class="codes-tools">
+            <button type="button" class="btn-secondary" onclick="pegarCodigosStudio()"><i class="fas fa-paste"></i> Pegar</button>
+            <button type="button" class="btn-secondary" onclick="limpiarCodigosStudio()"><i class="fas fa-eraser"></i> Vaciar</button>
+        </div>
+    </section>
+
+    <section class="studio-section">
+        <div class="codes-header">
+            <h2 class="section-heading"><i class="fas fa-history"></i> Lotes recientes</h2>
+            <button type="button" class="btn-secondary" onclick="cargarLotesRecientes()" title="Actualizar" aria-label="Actualizar lotes recientes"><i class="fas fa-sync-alt"></i></button>
+        </div>
+        <div id="recentLotsList">
+            <div style="color:#888; font-size:0.85rem; padding: 10px 0;">Cargando…</div>
+        </div>
+    </section>
+    </div><!-- /.studio-side-col -->
+    </div><!-- /.studio-columns -->
 
     <div class="main-actions">
         <button class="btn-primary" onclick="iniciarProceso(false)" title="Ctrl + P" data-requires-codes>
