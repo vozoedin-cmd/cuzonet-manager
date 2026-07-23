@@ -1945,17 +1945,13 @@ def _normalizar_telefono_gt(telefono):
         digitos = '502' + digitos
     return digitos
 
-ENVIO_LOTE_WA_STATE = {'running': False, 'message': None}
-
 @app.route('/api/omada/enviar_lote_whatsapp', methods=['POST'])
 @login_required
 @admin_required
 def enviar_lote_whatsapp():
-    """Envia por WhatsApp (TextMeBot) el listado de PINs activos de un lote
-    al telefono del vendedor asignado. El envio corre en segundo plano porque
-    TextMeBot requiere una pausa entre mensajes."""
-    import threading, time
-
+    """Arma el mensaje de bienvenida/entrega de un lote para el vendedor
+    (resumen + enlace a su portal) y devuelve el texto y el telefono para
+    que el frontend abra wa.me y el admin lo envie desde su WhatsApp."""
     data = request.json
     vendedor_id = data.get('vendedor_id')
     lote = data.get('lote')
@@ -1971,14 +1967,6 @@ def enviar_lote_whatsapp():
     if not telefono:
         return jsonify({'success': False, 'error': f'{vendedor.nombre} no tiene teléfono registrado. Edítalo y agrega su número.'})
 
-    config_alertas = ConfigAlertas.query.first()
-    if not config_alertas or not config_alertas.api_key:
-        return jsonify({'success': False, 'error': 'No hay API key de TextMeBot configurada (Configuración → Alertas).'})
-    api_key = config_alertas.api_key
-
-    if ENVIO_LOTE_WA_STATE['running']:
-        return jsonify({'success': False, 'error': 'Ya hay un envío de lote en progreso. Espera a que termine.'})
-
     query = OmadaVoucher.query.filter_by(
         vendedor_id=vendedor_id,
         duracion_valor=d_val,
@@ -1989,57 +1977,33 @@ def enviar_lote_whatsapp():
         query = query.filter_by(lote=lote)
     else:
         query = query.filter(OmadaVoucher.lote.is_(None))
-    codigos = [v.codigo for v in query.all()]
+    cantidad = query.count()
 
-    if not codigos:
-        return jsonify({'success': False, 'error': 'Este lote no tiene fichas activas (disponibles) para enviar.'})
+    if cantidad == 0:
+        return jsonify({'success': False, 'error': 'Este lote no tiene fichas activas (disponibles) para entregar.'})
 
     unidades = {0: 'Min', 1: 'Horas', 2: 'Días'}
-    plan_str = f"{d_val} {unidades.get(d_un, '')} (Q {precio})"
+    plan_str = f"{d_val} {unidades.get(d_un, '')}"
     fecha_str = datetime.utcnow().strftime('%d/%m/%Y')
+    valor_total = cantidad * float(precio or 0)
+    portal_url = request.host_url.rstrip('/')
 
-    # Armar mensajes: encabezado + PINs en bloques (mensajes cortos y seguros)
-    CHUNK = 60
-    bloques = [codigos[i:i + CHUNK] for i in range(0, len(codigos), CHUNK)]
-    mensajes = [(
-        f"🎫 *Entrega de Fichas - CuzoNet*\n"
-        f"Vendedor: *{vendedor.nombre}*\n"
-        f"Lote: {lote or plan_str}\n"
-        f"Plan: {plan_str}\n"
-        f"Cantidad: *{len(codigos)} fichas*\n"
-        f"Fecha: {fecha_str}\n\n"
-        f"A continuación te llegan los PINs en {len(bloques)} mensaje(s). "
-        f"Usa el buscador de WhatsApp para encontrar un PIN rápido."
-    )]
-    for idx, bloque in enumerate(bloques, start=1):
-        mensajes.append(f"📄 *PINs ({idx}/{len(bloques)})*\n" + "\n".join(bloque))
+    texto = (
+        f"👋 ¡Hola *{vendedor.nombre}*! Bienvenido a CuzoNet.\n\n"
+        f"🎫 Te hemos asignado *{cantidad} fichas* de *{plan_str}* a Q{precio} c/u.\n"
+        f"📦 Lote: {lote or plan_str}\n"
+        f"📅 Fecha de entrega: {fecha_str}\n"
+        f"💰 Valor total del lote: *Q {valor_total:.2f}*\n\n"
+        f"📊 Si quieres ver tu estado de ventas, visita tu portal:\n"
+        f"{portal_url}\n"
+        f"👤 Tu usuario: *{vendedor.username}*\n\n"
+        f"¡Buenas ventas! 🚀"
+    )
 
-    def _enviar():
-        import requests as req
-        ENVIO_LOTE_WA_STATE.update(running=True, message=None)
-        enviados = 0
-        try:
-            for i, msg in enumerate(mensajes):
-                if i > 0:
-                    time.sleep(8)  # pausa que exige TextMeBot entre mensajes
-                req.get("http://api.textmebot.com/send.php", params={
-                    "recipient": f"+{telefono}",
-                    "apikey": api_key,
-                    "text": msg
-                }, timeout=15)
-                enviados += 1
-            ENVIO_LOTE_WA_STATE.update(running=False, message=f"Enviados {enviados} mensajes a {vendedor.nombre}.")
-        except Exception as e:
-            ENVIO_LOTE_WA_STATE.update(running=False, message=f"Error tras {enviados} mensajes: {e}")
+    registrar_auditoria('entrega_lote_whatsapp', 'omada_vouchers', None,
+                        f'Notificación de entrega de {cantidad} fichas ("{lote or plan_str}") para {vendedor.nombre} (+{telefono})')
 
-    threading.Thread(target=_enviar, daemon=True).start()
-    registrar_auditoria('enviar_lote_whatsapp', 'omada_vouchers', None,
-                        f'{len(codigos)} PINs del lote "{lote or plan_str}" enviados a {vendedor.nombre} (+{telefono})')
-
-    return jsonify({
-        'success': True,
-        'message': f'Enviando {len(codigos)} PINs a {vendedor.nombre} (+{telefono}) en {len(mensajes)} mensajes de WhatsApp. Tardará ~{len(mensajes) * 8} segundos.'
-    })
+    return jsonify({'success': True, 'telefono': telefono, 'texto': texto})
 
 @app.route('/api/omada/limpiar_historial', methods=['POST'])
 @login_required

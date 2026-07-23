@@ -906,16 +906,10 @@
 
         async function enviarLoteWhatsapp() {
             if (!window.__codesRawData) return;
-            const activos = codigosActuales.filter(c => c.estado === 'activo').length;
-            if (activos === 0) {
-                showToast('Este lote no tiene fichas activas para enviar.', 'error');
-                return;
-            }
-            if (!confirm(`Se enviarán los ${activos} PINs ACTIVOS (disponibles) de este lote al WhatsApp del vendedor asignado.\n\n¿Enviar ahora?`)) return;
 
             const btn = document.getElementById('btnEnviarLoteWa');
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando...';
             btn.disabled = true;
 
             try {
@@ -926,12 +920,13 @@
                 });
                 const res = await r.json();
                 if (res.success) {
-                    showToast(res.message, 'success');
+                    // Abre WhatsApp con el mensaje de entrega listo: solo falta presionar enviar
+                    window.open('https://wa.me/' + res.telefono + '?text=' + encodeURIComponent(res.texto), '_blank');
                 } else {
-                    showToast(res.error || 'Error al enviar el lote', 'error');
+                    showToast(res.error || 'Error al preparar el mensaje', 'error');
                 }
             } catch (e) {
-                showToast('Error de red al enviar el lote.', 'error');
+                showToast('Error de red al preparar el mensaje.', 'error');
             } finally {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
