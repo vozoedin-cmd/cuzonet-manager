@@ -71,17 +71,7 @@
         <div class="flex-grow-1 p-4" style="background-color: #0f0f12;">
             <div class="container-fluid">
             
-                {% if sync_error %}
-                <div class="alert alert-danger mb-4" role="alert">
-                    <i class="fas fa-exclamation-triangle"></i> <strong>Error de Omada:</strong> {{ sync_error }}
-                </div>
-                {% endif %}
-                
-                {% if sync_info %}
-                <div class="alert alert-success mb-4" role="alert">
-                    <i class="fas fa-check-circle"></i> {{ sync_info }}
-                </div>
-                {% endif %}
+                <div id="syncBanner" class="alert mb-4" role="alert" style="display: none;"></div>
 
         <!-- Tarjetas Resumen -->
         <div class="summary-cards-container">
@@ -146,7 +136,7 @@
                         <h4 style="color: var(--text-primary); margin: 0;">Detalle de Fichas</h4>
                         <div class="action-buttons" id="table-actions">
                             <a href="{{ url_for('hotspot_omada_print') }}" class="btn btn-primary-custom"><i class="fas fa-plus"></i> Generar Fichas</a>
-                            <a href="{{ url_for('hotspot_omada_historial') }}" class="btn btn-info ms-2" style="color: white; border-radius: 8px; font-weight: 500;"><i class="fas fa-sync-alt"></i> Sincronizar</a>
+                            <button id="btnSyncHistorial" class="btn btn-info ms-2" style="color: white; border-radius: 8px; font-weight: 500;" onclick="sincronizarOmadaHistorial()"><i class="fas fa-sync-alt"></i> Sincronizar</button>
                             <button class="btn btn-danger-custom btn-sm ms-2" onclick="limpiarHistorial()"><i class="fas fa-trash-alt"></i> Limpiar Historial</button>
                             <!-- Botones DataTables irán aquí -->
                         </div>
@@ -401,6 +391,53 @@
                         location.reload();
                     }
                 });
+            }
+        }
+
+        function mostrarSyncBanner(tipo, mensaje) {
+            const banner = document.getElementById('syncBanner');
+            banner.className = 'alert mb-4 alert-' + tipo;
+            banner.innerHTML = mensaje;
+            banner.style.display = 'block';
+        }
+
+        async function sincronizarOmadaHistorial() {
+            const btn = document.getElementById('btnSyncHistorial');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+            btn.disabled = true;
+
+            try {
+                const r = await fetch('/api/omada/sync', { method: 'POST' });
+                const res = await r.json();
+                if (!res.success) {
+                    mostrarSyncBanner('danger', '<i class="fas fa-exclamation-triangle"></i> ' + (res.error || 'Error al sincronizar'));
+                    return;
+                }
+
+                mostrarSyncBanner('info', '<i class="fas fa-spinner fa-spin"></i> Sincronizando con Omada en segundo plano... La página se recargará al terminar.');
+
+                // El sync corre en segundo plano: consultar estado hasta que termine
+                for (let i = 0; i < 100; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    const rs = await fetch('/api/omada/sync/status');
+                    const st = await rs.json();
+                    if (!st.running) {
+                        if (st.sync_success) {
+                            mostrarSyncBanner('success', '<i class="fas fa-check-circle"></i> ' + (st.message || 'Sincronización finalizada') + ' Recargando...');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            mostrarSyncBanner('danger', '<i class="fas fa-exclamation-triangle"></i> ' + (st.message || 'Error en la sincronización'));
+                        }
+                        return;
+                    }
+                }
+                mostrarSyncBanner('warning', '<i class="fas fa-hourglass-half"></i> La sincronización sigue en progreso. Recarga la página en unos minutos.');
+            } catch (e) {
+                mostrarSyncBanner('danger', '<i class="fas fa-exclamation-triangle"></i> Error de red al sincronizar.');
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
             }
         }
 
