@@ -180,14 +180,17 @@ class OmadaAPI:
                 if 'status' in v:
                     status = v.get('status')
                 else:
-                    # Omada V6 fallback: calculate status from 'used' and 'valid'
+                    # Omada V6 fallback: calculate status from 'used' and 'valid'.
+                    # Una ficha usada cuyo tiempo ya se consumio viene como used>0 y
+                    # valid=false: debe contar como Usada, no como Vencida. 'Vencida'
+                    # queda solo para fichas invalidadas sin ningun uso.
                     used = v.get('used', 0)
                     valid = v.get('valid', True)
-                    
-                    if not valid:
-                        status = 2 # Vencido
-                    elif used > 0:
+
+                    if used > 0:
                         status = 1 # Usado
+                    elif not valid:
+                        status = 2 # Vencido
                     else:
                         status = 0 # Activo
                         
