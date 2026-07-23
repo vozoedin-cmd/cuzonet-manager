@@ -7034,11 +7034,11 @@ def vendedor_dashboard():
         total_fichas_vendidas = len(fichas_mes_mt) + len(fichas_mes_om)
         ganancias_mes = total_fichas_vendidas * current_user.comision_valor
         
-    # Inventario actual (fichas listas para vender). El estado Omada correcto
-    # es 'activo', no 'disponible' -- ese valor nunca existio, asi que este
-    # conteo siempre daba 0 para vendedores con fichas Omada.
+    # Inventario actual (fichas listas para vender). El campo real de estado
+    # en Voucher es 'estado' (no existe 'activo'), y en OmadaVoucher el valor
+    # correcto es 'activo' (no 'disponible', que nunca existio).
     limite = current_user.limite_fichas or 0
-    fichas_activas_mt = Voucher.query.filter_by(vendedor_id=current_user.id, activo=True).count()
+    fichas_activas_mt = Voucher.query.filter_by(vendedor_id=current_user.id, estado='activo').count()
     fichas_disponibles_om = OmadaVoucher.query.filter_by(vendedor_id=current_user.id, estado='activo').count()
     fichas_disponibles_total = fichas_activas_mt + fichas_disponibles_om
 
