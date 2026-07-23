@@ -433,18 +433,18 @@
             const hora = new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
 
             cobroActual.texto = [
-                `🧾 *Estado de Cuenta - CuzoNet*`,
+                `\u{1F9FE} *Estado de Cuenta - CuzoNet*`,
                 `Vendedor: *${data.nombre}*`,
                 `Fecha: ${fecha} ${hora}`,
                 ``,
-                `📊 Ventas del mes: Q ${data.ventas_mes.toFixed(2)}`,
-                `📈 Ventas totales: Q ${data.ventas_totales.toFixed(2)}`,
-                `💵 Abonos realizados: Q ${data.abonos.toFixed(2)}`,
-                `🎫 Fichas: ${data.vendidas} vendidas · ${data.disponibles} disponibles`,
-                data.ultima_venta ? `🕒 Última venta: ${data.ultima_venta}` : null,
+                `\u{1F4CA} Ventas del mes: Q ${data.ventas_mes.toFixed(2)}`,
+                `\u{1F4C8} Ventas totales: Q ${data.ventas_totales.toFixed(2)}`,
+                `\u{1F4B5} Abonos realizados: Q ${data.abonos.toFixed(2)}`,
+                `\u{1F3AB} Fichas: ${data.vendidas} vendidas · ${data.disponibles} disponibles`,
+                data.ultima_venta ? `\u{1F552} Última venta: ${data.ultima_venta}` : null,
                 ``,
-                `───────────────`,
-                `💰 *Saldo a cobrar: Q ${data.deuda.toFixed(2)}*`
+                `\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}`,
+                `\u{1F4B0} *Saldo a cobrar: Q ${data.deuda.toFixed(2)}*`
             ].filter(l => l !== null).join('\n');
 
             const fila = (icono, label, valor, color) =>

@@ -2039,15 +2039,15 @@ def enviar_lote_whatsapp():
     portal_url = request.host_url.rstrip('/')
 
     texto = (
-        f"👋 ¡Hola *{vendedor.nombre}*! Bienvenido a CuzoNet.\n\n"
-        f"🎫 Te hemos asignado *{cantidad} fichas* de *{plan_str}* a Q{precio} c/u.\n"
-        f"📦 Lote: {lote or plan_str}\n"
-        f"📅 Fecha de entrega: {fecha_str}\n"
-        f"💰 Valor total del lote: *Q {valor_total:.2f}*\n\n"
-        f"📊 Si quieres ver tu estado de ventas, visita tu portal:\n"
+        f"\U0001F44B ¡Hola *{vendedor.nombre}*! Bienvenido a CuzoNet.\n\n"
+        f"\U0001F3AB Te hemos asignado *{cantidad} fichas* de *{plan_str}* a Q{precio} c/u.\n"
+        f"\U0001F4E6 Lote: {lote or plan_str}\n"
+        f"\U0001F4C5 Fecha de entrega: {fecha_str}\n"
+        f"\U0001F4B0 Valor total del lote: *Q {valor_total:.2f}*\n\n"
+        f"\U0001F4CA Si quieres ver tu estado de ventas, visita tu portal:\n"
         f"{portal_url}\n"
-        f"👤 Tu usuario: *{vendedor.username}*\n\n"
-        f"¡Buenas ventas! 🚀"
+        f"\U0001F464 Tu usuario: *{vendedor.username}*\n\n"
+        f"¡Buenas ventas! \U0001F680"
     )
 
     registrar_auditoria('entrega_lote_whatsapp', 'omada_vouchers', None,
@@ -7347,13 +7347,13 @@ def monitorear_routers():
                         minutos = int((ahora - nodo.ultima_caida).total_seconds() / 60)
                         tiempo_caido = f" (Estuvo offline por {minutos} min)"
                     
-                    mensaje = f"✅ RECUPERADO: El router '{nodo.nombre}' ({nodo.host}) está nuevamente en línea.{tiempo_caido}"
+                    mensaje = f"\U00002705 RECUPERADO: El router '{nodo.nombre}' ({nodo.host}) está nuevamente en línea.{tiempo_caido}"
                     enviar_alerta_textmebot(mensaje)
             else:
                 if getattr(nodo, 'estado_online', True):
                     nodo.estado_online = False
                     nodo.ultima_caida = ahora
-                    mensaje = f"🚨 ALERTA CUZONET: El router '{nodo.nombre}' ({nodo.host}) se ha desconectado. Por favor, verifica la red."
+                    mensaje = f"\U0001F6A8 ALERTA CUZONET: El router '{nodo.nombre}' ({nodo.host}) se ha desconectado. Por favor, verifica la red."
                     enviar_alerta_textmebot(mensaje)
                     
         db.session.commit()

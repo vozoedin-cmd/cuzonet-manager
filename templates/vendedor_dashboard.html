@@ -611,13 +611,13 @@
 
         function compartirWhatsApp(codigo, contrasena, plan, precio) {
             const mensaje = `*CUZONET - TICKET HOTSPOT*\n` +
-                            `━━━━━━━━━━━━━━━━━━\n` +
-                            `📡 *Servicio:* Internet Wifi\n` +
-                            `📋 *Plan:* ${plan}\n` +
-                            `💰 *Precio:* Q${parseFloat(precio).toFixed(2)}\n\n` +
-                            `🔑 *CÓDIGO DE ACCESO:* \`${codigo}\`\n` +
-                            `🔐 *Contraseña:* \`${contrasena}\`\n\n` +
-                            `━━━━━━━━━━━━━━━━━━\n` +
+                            `\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\n` +
+                            `\u{1F4E1} *Servicio:* Internet Wifi\n` +
+                            `\u{1F4CB} *Plan:* ${plan}\n` +
+                            `\u{1F4B0} *Precio:* Q${parseFloat(precio).toFixed(2)}\n\n` +
+                            `\u{1F511} *CÓDIGO DE ACCESO:* \`${codigo}\`\n` +
+                            `\u{1F510} *Contraseña:* \`${contrasena}\`\n\n` +
+                            `\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\n` +
                             `_Conéctate a la señal Wifi de tu sector e ingresa tu código para navegar._`;
             
             const encoded = encodeURIComponent(mensaje);

@@ -717,7 +717,7 @@
                         <td style="text-align:center; color:#10b981;">${l.disponibles}</td>
                         <td style="text-align:right; color:#25d366; font-weight:bold;">Q ${recaudado.toFixed(2)}</td>
                     </tr>`;
-                    lineasTexto.push(`• ${l.plan}: ${l.vendidas} vendidas / ${l.disponibles} disp. → Q ${recaudado.toFixed(2)}`);
+                    lineasTexto.push(`• ${l.plan}: ${l.vendidas} vendidas / ${l.disponibles} disp. \u{2192} Q ${recaudado.toFixed(2)}`);
                 }
             });
 
@@ -725,17 +725,17 @@
             const hora = new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
 
             const textoPlano = [
-                `🧾 *Recibo de Cobro - CuzoNet*`,
+                `\u{1F9FE} *Recibo de Cobro - CuzoNet*`,
                 `Vendedor: *${vendedor}*`,
                 `Fecha: ${fecha} ${hora}`,
                 ``,
-                `📦 *Fichas vendidas por plan:*`,
+                `\u{1F4E6} *Fichas vendidas por plan:*`,
                 lineasTexto.length ? lineasTexto.join('\n') : '(sin ventas registradas)',
                 ``,
-                `───────────────`,
+                `\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}`,
                 `Total vendidas: ${totalVendidas}`,
                 `Fichas disponibles (existentes): ${totalDisponibles}`,
-                `💰 *Total a cobrar: Q ${totalRecaudado.toFixed(2)}*`
+                `\u{1F4B0} *Total a cobrar: Q ${totalRecaudado.toFixed(2)}*`
             ].join('\n');
 
             window.__reciboTexto = textoPlano;

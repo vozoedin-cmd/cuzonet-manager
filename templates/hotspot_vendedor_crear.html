@@ -430,8 +430,8 @@
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-power-off"></i> Estado de la Cuenta</label>
                         <select class="pro-select" name="estado">
-                            <option value="activo" {% if vendedor and vendedor.estado == 'activo' %}selected{% endif %}>🟢 Activo (Puede vender)</option>
-                            <option value="suspendido" {% if vendedor and vendedor.estado == 'suspendido' %}selected{% endif %}>🔴 Suspendido (Bloqueado)</option>
+                            <option value="activo" {% if vendedor and vendedor.estado == 'activo' %}selected{% endif %}>\u{1F7E2} Activo (Puede vender)</option>
+                            <option value="suspendido" {% if vendedor and vendedor.estado == 'suspendido' %}selected{% endif %}>\u{1F534} Suspendido (Bloqueado)</option>
                         </select>
                     </div>
                 </div>
@@ -617,11 +617,11 @@
             const incluirPass = document.getElementById('incluirPassword').checked;
             const portalUrl = window.location.origin;
 
-            let texto = `👋 ¡Hola *${nombre}*! Bienvenido a CuzoNet.\n\nYa puedes empezar a vender fichas. Tu acceso al portal:\n${portalUrl}\n\n👤 Usuario: *${username}*`;
+            let texto = `\u{1F44B} ¡Hola *${nombre}*! Bienvenido a CuzoNet.\n\nYa puedes empezar a vender fichas. Tu acceso al portal:\n${portalUrl}\n\n\u{1F464} Usuario: *${username}*`;
             if (incluirPass) {
-                texto += password ? `\n🔑 Contraseña: *${password}*` : `\n🔑 Contraseña: (pídesela a tu administrador)`;
+                texto += password ? `\n\u{1F511} Contraseña: *${password}*` : `\n\u{1F511} Contraseña: (pídesela a tu administrador)`;
             }
-            texto += `\n\n¡Buenas ventas! 🚀`;
+            texto += `\n\n¡Buenas ventas! \u{1F680}`;
 
             document.getElementById('previewBienvenida').textContent = texto;
             window.__bienvenidaTexto = texto;
