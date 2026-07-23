@@ -328,17 +328,28 @@
             const originalHtml = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
             btn.disabled = true;
-            
+
             try {
                 const r = await fetch('/api/omada/sync', { method: 'POST' });
                 const res = await r.json();
-                if (res.success) {
-                    showToast(res.message, 'success');
-                    // Reload stats
-                    abrirStatsVendedores();
-                } else {
+                if (!res.success) {
                     showToast(res.error || 'Error al sincronizar', 'error');
+                    return;
                 }
+
+                // El sync corre en segundo plano: consultar el estado hasta que termine
+                showToast(res.message, 'success');
+                for (let i = 0; i < 100; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    const rs = await fetch('/api/omada/sync/status');
+                    const st = await rs.json();
+                    if (!st.running) {
+                        showToast(st.message || 'Sincronización finalizada', st.sync_success ? 'success' : 'error');
+                        abrirStatsVendedores();
+                        return;
+                    }
+                }
+                showToast('La sincronización sigue en progreso. Vuelve a abrir las estadísticas en unos minutos.', 'success');
             } catch (e) {
                 showToast('Error de red al sincronizar', 'error');
             } finally {

@@ -1674,79 +1674,119 @@ def omada_debug():
     except Exception as e:
         return str(e)
 
+# Estado global de la sincronizacion Omada (corre en un hilo de fondo porque
+# procesar decenas de miles de fichas supera el timeout del proxy de DigitalOcean)
+OMADA_SYNC_STATE = {'running': False, 'message': None, 'success': None}
+
+def _ejecutar_omada_sync():
+    from datetime import datetime
+    try:
+        with app.app_context():
+            omadas_configs = ConfigOmada.query.all()
+            # Filtrar en python para evitar problemas con SQLite y booleanos
+            omadas_configs = [c for c in omadas_configs if c.activo]
+
+            if not omadas_configs:
+                OMADA_SYNC_STATE.update(running=False, success=False,
+                                        message='No hay controladores Omada activos configurados.')
+                return
+
+            errores_sync = []
+            from omada_api import OmadaAPI
+            status_map_global = {}
+
+            for config in omadas_configs:
+                try:
+                    omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
+                    sites = omada.get_all_sites()
+                    for site in sites:
+                        omada.site_id = site['id']
+                        try:
+                            status_map = omada.get_all_vouchers_status()
+                            status_map_global.update(status_map)
+                        except Exception as e:
+                            errores_sync.append(f"{config.nombre} ({site['name']}): {str(e)}")
+                except Exception as e:
+                    errores_sync.append(f"{config.nombre} (Conexión/Sitios): {str(e)}")
+
+            # Clasificar cambios leyendo solo columnas (no objetos ORM completos):
+            # con 20k+ filas el update fila-por-fila tardaba minutos y moria por timeout.
+            rows = db.session.query(
+                OmadaVoucher.id, OmadaVoucher.codigo,
+                OmadaVoucher.estado, OmadaVoucher.fecha_uso
+            ).all()
+
+            ids_por_estado = {'activo': [], 'usado': [], 'vencido': [], 'eliminado': []}
+            ids_set_fecha_uso = []
+
+            for v_id, codigo, estado, fecha_uso in rows:
+                if codigo in status_map_global:
+                    try:
+                        omada_status = int(status_map_global[codigo])
+                    except ValueError:
+                        omada_status = 0
+
+                    nuevo_estado = 'activo'
+                    if omada_status == 1:
+                        nuevo_estado = 'usado'
+                    elif omada_status in (2, 3, 4):
+                        nuevo_estado = 'vencido'
+
+                    if estado != nuevo_estado:
+                        ids_por_estado[nuevo_estado].append(v_id)
+                        if nuevo_estado == 'usado' and not fecha_uso:
+                            ids_set_fecha_uso.append(v_id)
+                elif not errores_sync and estado != 'eliminado':
+                    # Marcar 'eliminado' solo si TODOS los controladores respondieron,
+                    # para no marcar falsos eliminados cuando uno esta caido.
+                    ids_por_estado['eliminado'].append(v_id)
+
+            def _bulk_update(ids, valores):
+                for i in range(0, len(ids), 500):
+                    chunk = ids[i:i + 500]
+                    db.session.query(OmadaVoucher)\
+                        .filter(OmadaVoucher.id.in_(chunk))\
+                        .update(valores, synchronize_session=False)
+                    db.session.commit()
+
+            ahora = datetime.utcnow()
+            for nuevo_estado, ids in ids_por_estado.items():
+                _bulk_update(ids, {'estado': nuevo_estado})
+            _bulk_update(ids_set_fecha_uso, {'fecha_uso': ahora})
+
+            actualizados_count = sum(len(ids) for e, ids in ids_por_estado.items() if e != 'eliminado')
+            eliminados_count = len(ids_por_estado['eliminado'])
+
+            mensaje = f"Sincronización completada. Actualizados: {actualizados_count}. Eliminados: {eliminados_count}."
+            if errores_sync:
+                mensaje += f" [Advertencia: Algunos sitios fallaron: {' | '.join(errores_sync)}]"
+            OMADA_SYNC_STATE.update(running=False, success=True, message=mensaje)
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        OMADA_SYNC_STATE.update(running=False, success=False, message=f"Error en sincronización: {str(e)}")
+
 @app.route('/api/omada/sync', methods=['POST'])
 @login_required
 def omada_sync_api():
-    from datetime import datetime
-    omadas_configs = ConfigOmada.query.all()
-    # Filtrar en python para evitar problemas con SQLite y booleanos
-    omadas_configs = [c for c in omadas_configs if c.activo]
-    
-    if not omadas_configs:
-        return jsonify({'success': False, 'error': 'No hay controladores Omada activos configurados.'})
-        
-    changed = False
-    total_sync = 0
-    errores_sync = []
-    
-    from omada_api import OmadaAPI
-    status_map_global = {}
-    
-    for config in omadas_configs:
-        try:
-            omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
-            sites = omada.get_all_sites()
-            for site in sites:
-                omada.site_id = site['id']
-                try:
-                    status_map = omada.get_all_vouchers_status()
-                    status_map_global.update(status_map)
-                    total_sync += len(status_map)
-                except Exception as e:
-                    errores_sync.append(f"{config.nombre} ({site['name']}): {str(e)}")
-        except Exception as e:
-            errores_sync.append(f"{config.nombre} (Conexión/Sitios): {str(e)}")
-            
-    # Actualizar estados con lo que si se pudo descargar aunque algun controlador
-    # haya fallado. El marcado de 'eliminado' si requiere que TODOS los controladores
-    # respondieran, para no marcar falsos "eliminados" cuando uno esta caido.
-    eliminados_count = 0
-    actualizados_count = 0
-    all_vouchers_local = OmadaVoucher.query.all()
-    for v_local in all_vouchers_local:
-        if v_local.codigo in status_map_global:
-            try:
-                omada_status = int(status_map_global[v_local.codigo])
-            except ValueError:
-                omada_status = 0
+    import threading
+    if OMADA_SYNC_STATE['running']:
+        return jsonify({'success': True, 'running': True, 'message': 'Ya hay una sincronización en progreso...'})
 
-            nuevo_estado = 'activo'
-            if omada_status == 1:
-                nuevo_estado = 'usado'
-                if not v_local.fecha_uso:
-                    from datetime import datetime
-                    v_local.fecha_uso = datetime.utcnow()
-            elif omada_status in (2, 3, 4):
-                nuevo_estado = 'vencido'
+    OMADA_SYNC_STATE.update(running=True, success=None, message=None)
+    threading.Thread(target=_ejecutar_omada_sync, daemon=True).start()
+    return jsonify({'success': True, 'running': True,
+                    'message': 'Sincronización iniciada en segundo plano...'})
 
-            if v_local.estado != nuevo_estado:
-                v_local.estado = nuevo_estado
-                changed = True
-                actualizados_count += 1
-        elif not errores_sync:
-            if v_local.estado != 'eliminado':
-                v_local.estado = 'eliminado'
-                changed = True
-                eliminados_count += 1
-                    
-    if changed:
-        db.session.commit()
-        
-    mensaje = f"Sincronización completada. Actualizados: {actualizados_count}. Eliminados: {eliminados_count}."
-    if errores_sync:
-        mensaje += f" [Advertencia: Algunos sitios fallaron: {' | '.join(errores_sync)}]"
-        
-    return jsonify({'success': True, 'message': mensaje})
+@app.route('/api/omada/sync/status', methods=['GET'])
+@login_required
+def omada_sync_status():
+    return jsonify({'success': True,
+                    'running': OMADA_SYNC_STATE['running'],
+                    'sync_success': OMADA_SYNC_STATE['success'],
+                    'message': OMADA_SYNC_STATE['message']})
 
 @app.route('/api/omada/debug_sync', methods=['GET'])
 @login_required
@@ -6094,64 +6134,9 @@ def hotspot_omada_print():
 @login_required
 @admin_required
 def hotspot_omada_historial():
-    omadas_configs = ConfigOmada.query.filter_by(activo=True).all()
-    total_sync = 0
-    errores_sync = []
-    changed = False
-    
-    if len(omadas_configs) > 0:
-        from omada_api import OmadaAPI
-        status_map_global = {}
-        
-        for config in omadas_configs:
-            try:
-                omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
-                sites = omada.get_all_sites()
-                for site in sites:
-                    omada.site_id = site['id']
-                    try:
-                        status_map = omada.get_all_vouchers_status()
-                        status_map_global.update(status_map)
-                        total_sync += len(status_map)
-                    except Exception as e:
-                        errores_sync.append(f"{config.nombre} ({site['name']}): {str(e)}")
-            except Exception as e:
-                errores_sync.append(f"Error en {config.nombre}: {str(e)}")
-                
-        # Actualizar DB local con lo que si se descargo; el marcado de 'eliminado'
-        # solo aplica si todos los controladores respondieron (evita falsos eliminados).
-        all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
-        for v_local in all_vouchers_local:
-            if v_local.codigo in status_map_global:
-                try:
-                    omada_status = int(status_map_global[v_local.codigo])
-                except ValueError:
-                    omada_status = 0
-
-                nuevo_estado = 'activo'
-                if omada_status == 1:
-                    nuevo_estado = 'usado'
-                    if not v_local.fecha_uso:
-                        v_local.fecha_uso = datetime.utcnow()
-                elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
-                    nuevo_estado = 'vencido'
-
-                if v_local.estado != nuevo_estado:
-                    v_local.estado = nuevo_estado
-                    changed = True
-            elif not errores_sync:
-                if v_local.estado != 'eliminado':
-                    v_local.estado = 'eliminado'
-                    changed = True
-                        
-        if changed:
-            db.session.commit()
-            
-        if errores_sync:
-            sync_error = " | ".join(errores_sync)
-        else:
-            sync_info = f"Sincronización OK. Descargados {total_sync} vouchers desde todos los controladores."
-
+    # La sincronizacion con Omada ya NO se hace aqui: con 20k+ fichas tardaba
+    # mas que el timeout del proxy y la pagina moria en 504. Usar el boton
+    # "Sincronizar Omada" (corre en segundo plano via /api/omada/sync).
 
     # Si es vendedor, solo ver las suyas
     if current_user.rol == 'vendedor':
