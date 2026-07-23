@@ -198,6 +198,21 @@
         </div>
     </div>
 
+    <!-- Modal Recibo de Cobro -->
+    <div class="modal-overlay" id="reciboModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10001; justify-content: center; align-items: center; backdrop-filter: blur(6px);">
+        <div class="modal-content" style="background: linear-gradient(160deg, rgba(20,26,24,0.98), rgba(10,28,22,0.98)); border: 1px solid rgba(37, 211, 102, 0.6); border-radius: 16px; padding: 25px 28px; width: min(560px, 95vw); max-height: 90vh; color: #fff; box-shadow: 0 0 50px rgba(37, 211, 102, 0.25), 0 25px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(37, 211, 102, 0.3); padding-bottom: 12px;">
+                <h3 style="margin: 0; color: #25d366;"><i class="fas fa-file-invoice-dollar"></i> Recibo de Cobro</h3>
+                <button onclick="document.getElementById('reciboModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            <div id="reciboContent" style="flex: 1; overflow-y: auto; padding-right: 5px;"></div>
+            <div style="display: flex; gap: 10px; margin-top: 18px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button class="btn-modal-action" onclick="copiarRecibo()" style="flex: 1; border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar Texto</button>
+                <button id="btnEnviarWhatsapp" class="btn-modal-action" onclick="enviarReciboWhatsapp()" style="flex: 1.5; border-color: #25d366; color: #25d366; font-weight: 700;"><i class="fab fa-whatsapp"></i> Enviar por WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
     <script>
 
         window.logoBase64 = localStorage.getItem('omadaLogo') || null;
@@ -431,6 +446,7 @@
 
                 if (res.success) {
                     window.__statsData = res.stats;
+                    window.__statsMeta = res.meta || {};
                     renderStats(res.stats, document.getElementById('statsSearch').value);
                 } else {
                     content.innerHTML = `<div style="color: #e63946; text-align: center;">Error: ${res.error}</div>`;
@@ -572,6 +588,9 @@
                             <span class="pro-badge badge-green">${subDisp} disp.</span>
                             <span class="pro-badge badge-red">${subVend} vend.</span>
                             <span class="pro-badge badge-orange">Q ${subRecaudado.toFixed(2)} recaudado</span>
+                            <button class="btn-modal-action" onclick="event.stopPropagation(); abrirReciboCobro('${vendedor.replace(/'/g, "\\'")}')" style="padding: 6px 12px; font-size:0.78rem; border-color:#25d366; color:#25d366;">
+                                <i class="fas fa-file-invoice-dollar"></i> Cobrar
+                            </button>
                         </div>
                     </div>
                     <div id="body-${vendorId}" class="vendor-body" style="display:${isExpanded ? 'block' : 'none'};">
@@ -620,6 +639,114 @@
             </div>`;
 
             content.innerHTML = html;
+        }
+
+        function normalizarTelWhatsapp(tel) {
+            let digitos = (tel || '').replace(/\D/g, '');
+            if (!digitos) return null;
+            // Numeros de Guatemala: 8 digitos locales -> anteponer codigo de pais 502.
+            // Si ya viene con codigo de pais (mas de 8 digitos), se respeta tal cual.
+            if (digitos.length === 8) digitos = '502' + digitos;
+            return digitos;
+        }
+
+        function abrirReciboCobro(vendedor) {
+            const lotes = (window.__statsData && window.__statsData[vendedor]) || [];
+            const metaVendedor = (window.__statsMeta && window.__statsMeta[vendedor]) || {};
+
+            let totalVendidas = 0, totalDisponibles = 0, totalRecaudado = 0;
+            let filasHtml = '';
+            let lineasTexto = [];
+
+            lotes.forEach(l => {
+                const recaudado = l.vendidas * (l.raw_data.precio || 0);
+                totalVendidas += l.vendidas;
+                totalDisponibles += l.disponibles;
+                totalRecaudado += recaudado;
+
+                if (l.vendidas > 0) {
+                    filasHtml += `<tr>
+                        <td style="color:#ddd;">${l.plan}</td>
+                        <td style="text-align:center; color:#ef4444; font-weight:bold;">${l.vendidas}</td>
+                        <td style="text-align:center; color:#10b981;">${l.disponibles}</td>
+                        <td style="text-align:right; color:#25d366; font-weight:bold;">Q ${recaudado.toFixed(2)}</td>
+                    </tr>`;
+                    lineasTexto.push(`• ${l.plan}: ${l.vendidas} vendidas / ${l.disponibles} disp. → Q ${recaudado.toFixed(2)}`);
+                }
+            });
+
+            const fecha = new Date().toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const hora = new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
+
+            const textoPlano = [
+                `🧾 *Recibo de Cobro - CuzoNet*`,
+                `Vendedor: *${vendedor}*`,
+                `Fecha: ${fecha} ${hora}`,
+                ``,
+                `📦 *Fichas vendidas por plan:*`,
+                lineasTexto.length ? lineasTexto.join('\n') : '(sin ventas registradas)',
+                ``,
+                `───────────────`,
+                `Total vendidas: ${totalVendidas}`,
+                `Fichas disponibles (existentes): ${totalDisponibles}`,
+                `💰 *Total a cobrar: Q ${totalRecaudado.toFixed(2)}*`
+            ].join('\n');
+
+            window.__reciboTexto = textoPlano;
+            window.__reciboTelefono = normalizarTelWhatsapp(metaVendedor.telefono);
+
+            const btnWa = document.getElementById('btnEnviarWhatsapp');
+            if (!window.__reciboTelefono) {
+                btnWa.disabled = true;
+                btnWa.style.opacity = '0.5';
+                btnWa.style.cursor = 'not-allowed';
+                btnWa.title = 'Este vendedor no tiene teléfono registrado';
+            } else {
+                btnWa.disabled = false;
+                btnWa.style.opacity = '1';
+                btnWa.style.cursor = 'pointer';
+                btnWa.title = '';
+            }
+
+            document.getElementById('reciboContent').innerHTML = `
+                <div style="text-align:center; margin-bottom: 15px;">
+                    <div style="font-size:1.15rem; font-weight:900; color:#fff;">${vendedor}</div>
+                    <div style="color:#888; font-size:0.85rem;">${fecha} · ${hora}${metaVendedor.telefono ? ' · ' + metaVendedor.telefono : ''}</div>
+                </div>
+                <table class="codes-table" style="margin-bottom: 15px;">
+                    <thead><tr>
+                        <th>Plan</th>
+                        <th style="text-align:center;">Vendidas</th>
+                        <th style="text-align:center;">Disponibles</th>
+                        <th style="text-align:right;">Recaudado</th>
+                    </tr></thead>
+                    <tbody>${filasHtml || '<tr><td colspan="4" style="text-align:center; color:#888; padding: 15px;">Sin ventas registradas</td></tr>'}</tbody>
+                </table>
+                <div class="master-total-box" style="margin-top: 5px; padding: 15px 20px;">
+                    <div class="master-total-content">
+                        <span style="font-weight:800; font-size: 1rem; color:#fff;">TOTAL A COBRAR</span>
+                        <span style="font-weight:900; font-size: 1.4rem; color:#25d366; text-shadow: 0 0 10px rgba(37,211,102,0.5);">Q ${totalRecaudado.toFixed(2)}</span>
+                    </div>
+                </div>`;
+
+            document.getElementById('reciboModal').style.display = 'flex';
+        }
+
+        function copiarRecibo() {
+            if (!window.__reciboTexto) return;
+            navigator.clipboard.writeText(window.__reciboTexto).then(() => {
+                showToast('Recibo copiado al portapapeles.', 'success');
+            });
+        }
+
+        function enviarReciboWhatsapp() {
+            if (!window.__reciboTexto) return;
+            if (!window.__reciboTelefono) {
+                showToast('Este vendedor no tiene teléfono registrado.', 'error');
+                return;
+            }
+            const url = `https://wa.me/${window.__reciboTelefono}?text=${encodeURIComponent(window.__reciboTexto)}`;
+            window.open(url, '_blank');
         }
 
         function updateColor(color) { document.documentElement.style.setProperty('--brand-color', color); }

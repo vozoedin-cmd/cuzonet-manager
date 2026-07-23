@@ -1821,6 +1821,7 @@ def stats_vendedores_omada():
         stats = db.session.query(
             Usuario.id,
             Usuario.nombre,
+            Usuario.telefono,
             OmadaVoucher.lote,
             OmadaVoucher.duracion_valor,
             OmadaVoucher.duracion_unidad,
@@ -1831,23 +1832,25 @@ def stats_vendedores_omada():
         ).join(OmadaVoucher, Usuario.id == OmadaVoucher.vendedor_id)\
          .filter(OmadaVoucher.estado != 'eliminado')\
          .group_by(Usuario.id, OmadaVoucher.lote, OmadaVoucher.duracion_valor, OmadaVoucher.duracion_unidad, OmadaVoucher.precio).all()
-         
+
         resultado = {}
+        meta = {}
         unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
-        
-        for u_id, nombre, lote, d_val, d_un, precio, total, disp, vend in stats:
+
+        for u_id, nombre, telefono, lote, d_val, d_un, precio, total, disp, vend in stats:
             if nombre not in resultado:
                 resultado[nombre] = []
-                
+                meta[nombre] = {'vendedor_id': u_id, 'telefono': telefono}
+
             unidad_str = unidades.get(d_un, 'U')
             if d_val > 1 and d_un == 1: unidad_str = 'Horas'
             if d_val > 1 and d_un == 2: unidad_str = 'Días'
             if d_val > 1 and d_un == 0: unidad_str = 'Mins'
-            
+
             plan_str = f"{d_val} {unidad_str} (Q {precio})"
             if lote:
                 plan_str = f"{lote} - {plan_str}"
-            
+
             resultado[nombre].append({
                 'plan': plan_str,
                 'total_fichas': total,
@@ -1862,8 +1865,8 @@ def stats_vendedores_omada():
                     'precio': precio
                 }
             })
-            
-        return jsonify({'success': True, 'stats': resultado})
+
+        return jsonify({'success': True, 'stats': resultado, 'meta': meta})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
