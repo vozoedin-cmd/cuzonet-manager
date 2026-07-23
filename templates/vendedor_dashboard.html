@@ -375,10 +375,10 @@
                             <p>{{ v.plan.nombre if v.plan else 'Voucher' }} • Q{{ "%.2f"|format(v.precio) }}</p>
                         </div>
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="imprimirTicketLocal('{{ v.codigo }}', '{{ v.contrasena }}', '{{ v.plan.nombre if v.plan else \'Voucher\' }}', '{{ v.precio }}', '{{ v.fecha_creacion.strftime(\'%Y-%m-%d %H:%M\') }}')" title="Imprimir">
+                            <button class="btn-icon" onclick="imprimirTicketLocal({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ (v.plan.nombre if v.plan else 'Voucher') | tojson }}, {{ v.precio | tojson }}, {{ v.fecha_creacion.strftime('%Y-%m-%d %H:%M') | tojson }})" title="Imprimir">
                                 <i class="fas fa-print"></i>
                             </button>
-                            <button class="btn-icon wp" onclick="compartirWhatsApp('{{ v.codigo }}', '{{ v.contrasena }}', '{{ v.plan.nombre if v.plan else \'Voucher\' }}', '{{ v.precio }}')" title="WhatsApp">
+                            <button class="btn-icon wp" onclick="compartirWhatsApp({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ (v.plan.nombre if v.plan else 'Voucher') | tojson }}, {{ v.precio | tojson }})" title="WhatsApp">
                                 <i class="fab fa-whatsapp"></i>
                             </button>
                         </div>
