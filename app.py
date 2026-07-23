@@ -6105,9 +6105,15 @@ def hotspot_omada_historial():
         for config in omadas_configs:
             try:
                 omada = OmadaAPI(config.url, config.username, config.password, config.site_id)
-                status_map = omada.get_all_vouchers_status()
-                status_map_global.update(status_map)
-                total_sync += len(status_map)
+                sites = omada.get_all_sites()
+                for site in sites:
+                    omada.site_id = site['id']
+                    try:
+                        status_map = omada.get_all_vouchers_status()
+                        status_map_global.update(status_map)
+                        total_sync += len(status_map)
+                    except Exception as e:
+                        errores_sync.append(f"{config.nombre} ({site['name']}): {str(e)}")
             except Exception as e:
                 errores_sync.append(f"Error en {config.nombre}: {str(e)}")
                 

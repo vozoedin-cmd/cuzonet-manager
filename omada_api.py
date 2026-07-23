@@ -16,13 +16,19 @@ class OmadaAPI:
         self.token = None
         self.site_id = None
 
-    def login(self):
+    def _authenticate(self):
+        """Obtiene omadacId y token de sesion. Idempotente: si ya hay token, no repite la llamada.
+        No toca self.site_id, para que los llamadores que iteran varios sitios puedan fijar
+        self.site_id manualmente sin que se les sobreescriba."""
+        if self.token:
+            return
+
         # 1. Obtener OmadacId
         res = self.session.get(f"{self.base_url}/api/info", timeout=10)
         res.raise_for_status()
         info = res.json()
         self.omadac_id = info.get('result', {}).get('omadacId')
-        
+
         if not self.omadac_id:
             raise Exception("No se pudo obtener OmadacId. Verifica la URL.")
 
@@ -30,54 +36,37 @@ class OmadaAPI:
         login_url = f"{self.base_url}/{self.omadac_id}/api/v2/login"
         res = self.session.post(login_url, json={"username": self.username, "password": self.password}, timeout=10)
         res_data = res.json()
-        
+
         if res_data.get('errorCode') != 0:
             raise Exception(f"Login fallido: {res_data.get('msg', 'Credenciales inválidas')}")
-            
+
         self.token = res_data.get('result', {}).get('token')
         self.session.headers.update({"Csrf-Token": self.token})
-        
-        # 3. Obtener Site ID
+
+    def login(self):
+        self._authenticate()
+
+        # Obtener Site ID a partir de self.site_name
         sites_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites?currentPage=1&currentPageSize=50"
         res = self.session.get(sites_url, timeout=10)
         sites_data = res.json()
-        
+
         if sites_data.get('errorCode') != 0:
             raise Exception("No se pudieron cargar los sitios.")
-            
+
         sites = sites_data.get('result', {}).get('data', [])
         for s in sites:
             if s.get('name') == self.site_name:
                 self.site_id = s.get('id')
                 break
-                
+
         if not self.site_id:
             raise Exception(f"Sitio '{self.site_name}' no encontrado en Omada.")
 
     def get_all_sites(self):
-        # 1. Obtener OmadacId si no se tiene
-        if not self.omadac_id:
-            res = self.session.get(f"{self.base_url}/api/info", timeout=10)
-            res.raise_for_status()
-            info = res.json()
-            self.omadac_id = info.get('result', {}).get('omadacId')
-            
-            if not self.omadac_id:
-                raise Exception("No se pudo obtener OmadacId.")
+        self._authenticate()
 
-        # 2. Login si no hay token
-        if not self.token:
-            login_url = f"{self.base_url}/{self.omadac_id}/api/v2/login"
-            res = self.session.post(login_url, json={"username": self.username, "password": self.password}, timeout=10)
-            res_data = res.json()
-            
-            if res_data.get('errorCode') != 0:
-                raise Exception(f"Login fallido: {res_data.get('msg', 'Credenciales inválidas')}")
-                
-            self.token = res_data.get('result', {}).get('token')
-            self.session.headers.update({"Csrf-Token": self.token})
-
-        # 3. Obtener Sitios
+        # Obtener Sitios
         sites_url = f"{self.base_url}/{self.omadac_id}/api/v2/sites?currentPage=1&currentPageSize=50"
         res = self.session.get(sites_url, timeout=10)
         sites_data = res.json()
@@ -160,9 +149,14 @@ class OmadaAPI:
         Descarga todos los vouchers desde Omada y devuelve un diccionario
         con el código como clave y el estado como valor:
         0: unused (Activo), 1: used, 2: expired
+
+        Requiere que self.site_id ya este fijado (por el llamador, o via login()).
         """
-        self.login()
-        
+        self._authenticate()
+        if not self.site_id:
+            # Sin site_id explicito, resolverlo por nombre como hace login()
+            self.login()
+
         status_map = {}
         current_page = 1
         page_size = 500  # Tamaño seguro para evitar límites de Omada
