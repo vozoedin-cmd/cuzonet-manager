@@ -5715,13 +5715,23 @@ def hotspot_vendedores():
         
     # Ordenar por ventas_mes para el Ranking
     vendedores_data.sort(key=lambda x: x['ventas_mes'], reverse=True)
-    
+
     # Asignar ranking
     for idx, data in enumerate(vendedores_data):
         data['ranking'] = idx + 1
-        
-    return render_template('hotspot_vendedores.html', 
+
+    totales = {
+        'ventas_mes': sum(d['ventas_mes'] for d in vendedores_data),
+        'ventas_totales': sum(d['ventas_totales'] for d in vendedores_data),
+        'abonos': sum(d['total_abonado'] for d in vendedores_data),
+        'deuda': sum(d['deuda_pendiente'] for d in vendedores_data),
+        'disponibles': sum(d['fichas_disponibles'] for d in vendedores_data),
+        'vendidas': sum(d['fichas_omada_vendidas'] for d in vendedores_data),
+    }
+
+    return render_template('hotspot_vendedores.html',
                            vendedores_data=vendedores_data,
+                           totales=totales,
                            routers=routers)
 
 @app.route('/admin/hotspot/vendedor/nuevo')
@@ -6728,6 +6738,56 @@ def hotspot_vendedor_cargar_saldo():
     registrar_auditoria('cargar_saldo', 'usuarios', vendedor.id, f'Cargados Q{monto} a {vendedor.username}')
     flash(f'Saldo cargado exitosamente. Nuevo balance de {vendedor.nombre}: Q{vendedor.balance:.2f}', 'success')
     return redirect(url_for('hotspot_admin'))
+
+
+@app.route('/admin/hotspot/vendedor/abonar', methods=['POST'])
+@login_required
+@admin_required
+def hotspot_vendedor_abonar():
+    """Registrar un abono (pago de deuda) de un vendedor.
+    A diferencia de cargar-saldo (tipo 'carga', recarga el balance prepago),
+    esto crea una transaccion tipo 'abono', que es la que la pagina de
+    vendedores suma para reducir la deuda pendiente."""
+    vendedor_id = int(request.form.get('vendedor_id', 0))
+    monto = float(request.form.get('monto', 0))
+    descripcion = request.form.get('descripcion', '').strip() or 'Abono a deuda'
+
+    if monto <= 0:
+        flash('El monto debe ser mayor a cero', 'error')
+        return redirect(url_for('hotspot_vendedores'))
+
+    vendedor = Usuario.query.get_or_404(vendedor_id)
+
+    transaccion = TransaccionVendedor(
+        vendedor_id=vendedor.id,
+        tipo='abono',
+        monto=monto,
+        descripcion=descripcion
+    )
+    db.session.add(transaccion)
+    db.session.commit()
+
+    registrar_auditoria('abonar_vendedor', 'usuarios', vendedor.id, f'Abono de Q{monto} de {vendedor.username}')
+    flash(f'Abono de Q{monto:.2f} registrado para {vendedor.nombre}.', 'success')
+    return redirect(url_for('hotspot_vendedores'))
+
+
+@app.route('/api/hotspot/vendedor/<int:vendedor_id>/transacciones', methods=['GET'])
+@login_required
+@admin_required
+def transacciones_vendedor(vendedor_id):
+    """Historial de transacciones (abonos, cargas, ventas) de un vendedor."""
+    try:
+        transacciones = TransaccionVendedor.query.filter_by(vendedor_id=vendedor_id)\
+            .order_by(TransaccionVendedor.fecha.desc()).limit(100).all()
+        total_abonado = sum(t.monto for t in transacciones if t.tipo == 'abono')
+        return jsonify({
+            'success': True,
+            'transacciones': [t.to_dict() for t in transacciones],
+            'total_abonado': total_abonado
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 
 # ============== VISTAS Y LOGICA DEL VENDEDOR ==============

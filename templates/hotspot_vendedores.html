@@ -134,6 +134,7 @@
                             <th>#</th>
                             <th>Vendedor</th>
                             <th>Última Venta</th>
+                            <th>Inventario</th>
                             <th>Ventas (Mes / Total)</th>
                             <th>Ganancias (Mes)</th>
                             <th>Abonos</th>
@@ -160,7 +161,11 @@
                                     </div>
                                     <div style="display: flex; flex-direction: column;">
                                         <span class="client-name" style="font-size: 1rem;">{{ item.vendedor.nombre }}</span>
-                                        <span style="color: var(--primary-light); font-size: 0.8rem;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> {{ item.vendedor.telefono or 'N/A' }}</span>
+                                        {% if item.vendedor.telefono %}
+                                        <a href="#" onclick="abrirChatWhatsapp('{{ item.vendedor.telefono }}'); return false;" style="color: #25d366; font-size: 0.8rem; text-decoration: none;" title="Abrir chat de WhatsApp"><i class="fab fa-whatsapp"></i> {{ item.vendedor.telefono }}</a>
+                                        {% else %}
+                                        <span style="color: var(--primary-light); font-size: 0.8rem;"><i class="fab fa-whatsapp" style="color:#6b7280;"></i> N/A</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
@@ -183,6 +188,15 @@
                                 </div>
                             </td>
                             <td>
+                                <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-start;">
+                                    <span class="pro-badge badge-green" title="Fichas disponibles para vender"><i class="fas fa-box-open"></i> {{ item.fichas_disponibles }} disp.</span>
+                                    <span class="pro-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.5);" title="Fichas ya vendidas"><i class="fas fa-fire"></i> {{ item.fichas_omada_vendidas }} vend.</span>
+                                    {% if item.fichas_disponibles == 0 %}
+                                    <span style="font-size: 0.7rem; color: #ef4444; font-weight: 700;"><i class="fas fa-exclamation-triangle"></i> Sin inventario</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
                                     <span class="pro-badge badge-green" style="font-size:0.9rem;">Q. {{ "%.2f"|format(item.ventas_mes or 0.0) }} (Mes)</span>
                                     <span style="font-size: 0.75rem; color: #a5b4fc;">Total: Q. {{ "%.2f"|format(item.ventas_totales or 0.0) }}</span>
@@ -190,11 +204,21 @@
                             </td>
                             <td>
                                 <span class="pro-badge badge-purple" style="font-weight: bold;">Q. {{ "%.2f"|format(item.ganancias_mes or 0.0) }}</span>
+                                {% if not item.vendedor.comision_valor %}
+                                <div style="font-size:0.7rem; color:#ef4444; font-weight: 700; margin-top:2px;">
+                                    <i class="fas fa-exclamation-triangle"></i> Sin comisión configurada
+                                </div>
+                                {% else %}
                                 <div style="font-size:0.7rem; color:#888; margin-top:2px;">
                                     {{ item.vendedor.comision_valor }}{% if item.vendedor.comision_tipo == 'porcentaje' %}%{% else %}Q{% endif %} / ficha
                                 </div>
+                                {% endif %}
                             </td>
-                            <td><span class="pro-badge badge-blue">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }}</span></td>
+                            <td>
+                                <a href="#" onclick="verTransacciones({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}'); return false;" style="text-decoration: none;" title="Ver historial de abonos">
+                                    <span class="pro-badge badge-blue" style="cursor: pointer;">Q. {{ "%.2f"|format(item.total_abonado or 0.0) }} <i class="fas fa-history" style="font-size: 0.7rem; margin-left: 3px;"></i></span>
+                                </a>
+                            </td>
                             <td><span class="pro-badge badge-red" style="font-weight: 800;">Q. {{ "%.2f"|format(item.deuda_pendiente or 0.0) }}</span></td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
@@ -226,10 +250,35 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Aún no hay vendedores creados</td>
+                            <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">Aún no hay vendedores creados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                    {% if vendedores_data %}
+                    <tfoot>
+                        <tr style="background: rgba(255, 102, 0, 0.12); border-top: 2px solid #ff6600;">
+                            <td></td>
+                            <td style="font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px;"><i class="fas fa-calculator" style="color: #ffaa00;"></i> Totales</td>
+                            <td></td>
+                            <td>
+                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
+                                    <span style="color: #10b981; font-weight: 700;">{{ totales.disponibles }} disp.</span>
+                                    <span style="color: #ef4444; font-weight: 700;">{{ totales.vendidas }} vend.</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <span style="color: #10b981; font-weight: 800;">Q. {{ "%.2f"|format(totales.ventas_mes) }} (Mes)</span>
+                                    <span style="font-size: 0.75rem; color: #a5b4fc;">Total: Q. {{ "%.2f"|format(totales.ventas_totales) }}</span>
+                                </div>
+                            </td>
+                            <td></td>
+                            <td><span style="color: #22d3ee; font-weight: 800;">Q. {{ "%.2f"|format(totales.abonos) }}</span></td>
+                            <td><span style="color: #ef4444; font-weight: 900; font-size: 1.05rem; text-shadow: 0 0 8px rgba(239,68,68,0.4);">Q. {{ "%.2f"|format(totales.deuda) }}</span></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
                 </table>
             </div>
         </div>
@@ -239,18 +288,18 @@
     <div id="saldoModal" class="modal-overlay">
         <div class="modal" style="background: linear-gradient(135deg, rgba(20,20,25,0.98), rgba(40,15,5,0.98)); backdrop-filter: blur(15px); border: 2px solid #ff6600; box-shadow: 0 0 40px rgba(255, 102, 0, 0.4); max-width: 450px;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,102,0,0.3); padding-bottom: 15px;">
-                <h2 style="color: #ffaa00; text-shadow: 0 0 10px rgba(255,170,0,0.5);"><i class="fas fa-wallet" style="margin-right: 10px;"></i> Recargar Saldo</h2>
+                <h2 style="color: #ffaa00; text-shadow: 0 0 10px rgba(255,170,0,0.5);"><i class="fas fa-hand-holding-usd" style="margin-right: 10px;"></i> Registrar Abono</h2>
                 <button type="button" class="btn-icon" style="color: #ffaa00; border: none; font-size: 1.2rem; cursor: pointer; transition: all 0.3s;" onmouseover="this.style.color='#ff6600'" onmouseout="this.style.color='#ffaa00'" onclick="closeModal('saldoModal')"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" style="padding: 24px;">
-                <form action="/admin/hotspot/vendedor/cargar-saldo" method="POST">
+                <form action="/admin/hotspot/vendedor/abonar" method="POST">
                     <input type="hidden" name="vendedor_id" id="saldo_vendedor_id">
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Vendedor</label>
                         <input type="text" id="saldo_vendedor_nombre" readonly class="form-control" style="background: rgba(0,0,0,0.3); color: #ffaa00; font-weight: bold; font-size: 1.1rem; border: 1px solid rgba(255,102,0,0.2);">
                     </div>
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label for="s_monto" style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Monto a Cargar (Q)</label>
+                        <label for="s_monto" style="color: #ccc; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Monto del Abono (Q)</label>
                         <div style="position: relative;">
                             <span style="position: absolute; left: 15px; top: 12px; color: #03a786; font-weight: 900; font-size: 1.2rem;">Q</span>
                             <input type="number" step="0.01" name="monto" id="s_monto" required class="form-control" style="padding-left: 40px; font-size: 1.2rem; font-weight: bold; color: #03a786; border-color: #03a786;" placeholder="0.00">
@@ -265,6 +314,19 @@
                         <button type="submit" class="btn btn-pulse" style="width: 60%; padding: 12px; border-radius: 8px;"><i class="fas fa-check-circle"></i> Abonar Ahora</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historial de Transacciones -->
+    <div id="transModal" class="modal-overlay">
+        <div class="modal" style="background: linear-gradient(160deg, rgba(15,22,30,0.98), rgba(10,18,28,0.98)); backdrop-filter: blur(15px); border: 2px solid #22d3ee; box-shadow: 0 0 40px rgba(34, 211, 238, 0.3); max-width: 620px; width: 95%;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(34,211,238,0.3); padding-bottom: 15px;">
+                <h2 style="color: #22d3ee; text-shadow: 0 0 10px rgba(34,211,238,0.5);"><i class="fas fa-history" style="margin-right: 10px;"></i> Transacciones de <span id="transNombre" style="color:#fff;"></span></h2>
+                <button type="button" class="btn-icon" style="color: #22d3ee; border: none; font-size: 1.2rem; cursor: pointer;" onclick="closeModal('transModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px 24px; max-height: 60vh; overflow-y: auto;">
+                <div id="transContent"></div>
             </div>
         </div>
     </div>
@@ -308,6 +370,61 @@
             // Numeros locales de Guatemala (8 digitos) -> anteponer 502
             if (digitos.length === 8) digitos = '502' + digitos;
             return digitos;
+        }
+
+        function abrirChatWhatsapp(tel) {
+            const num = normalizarTelWhatsapp(tel);
+            if (!num) return;
+            window.open('https://wa.me/' + num, '_blank');
+        }
+
+        // ---- Historial de transacciones ----
+        async function verTransacciones(vendedorId, nombre) {
+            document.getElementById('transNombre').textContent = nombre;
+            const content = document.getElementById('transContent');
+            content.innerHTML = '<div style="text-align:center; padding: 30px; color: #22d3ee;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+            openModal('transModal');
+
+            try {
+                const r = await fetch('/api/hotspot/vendedor/' + vendedorId + '/transacciones');
+                const res = await r.json();
+                if (!res.success) {
+                    content.innerHTML = '<div style="color:#ef4444; text-align:center; padding: 20px;">Error: ' + res.error + '</div>';
+                    return;
+                }
+                if (res.transacciones.length === 0) {
+                    content.innerHTML = '<div style="color:#888; text-align:center; padding: 30px;"><i class="fas fa-inbox"></i><br>Sin transacciones registradas todavía.</div>';
+                    return;
+                }
+
+                const estilos = {
+                    'abono': { color: '#10b981', icono: 'fa-hand-holding-usd', label: 'Abono' },
+                    'carga': { color: '#22d3ee', icono: 'fa-wallet', label: 'Carga saldo' },
+                    'venta': { color: '#ffaa00', icono: 'fa-ticket-alt', label: 'Venta' }
+                };
+
+                let html = '<table style="width:100%; border-collapse: collapse; font-size: 0.88rem;">';
+                html += '<thead><tr style="color:#22d3ee; text-align:left; border-bottom: 1px solid rgba(34,211,238,0.3);">';
+                html += '<th style="padding: 8px;">Fecha</th><th style="padding: 8px;">Tipo</th><th style="padding: 8px; text-align:right;">Monto</th><th style="padding: 8px;">Descripción</th></tr></thead><tbody>';
+
+                res.transacciones.forEach(t => {
+                    const e = estilos[t.tipo] || { color: '#888', icono: 'fa-circle', label: t.tipo };
+                    html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <td style="padding: 8px; color: #ccc; white-space: nowrap;">${t.fecha || '-'}</td>
+                        <td style="padding: 8px;"><span style="color:${e.color}; font-weight:700;"><i class="fas ${e.icono}"></i> ${e.label}</span></td>
+                        <td style="padding: 8px; text-align:right; color:${e.color}; font-weight:800;">Q ${t.monto.toFixed(2)}</td>
+                        <td style="padding: 8px; color: #999; font-size: 0.8rem;">${t.descripcion || '-'}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                html += `<div style="margin-top: 14px; text-align: right; padding: 10px 14px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.4); border-radius: 8px;">
+                    <span style="color: #ccc; margin-right: 10px;">Total abonado:</span>
+                    <span style="color: #10b981; font-weight: 900; font-size: 1.1rem;">Q ${res.total_abonado.toFixed(2)}</span>
+                </div>`;
+                content.innerHTML = html;
+            } catch (e) {
+                content.innerHTML = '<div style="color:#ef4444; text-align:center; padding: 20px;">Error de red.</div>';
+            }
         }
 
         function abrirCobro(data) {
