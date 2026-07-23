@@ -1892,7 +1892,7 @@ def lotes_recientes_omada():
             func.max(OmadaVoucher.fecha_creacion).label('fecha')
         ).outerjoin(Usuario, Usuario.id == OmadaVoucher.vendedor_id)\
          .filter(OmadaVoucher.estado != 'eliminado')\
-         .group_by(OmadaVoucher.lote, OmadaVoucher.vendedor_id, OmadaVoucher.duracion_valor,
+         .group_by(OmadaVoucher.lote, OmadaVoucher.vendedor_id, Usuario.nombre, OmadaVoucher.duracion_valor,
                    OmadaVoucher.duracion_unidad, OmadaVoucher.precio)\
          .order_by(func.max(OmadaVoucher.fecha_creacion).desc())\
          .limit(limite).all()
