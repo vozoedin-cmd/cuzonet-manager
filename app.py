@@ -1870,6 +1870,56 @@ def stats_vendedores_omada():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/omada/lotes_recientes', methods=['GET'])
+@login_required
+@admin_required
+def lotes_recientes_omada():
+    """Ultimos lotes generados (agrupados por lote/vendedor/plan), para poder
+    reimprimir o reenviar rapido sin tener que recordar todos los filtros."""
+    try:
+        from sqlalchemy import func, case
+        limite = request.args.get('limite', 8, type=int)
+
+        filas = db.session.query(
+            OmadaVoucher.lote,
+            OmadaVoucher.vendedor_id,
+            Usuario.nombre,
+            OmadaVoucher.duracion_valor,
+            OmadaVoucher.duracion_unidad,
+            OmadaVoucher.precio,
+            func.count(OmadaVoucher.id).label('total'),
+            func.sum(case((OmadaVoucher.estado == 'activo', 1), else_=0)).label('disponibles'),
+            func.max(OmadaVoucher.fecha_creacion).label('fecha')
+        ).outerjoin(Usuario, Usuario.id == OmadaVoucher.vendedor_id)\
+         .filter(OmadaVoucher.estado != 'eliminado')\
+         .group_by(OmadaVoucher.lote, OmadaVoucher.vendedor_id, OmadaVoucher.duracion_valor,
+                   OmadaVoucher.duracion_unidad, OmadaVoucher.precio)\
+         .order_by(func.max(OmadaVoucher.fecha_creacion).desc())\
+         .limit(limite).all()
+
+        unidades = {0: 'Min', 1: 'Hora', 2: 'Día'}
+        resultado = []
+        for lote, v_id, v_nombre, d_val, d_un, precio, total, disp, fecha in filas:
+            unidad_str = unidades.get(d_un, 'U')
+            if d_val and d_val > 1:
+                unidad_str = {0: 'Mins', 1: 'Horas', 2: 'Días'}.get(d_un, unidad_str)
+            resultado.append({
+                'lote': lote,
+                'vendedor_id': v_id,
+                'vendedor_nombre': v_nombre or 'Sin asignar',
+                'duracion_valor': d_val,
+                'duracion_unidad': d_un,
+                'precio': precio,
+                'plan': f"{d_val} {unidad_str} (Q {precio})",
+                'total': total,
+                'disponibles': int(disp or 0),
+                'fecha': fecha.strftime('%d/%m/%Y %H:%M') if fecha else ''
+            })
+
+        return jsonify({'success': True, 'lotes': resultado})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/omada/ver_codigos', methods=['POST'])
 @login_required
 @admin_required

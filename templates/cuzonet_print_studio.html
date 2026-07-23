@@ -178,6 +178,7 @@
                 <h3 style="margin: 0; color: #03a786; white-space: nowrap;"><i class="fas fa-list-ol"></i> Códigos del Lote <span id="codesLoteNombre" style="color: #fff; font-weight: 700;"></span></h3>
                 <input type="text" id="codesSearch" class="stats-search" style="max-width: 260px;" placeholder="&#128269; Buscar PIN..." oninput="renderCodigos()">
                 <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="cargarParaReimprimir()" class="btn-modal-action" style="border-color: #a855f7; color: #a855f7; font-weight: 700;"><i class="fas fa-redo-alt"></i> Reimprimir / PDF</button>
                     <button id="btnEnviarLoteWa" onclick="enviarLoteWhatsapp()" class="btn-modal-action" style="border-color: #25d366; color: #25d366; font-weight: 700;"><i class="fab fa-whatsapp"></i> Enviar al Vendedor</button>
                     <button onclick="copiarCodigos()" class="btn-modal-action" style="border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar PINs</button>
                     <button onclick="eliminarLoteCompleto()" class="btn-modal-action" style="border-color: #e63946; color: #e63946;"><i class="fas fa-trash-alt"></i> Eliminar Todo el Lote</button>
@@ -221,10 +222,48 @@
         document.addEventListener('DOMContentLoaded', () => {
             cargarConfigStudio();
             syncPrintFields();
+            cargarLotesRecientes();
             if(window.logoBase64) {
                 document.getElementById('btnRemoveLogo').style.display = 'block';
             }
         });
+
+        async function cargarLotesRecientes() {
+            const el = document.getElementById('recentLotsList');
+            if (!el) return;
+            el.innerHTML = '<div style="color:#888; font-size:0.85rem; padding: 10px 0;"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>';
+
+            try {
+                const r = await fetch('/api/omada/lotes_recientes?limite=8&_t=' + Date.now());
+                const res = await r.json();
+                if (!res.success) {
+                    el.innerHTML = `<div style="color:#e63946; font-size:0.85rem;">Error: ${res.error}</div>`;
+                    return;
+                }
+                if (res.lotes.length === 0) {
+                    el.innerHTML = '<div style="color:#888; font-size:0.85rem; padding: 10px 0;">Aún no hay lotes generados.</div>';
+                    return;
+                }
+
+                el.innerHTML = res.lotes.map(l => {
+                    const rawData = btoa(JSON.stringify({
+                        vendedor_id: l.vendedor_id, lote: l.lote,
+                        duracion_valor: l.duracion_valor, duracion_unidad: l.duracion_unidad, precio: l.precio
+                    }));
+                    return `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; margin-bottom:8px;">
+                        <div style="min-width:0;">
+                            <div style="color:#fff; font-weight:700; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l.lote || l.plan}</div>
+                            <div style="color:#999; font-size:0.75rem; margin-top:2px;">${l.vendedor_nombre} · ${l.plan} · ${l.total} fichas (${l.disponibles} disp.) · ${l.fecha}</div>
+                        </div>
+                        <button type="button" class="btn-secondary" style="flex-shrink:0; padding:8px 14px; white-space:nowrap;" title="Ver códigos / reimprimir" onclick="abrirDetalleCodigos('${rawData}')">
+                            <i class="fas fa-eye"></i> Ver
+                        </button>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                el.innerHTML = '<div style="color:#e63946; font-size:0.85rem;">Error de red al cargar el historial.</div>';
+            }
+        }
         
         function handleLogoUpload(event) {
             const file = event.target.files[0];
@@ -939,6 +978,25 @@
             navigator.clipboard.writeText(texto).then(() => {
                 showToast(`Se copiaron ${filtrados.length} PINs al portapapeles.`, 'success');
             });
+        }
+
+        function cargarParaReimprimir() {
+            if (!codigosActuales || codigosActuales.length === 0) return;
+            // Solo tiene sentido reimprimir fichas activas (las usadas/vencidas ya no sirven de nada)
+            const activos = codigosActuales.filter(c => c.estado === 'activo').map(c => c.codigo);
+            if (activos.length === 0) {
+                showToast('Este lote no tiene fichas activas para reimprimir.', 'error');
+                return;
+            }
+
+            document.getElementById('codesInput').value = activos.join('\n');
+            document.getElementById('codesModal').style.display = 'none';
+            if (typeof calcularEstadisticasRapidas === 'function') calcularEstadisticasRapidas();
+
+            const codesSection = document.getElementById('codesInput');
+            if (codesSection) codesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            showToast(`${activos.length} códigos cargados en el editor. Usa Imprimir, PDF o WhatsApp arriba para continuar.`, 'success');
         }
         
         async function eliminarFicha(id) {
