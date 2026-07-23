@@ -1707,36 +1707,37 @@ def omada_sync_api():
         except Exception as e:
             errores_sync.append(f"{config.nombre} (Conexión/Sitios): {str(e)}")
             
-    # Solo procesar si no hubo errores de conexion para evitar falsos "eliminados"
+    # Actualizar estados con lo que si se pudo descargar aunque algun controlador
+    # haya fallado. El marcado de 'eliminado' si requiere que TODOS los controladores
+    # respondieran, para no marcar falsos "eliminados" cuando uno esta caido.
     eliminados_count = 0
     actualizados_count = 0
-    if not errores_sync:
-        all_vouchers_local = OmadaVoucher.query.all()
-        for v_local in all_vouchers_local:
-            if v_local.codigo in status_map_global:
-                try:
-                    omada_status = int(status_map_global[v_local.codigo])
-                except ValueError:
-                    omada_status = 0
-                    
-                nuevo_estado = 'activo'
-                if omada_status == 1:
-                    nuevo_estado = 'usado'
-                    if not v_local.fecha_uso:
-                        from datetime import datetime
-                        v_local.fecha_uso = datetime.utcnow()
-                elif omada_status in (2, 3, 4):
-                    nuevo_estado = 'vencido'
-                    
-                if v_local.estado != nuevo_estado:
-                    v_local.estado = nuevo_estado
-                    changed = True
-                    actualizados_count += 1
-            else:
-                if v_local.estado != 'eliminado':
-                    v_local.estado = 'eliminado'
-                    changed = True
-                    eliminados_count += 1
+    all_vouchers_local = OmadaVoucher.query.all()
+    for v_local in all_vouchers_local:
+        if v_local.codigo in status_map_global:
+            try:
+                omada_status = int(status_map_global[v_local.codigo])
+            except ValueError:
+                omada_status = 0
+
+            nuevo_estado = 'activo'
+            if omada_status == 1:
+                nuevo_estado = 'usado'
+                if not v_local.fecha_uso:
+                    from datetime import datetime
+                    v_local.fecha_uso = datetime.utcnow()
+            elif omada_status in (2, 3, 4):
+                nuevo_estado = 'vencido'
+
+            if v_local.estado != nuevo_estado:
+                v_local.estado = nuevo_estado
+                changed = True
+                actualizados_count += 1
+        elif not errores_sync:
+            if v_local.estado != 'eliminado':
+                v_local.estado = 'eliminado'
+                changed = True
+                eliminados_count += 1
                     
     if changed:
         db.session.commit()
@@ -6117,31 +6118,31 @@ def hotspot_omada_historial():
             except Exception as e:
                 errores_sync.append(f"Error en {config.nombre}: {str(e)}")
                 
-        # Actualizar DB local
-        if not errores_sync:
-            all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
-            for v_local in all_vouchers_local:
-                if v_local.codigo in status_map_global:
-                    try:
-                        omada_status = int(status_map_global[v_local.codigo])
-                    except ValueError:
-                        omada_status = 0
-                        
-                    nuevo_estado = 'activo'
-                    if omada_status == 1:
-                        nuevo_estado = 'usado'
-                        if not v_local.fecha_uso:
-                            v_local.fecha_uso = datetime.utcnow()
-                    elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
-                        nuevo_estado = 'vencido'
-                        
-                    if v_local.estado != nuevo_estado:
-                        v_local.estado = nuevo_estado
-                        changed = True
-                else:
-                    if v_local.estado != 'eliminado':
-                        v_local.estado = 'eliminado'
-                        changed = True
+        # Actualizar DB local con lo que si se descargo; el marcado de 'eliminado'
+        # solo aplica si todos los controladores respondieron (evita falsos eliminados).
+        all_vouchers_local = OmadaVoucher.query.filter(OmadaVoucher.estado != 'eliminado').all()
+        for v_local in all_vouchers_local:
+            if v_local.codigo in status_map_global:
+                try:
+                    omada_status = int(status_map_global[v_local.codigo])
+                except ValueError:
+                    omada_status = 0
+
+                nuevo_estado = 'activo'
+                if omada_status == 1:
+                    nuevo_estado = 'usado'
+                    if not v_local.fecha_uso:
+                        v_local.fecha_uso = datetime.utcnow()
+                elif omada_status in (2, 3, 4): # Considerar otros estados como vencidos
+                    nuevo_estado = 'vencido'
+
+                if v_local.estado != nuevo_estado:
+                    v_local.estado = nuevo_estado
+                    changed = True
+            elif not errores_sync:
+                if v_local.estado != 'eliminado':
+                    v_local.estado = 'eliminado'
+                    changed = True
                         
         if changed:
             db.session.commit()
