@@ -6667,6 +6667,25 @@ def hotspot_generar_masivo_ajax():
             return jsonify({'error': f"Error guardando en BD local: {str(e)}"})
     return jsonify({'exitos': exitos, 'errores': errores, 'success': True})
 
+@app.route('/api/hotspot/vendedor/check-username', methods=['GET'])
+@login_required
+@admin_required
+def check_username_vendedor():
+    """Verificar disponibilidad de un username en vivo (formulario de alta/edicion).
+    Se pasa vendedor_id al editar, para no marcar como 'ocupado' su propio username."""
+    username = (request.args.get('username') or '').strip()
+    vendedor_id = request.args.get('vendedor_id', type=int)
+
+    if not username:
+        return jsonify({'success': True, 'disponible': False, 'motivo': 'vacio'})
+
+    query = Usuario.query.filter_by(username=username)
+    if vendedor_id:
+        query = query.filter(Usuario.id != vendedor_id)
+    existe = query.first() is not None
+
+    return jsonify({'success': True, 'disponible': not existe})
+
 @app.route('/admin/hotspot/vendedor/guardar', methods=['POST'])
 @login_required
 @admin_required

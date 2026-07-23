@@ -334,7 +334,8 @@
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-phone"></i> Teléfono</label>
-                        <input type="text" name="telefono" id="telefono" class="pro-input" placeholder="Ej: +502 5555 1234" value="{{ vendedor.telefono if vendedor else '' }}">
+                        <input type="text" name="telefono" id="telefono" class="pro-input" placeholder="Ej: 5555 1234 (WhatsApp)" value="{{ vendedor.telefono if vendedor else '' }}">
+                        <div id="telefonoFeedback" style="margin-top:6px; font-size:0.8rem; min-height: 1.1em;"></div>
                     </div>
                 </div>
 
@@ -365,7 +366,8 @@
                 <div class="form-row">
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-user"></i> Usuario</label>
-                        <input type="text" name="username" class="pro-input" placeholder="Ej: abarrotes_maria" required autocomplete="off" value="{{ vendedor.username if vendedor else '' }}">
+                        <input type="text" name="username" id="usernameInput" class="pro-input" placeholder="Ej: abarrotes_maria" required autocomplete="off" value="{{ vendedor.username if vendedor else '' }}">
+                        <div id="usernameFeedback" style="margin-top:6px; font-size:0.8rem; min-height: 1.1em;"></div>
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-lock"></i> Contraseña</label>
@@ -377,6 +379,10 @@
                             <button type="button" onclick="generarPassword()" style="background:none; border:none; color:#ffaa00; cursor:pointer; font-size:0.85rem;"><i class="fas fa-dice"></i> Generar segura</button>
                             {% if vendedor %}<small style="color: #ffaa00;">(Dejar en blanco para mantener actual)</small>{% endif %}
                         </div>
+                        <div style="height:4px; border-radius:2px; background: rgba(255,255,255,0.1); margin-top:10px; overflow:hidden;">
+                            <div id="pwdStrengthFill" style="height:100%; width:0%; transition: all 0.3s; border-radius:2px;"></div>
+                        </div>
+                        <div id="pwdStrengthLabel" style="font-size:0.75rem; margin-top:4px; min-height: 1.1em;"></div>
                     </div>
                 </div>
 
@@ -411,7 +417,8 @@
                     </div>
                     <div class="pro-group">
                         <label class="pro-label"><i class="fas fa-money-bill-wave"></i> Valor de Comisión</label>
-                        <input type="number" step="0.01" name="comision_valor" class="pro-input" placeholder="Ej: 15 (para 15%)" value="{{ vendedor.comision_valor if vendedor else '0' }}">
+                        <input type="number" step="0.01" name="comision_valor" id="comisionInput" class="pro-input" placeholder="Ej: 15 (para 15%)" value="{{ vendedor.comision_valor if vendedor else '' }}">
+                        {% if not vendedor %}<div style="margin-top:6px; font-size:0.78rem; color:#a5b4fc;">Si lo dejas vacío, el vendedor no ganará comisión por sus ventas.</div>{% endif %}
                     </div>
                 </div>
                 
@@ -450,9 +457,22 @@
                     <label class="pro-checkbox-container">
                         <input type="checkbox" name="editar_clientes" class="pro-checkbox" {% if permisos_data.editar_clientes %}checked{% endif %}> Editar Clientes
                     </label>
-                    <label class="pro-checkbox-container">
-                        <input type="checkbox" name="administrar_omada" class="pro-checkbox" {% if permisos_data.administrar_omada %}checked{% endif %}> Administrar Omada
+                    <label class="pro-checkbox-container" title="Permite generar y sincronizar fichas Omada directamente desde su panel, sin pasar por el administrador.">
+                        <input type="checkbox" name="administrar_omada" class="pro-checkbox" {% if permisos_data.administrar_omada %}checked{% endif %}> Administrar Omada <i class="fas fa-circle-info" style="color:#a5b4fc; margin-left:4px;"></i>
                     </label>
+                </div>
+
+                <!-- SECCION: Mensaje de Bienvenida -->
+                <h3 class="section-title"><i class="fab fa-whatsapp"></i> Mensaje de Bienvenida</h3>
+                <div class="pro-group" style="margin-bottom: 30px;">
+                    <label class="pro-checkbox-container" style="display:inline-flex; width:auto; margin-bottom: 14px;">
+                        <input type="checkbox" id="incluirPassword" class="pro-checkbox" checked> Incluir usuario y contraseña en el mensaje
+                    </label>
+                    <div id="previewBienvenida" style="background: rgba(0,0,0,0.3); border: 1px dashed rgba(37,211,102,0.4); border-radius: 12px; padding: 16px 20px; font-size: 0.9rem; color: #ccc; white-space: pre-wrap; line-height: 1.6; margin-bottom: 14px;"></div>
+                    <button type="button" id="btnEnviarBienvenida" class="btn-secondary" style="background: rgba(37,211,102,0.15); border-color: #25d366; color: #25d366; width:auto; padding: 12px 24px; font-size: 1rem;" onclick="enviarBienvenidaWhatsapp()">
+                        <i class="fab fa-whatsapp"></i> Enviar Bienvenida por WhatsApp
+                    </button>
+                    <div style="margin-top:8px; font-size:0.78rem; color:#888;">Se abre tu WhatsApp con el mensaje listo — tú decides cuándo enviarlo. Guarda primero al vendedor para que su acceso ya esté activo.</div>
                 </div>
 
                 <div class="form-row">
@@ -481,7 +501,7 @@
                 icon.classList.add('fa-eye');
             }
         }
-        
+
         function generarPassword() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
             let pwd = '';
@@ -492,12 +512,154 @@
             if(document.getElementById('passwordInput').type === 'password') {
                 togglePassword(); // Mostrarla para que la pueda anotar
             }
+            evaluarFuerzaPassword();
+            actualizarPreviewBienvenida();
         }
-        
-        // Validación básica de teléfono en tiempo real
-        document.getElementById('telefono').addEventListener('input', function(e) {
-            this.value = this.value.replace(/[^\d\+\-\s\(\)]/g, '');
+
+        // ---- 1. Validación de teléfono en vivo (mismo formato que usan los botones de WhatsApp) ----
+        function normalizarTelWhatsapp(tel) {
+            let digitos = (tel || '').replace(/\D/g, '');
+            if (!digitos) return null;
+            if (digitos.length === 8) digitos = '502' + digitos;
+            if (digitos.length !== 11) return null;
+            return digitos;
+        }
+
+        function validarTelefono() {
+            const input = document.getElementById('telefono');
+            const feedback = document.getElementById('telefonoFeedback');
+            input.value = input.value.replace(/[^\d\+\-\s\(\)]/g, '');
+
+            const raw = input.value.trim();
+            if (!raw) { feedback.textContent = ''; return; }
+
+            const tel = normalizarTelWhatsapp(raw);
+            if (tel) {
+                feedback.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle"></i> Formato válido para WhatsApp (+' + tel + ')</span>';
+            } else {
+                feedback.innerHTML = '<span style="color:#f97316;"><i class="fas fa-exclamation-triangle"></i> Deben ser 8 dígitos (Guatemala), sin contar el código de país</span>';
+            }
+        }
+        document.getElementById('telefono').addEventListener('input', validarTelefono);
+
+        // ---- 3. Disponibilidad de usuario en vivo ----
+        let usernameDisponible = null;
+        let usernameCheckTimeout = null;
+
+        function verificarUsername() {
+            const input = document.getElementById('usernameInput');
+            const feedback = document.getElementById('usernameFeedback');
+            const username = input.value.trim();
+            const vendedorId = document.getElementById('vendedor_id').value;
+
+            clearTimeout(usernameCheckTimeout);
+            if (!username) { feedback.textContent = ''; usernameDisponible = null; return; }
+
+            feedback.innerHTML = '<span style="color:#888;"><i class="fas fa-spinner fa-spin"></i> Verificando...</span>';
+            usernameCheckTimeout = setTimeout(async () => {
+                try {
+                    const url = '/api/hotspot/vendedor/check-username?username=' + encodeURIComponent(username) +
+                        (vendedorId ? '&vendedor_id=' + vendedorId : '');
+                    const r = await fetch(url);
+                    const res = await r.json();
+                    if (!res.success) { feedback.textContent = ''; usernameDisponible = null; return; }
+                    usernameDisponible = res.disponible;
+                    feedback.innerHTML = res.disponible
+                        ? '<span style="color:#10b981;"><i class="fas fa-check-circle"></i> Usuario disponible</span>'
+                        : '<span style="color:#ef4444;"><i class="fas fa-times-circle"></i> Ese usuario ya está en uso</span>';
+                } catch (e) {
+                    feedback.textContent = '';
+                    usernameDisponible = null;
+                }
+            }, 400);
+        }
+        document.getElementById('usernameInput').addEventListener('input', verificarUsername);
+
+        // ---- 5. Fuerza de contraseña ----
+        function evaluarFuerzaPassword() {
+            const pwd = document.getElementById('passwordInput').value;
+            const fill = document.getElementById('pwdStrengthFill');
+            const label = document.getElementById('pwdStrengthLabel');
+            if (!pwd) { fill.style.width = '0%'; label.textContent = ''; return; }
+
+            let score = 0;
+            if (pwd.length >= 6) score++;
+            if (pwd.length >= 10) score++;
+            if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+            if (/\d/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+            const niveles = [
+                { min: 0, pct: 20, color: '#ef4444', texto: 'Muy débil' },
+                { min: 2, pct: 40, color: '#f97316', texto: 'Débil' },
+                { min: 3, pct: 65, color: '#ffaa00', texto: 'Aceptable' },
+                { min: 4, pct: 85, color: '#10b981', texto: 'Fuerte' },
+                { min: 5, pct: 100, color: '#10b981', texto: 'Muy fuerte' }
+            ];
+            let nivel = niveles[0];
+            for (const n of niveles) { if (score >= n.min) nivel = n; }
+
+            fill.style.width = nivel.pct + '%';
+            fill.style.background = nivel.color;
+            label.textContent = nivel.texto;
+            label.style.color = nivel.color;
+        }
+        document.getElementById('passwordInput').addEventListener('input', () => {
+            evaluarFuerzaPassword();
+            actualizarPreviewBienvenida();
         });
+
+        // ---- 4. Vista previa y envío del mensaje de bienvenida ----
+        function actualizarPreviewBienvenida() {
+            const nombre = document.querySelector('[name="nombre"]').value.trim() || '(nombre del vendedor)';
+            const username = document.getElementById('usernameInput').value.trim() || '(usuario)';
+            const password = document.getElementById('passwordInput').value;
+            const incluirPass = document.getElementById('incluirPassword').checked;
+            const portalUrl = window.location.origin;
+
+            let texto = `👋 ¡Hola *${nombre}*! Bienvenido a CuzoNet.\n\nYa puedes empezar a vender fichas. Tu acceso al portal:\n${portalUrl}\n\n👤 Usuario: *${username}*`;
+            if (incluirPass) {
+                texto += password ? `\n🔑 Contraseña: *${password}*` : `\n🔑 Contraseña: (pídesela a tu administrador)`;
+            }
+            texto += `\n\n¡Buenas ventas! 🚀`;
+
+            document.getElementById('previewBienvenida').textContent = texto;
+            window.__bienvenidaTexto = texto;
+        }
+
+        function enviarBienvenidaWhatsapp() {
+            const tel = normalizarTelWhatsapp(document.getElementById('telefono').value);
+            if (!tel) {
+                alert('Ingresa un teléfono válido (8 dígitos) en el campo Teléfono antes de enviar.');
+                document.getElementById('telefono').focus();
+                return;
+            }
+            actualizarPreviewBienvenida();
+            window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(window.__bienvenidaTexto), '_blank');
+        }
+
+        document.querySelector('[name="nombre"]').addEventListener('input', actualizarPreviewBienvenida);
+        document.getElementById('incluirPassword').addEventListener('change', actualizarPreviewBienvenida);
+
+        // ---- 2. Advertir si se guarda sin comisión / usuario ya ocupado ----
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (usernameDisponible === false) {
+                e.preventDefault();
+                alert('El usuario "' + document.getElementById('usernameInput').value + '" ya está en uso. Elige otro.');
+                document.getElementById('usernameInput').focus();
+                return;
+            }
+            const comisionVal = parseFloat(document.getElementById('comisionInput').value || '0');
+            if (!comisionVal) {
+                const continuar = confirm('No configuraste comisión para este vendedor (quedará en 0%) y no ganará nada por sus ventas.\n\n¿Guardar de todas formas?');
+                if (!continuar) { e.preventDefault(); return; }
+            }
+        });
+
+        // Inicializar previews con los valores ya cargados (modo edición)
+        validarTelefono();
+        evaluarFuerzaPassword();
+        actualizarPreviewBienvenida();
     </script>
 </body>
 </html>
