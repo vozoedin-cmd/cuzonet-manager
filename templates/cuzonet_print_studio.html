@@ -107,6 +107,25 @@
             .stats-modal-header { gap: 10px; }
             .stats-search { max-width: 100%; order: 3; }
         }
+
+        /* Modal Codigos del Lote PRO */
+        .codes-modal-pro { background: linear-gradient(160deg, rgba(20, 26, 24, 0.98), rgba(10, 28, 22, 0.98)); border: 1px solid rgba(3, 167, 134, 0.6); border-radius: 16px; padding: 22px 28px; width: min(1000px, 95vw); height: min(820px, 90vh); color: #fff; box-shadow: 0 0 50px rgba(3, 167, 134, 0.3), 0 25px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column; }
+        .codes-modal-header { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid rgba(3, 167, 134, 0.3); padding-bottom: 12px; flex-wrap: wrap; }
+        .codes-modal-header .stats-search:focus { border-color: #03a786; box-shadow: 0 0 12px rgba(3, 167, 134, 0.3); }
+
+        .codes-filter-btn { flex: 1; background: rgba(255,255,255,0.04); color: #ccc; border: 1px solid rgba(255,255,255,0.15); padding: 9px 12px; border-radius: 8px; cursor: pointer; transition: all 0.25s; font-family: 'Inter'; font-weight: 700; font-size: 0.88rem; }
+        .codes-filter-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }
+        .codes-filter-btn.f-activo { color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
+        .codes-filter-btn.f-usado { color: #ffaa00; border-color: rgba(255, 170, 0, 0.4); }
+        .codes-filter-btn.f-vencido { color: #94a3b8; border-color: rgba(148, 163, 184, 0.4); }
+        .codes-filter-btn.filtro-activo { background: rgba(3, 167, 134, 0.18); border-color: #03a786; color: #fff; box-shadow: 0 0 12px rgba(3, 167, 134, 0.35); }
+
+        .codes-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .codes-table thead th { padding: 9px 10px; color: #03a786; text-align: left; background: rgba(14, 26, 22, 0.98); position: sticky; top: 0; z-index: 2; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(3, 167, 134, 0.35); }
+        .codes-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s; }
+        .codes-table tbody tr:hover { background: rgba(3, 167, 134, 0.08); }
+        .codes-table td { padding: 8px 10px; }
+        .badge-gray { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.5); }
     </style>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cuzonet_print_studio.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cuzonet_print_studio_refinements.css') }}">
@@ -147,24 +166,26 @@
 
     <!-- Modal Ver Códigos -->
     <div class="modal-overlay" id="codesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
-        <div class="modal-content" style="background: rgba(20, 20, 25, 0.95); border: 1px solid #03a786; border-radius: 12px; padding: 30px; width: 700px; max-width: 95%; color: #fff; box-shadow: 0 0 30px rgba(3, 167, 134, 0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(3, 167, 134, 0.3); padding-bottom: 10px;">
-                <h3 style="margin: 0; color: #03a786;"><i class="fas fa-list-ol"></i> Códigos del Lote</h3>
-                <div>
-                    <button onclick="copiarCodigos()" class="btn-modal-action" style="margin-right: 15px; border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar PINs</button>
-                    <button onclick="eliminarLoteCompleto()" class="btn-modal-action" style="margin-right: 15px; border-color: #e63946; color: #e63946;"><i class="fas fa-trash-alt"></i> Eliminar Todo el Lote</button>
-                    <button onclick="document.getElementById('codesModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <div class="modal-content codes-modal-pro">
+            <div class="codes-modal-header">
+                <h3 style="margin: 0; color: #03a786; white-space: nowrap;"><i class="fas fa-list-ol"></i> Códigos del Lote <span id="codesLoteNombre" style="color: #fff; font-weight: 700;"></span></h3>
+                <input type="text" id="codesSearch" class="stats-search" style="max-width: 260px;" placeholder="&#128269; Buscar PIN..." oninput="renderCodigos()">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="copiarCodigos()" class="btn-modal-action" style="border-color: #ffaa00; color: #ffaa00;"><i class="fas fa-copy"></i> Copiar PINs</button>
+                    <button onclick="eliminarLoteCompleto()" class="btn-modal-action" style="border-color: #e63946; color: #e63946;"><i class="fas fa-trash-alt"></i> Eliminar Todo el Lote</button>
+                    <button onclick="document.getElementById('codesModal').style.display='none'" class="close-btn" style="background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; line-height: 1;">&times;</button>
                 </div>
             </div>
-            
+
             <!-- Controles y Filtros -->
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button onclick="filtrarCodigos('todos')" class="btn-modal-action" style="flex:1;">Todos</button>
-                <button onclick="filtrarCodigos('activo')" class="btn-modal-action" style="flex:1; border-color: #03a786; color: #03a786;">Activos</button>
-                <button onclick="filtrarCodigos('usado')" class="btn-modal-action" style="flex:1; border-color: #ffaa00; color: #ffaa00;">Usados</button>
+            <div id="codesFilters" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button id="codesFiltro-todos" onclick="filtrarCodigos('todos')" class="codes-filter-btn">Todos</button>
+                <button id="codesFiltro-activo" onclick="filtrarCodigos('activo')" class="codes-filter-btn f-activo">Activos</button>
+                <button id="codesFiltro-usado" onclick="filtrarCodigos('usado')" class="codes-filter-btn f-usado">Usados</button>
+                <button id="codesFiltro-vencido" onclick="filtrarCodigos('vencido')" class="codes-filter-btn f-vencido">Vencidos</button>
             </div>
-            
-            <div id="codesContent" style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
+
+            <div id="codesContent" style="flex: 1; overflow-y: auto; padding-right: 8px;">
                 <div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x" style="color: #03a786;"></i></div>
             </div>
         </div>
@@ -627,9 +648,12 @@
         async function abrirDetalleCodigos(rawDataB64) {
             const rawData = JSON.parse(atob(rawDataB64));
             document.getElementById('codesModal').style.display = 'flex';
+            document.getElementById('codesLoteNombre').textContent = rawData.lote ? `· ${rawData.lote}` : '';
+            document.getElementById('codesSearch').value = '';
+            filtroActual = 'todos';
             const content = document.getElementById('codesContent');
             content.innerHTML = '<div style="text-align: center; margin-top: 50px;"><i class="fas fa-spinner fa-spin fa-2x" style="color: #03a786;"></i><br><span style="color:#03a786;">Cargando...</span></div>';
-            
+
             try {
                 const r = await fetch('/api/omada/ver_codigos', {
                     method: 'POST',
@@ -637,7 +661,7 @@
                     body: JSON.stringify(rawData)
                 });
                 const res = await r.json();
-                
+
                 if (res.success) {
                     codigosActuales = res.vouchers;
                     renderCodigos();
@@ -648,53 +672,72 @@
                 content.innerHTML = '<div style="color: #e63946; text-align: center;">Error de red.</div>';
             }
         }
-        
+
+        function codigosFiltrados() {
+            const q = (document.getElementById('codesSearch').value || '').trim();
+            let filtrados = codigosActuales;
+            if (filtroActual !== 'todos') {
+                filtrados = filtrados.filter(c => c.estado === filtroActual);
+            }
+            if (q) {
+                filtrados = filtrados.filter(c => c.codigo.includes(q));
+            }
+            return filtrados;
+        }
+
         function renderCodigos() {
             const content = document.getElementById('codesContent');
-            let filtrados = codigosActuales;
-            
-            if (filtroActual !== 'todos') {
-                filtrados = codigosActuales.filter(c => c.estado === filtroActual);
+
+            // Contadores en los botones de filtro
+            const counts = { todos: codigosActuales.length, activo: 0, usado: 0, vencido: 0 };
+            codigosActuales.forEach(c => { if (counts[c.estado] !== undefined) counts[c.estado]++; });
+            const labels = { todos: 'Todos', activo: 'Activos', usado: 'Usados', vencido: 'Vencidos' };
+            for (const key of Object.keys(labels)) {
+                const btn = document.getElementById('codesFiltro-' + key);
+                if (btn) {
+                    btn.innerHTML = `${labels[key]} <span style="opacity:0.75; font-weight:800;">(${counts[key]})</span>`;
+                    btn.classList.toggle('filtro-activo', filtroActual === key);
+                }
             }
-            
+
+            const filtrados = codigosFiltrados();
             if (filtrados.length === 0) {
-                content.innerHTML = '<div style="text-align:center; color:#aaa; margin-top: 20px;">No hay códigos para este filtro.</div>';
+                content.innerHTML = '<div style="text-align:center; color:#aaa; margin-top: 30px;"><i class="fas fa-search"></i> No hay códigos para este filtro.</div>';
                 return;
             }
-            
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">';
-            html += '<tr style="color: #03a786; text-align: left; background: rgba(255,255,255,0.05);">';
-            html += '<th style="padding: 8px;">Código PIN</th><th style="padding: 8px;">Estado</th><th style="padding: 8px;">Uso</th><th style="padding: 8px; text-align:center;">Acción</th></tr>';
-            
+
+            let html = '<table class="codes-table"><thead><tr>';
+            html += '<th>Código PIN</th><th>Estado</th><th>Creada</th><th>Fecha de Uso</th><th style="text-align:center;">Acción</th>';
+            html += '</tr></thead><tbody>';
+
             filtrados.forEach(c => {
                 let badgeClass = 'badge-green';
                 let estadoStr = 'Activo';
                 if (c.estado === 'usado') { badgeClass = 'badge-red'; estadoStr = 'Usado'; }
                 else if (c.estado === 'vencido') { badgeClass = 'badge-gray'; estadoStr = 'Vencido'; }
-                
-                html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                    <td style="padding: 8px; font-weight:bold; color: #fff; font-family: monospace; font-size: 1.1rem; letter-spacing: 2px;">${c.codigo}</td>
-                    <td style="padding: 8px;"><span class="pro-badge ${badgeClass}">${estadoStr}</span></td>
-                    <td style="padding: 8px; color: #ccc; font-size: 0.8rem;">${c.fecha_uso || '-'}</td>
-                    <td style="padding: 8px; text-align:center;">
+
+                html += `<tr>
+                    <td style="font-weight:bold; color: #fff; font-family: monospace; font-size: 1.05rem; letter-spacing: 2px;">${c.codigo}</td>
+                    <td><span class="pro-badge ${badgeClass}">${estadoStr}</span></td>
+                    <td style="color: #999; font-size: 0.8rem;">${c.fecha_creacion || '-'}</td>
+                    <td style="color: #ccc; font-size: 0.8rem;">${c.fecha_uso || '-'}</td>
+                    <td style="text-align:center;">
                         <button onclick="eliminarFicha(${c.id})" style="background:none; border:none; color:#e63946; cursor:pointer;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
                     </td>
                 </tr>`;
             });
-            html += '</table>';
+            html += '</tbody></table>';
+            html += `<div style="text-align:right; color:#888; font-size: 0.8rem; padding: 10px 5px;">Mostrando ${filtrados.length} de ${codigosActuales.length} códigos</div>`;
             content.innerHTML = html;
         }
-        
+
         function filtrarCodigos(estado) {
             filtroActual = estado;
             renderCodigos();
         }
-        
+
         function copiarCodigos() {
-            let filtrados = codigosActuales;
-            if (filtroActual !== 'todos') {
-                filtrados = codigosActuales.filter(c => c.estado === filtroActual);
-            }
+            const filtrados = codigosFiltrados();
             const texto = filtrados.map(c => c.codigo).join('\\n');
             navigator.clipboard.writeText(texto).then(() => {
                 showToast(`Se copiaron ${filtrados.length} PINs al portapapeles.`, 'success');
