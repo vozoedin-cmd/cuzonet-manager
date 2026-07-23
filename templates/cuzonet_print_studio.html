@@ -21,7 +21,12 @@
         .control-panel .btn-print { background: linear-gradient(90deg, #ff6600, #e63900); color: white; border: none; padding: 18px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; font-weight: 700; width: 100%; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(255, 102, 0, 0.4); text-transform: uppercase; letter-spacing: 1px; }
         .control-panel .btn-print:hover { background: linear-gradient(90deg, #ffaa00, #ff6600); transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 102, 0, 0.7); }
         
-        #print-area { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 0 auto; max-width: 21cm; }
+        #print-area { margin: 0 auto; max-width: 21cm; }
+        .print-page { break-after: page; page-break-after: always; }
+        .print-page:last-child { break-after: auto; page-break-after: auto; }
+        .print-page-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; max-width: 21cm; margin: 0 auto 4px; padding: 2px 3px 3px; font-size: 7px; font-weight: 800; letter-spacing: 0.02em; color: #333; border-bottom: 1px dashed #999; break-inside: avoid; page-break-inside: avoid; }
+        .print-page-header span:first-child { text-transform: uppercase; }
+        .print-page-grid { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 21cm; margin: 0 auto; }
         .v-card { background: white; width: 2.6cm; height: auto; border: 1.5px solid var(--brand-color); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
         .v-header { font-size: 0.45rem; font-weight: 900; text-align: center; color: black; padding: 3px 0; border-bottom: 1px solid var(--brand-color); }
         .v-creds { padding: 4px; display: flex; flex-direction: column; gap: 2px; }
@@ -54,6 +59,7 @@
             .control-panel, .sidebar, .header, .bg-animation, #cuzobot-container, #toastContainer, .toast { display: none !important; }
             .main-content { margin-left: 0 !important; padding: 0 !important; }
             #print-area { width: 100%; max-width: none; }
+            .print-page-grid, .print-page-header { max-width: none; }
         }
 
         /* PRO Modal Styles */
@@ -815,23 +821,89 @@
             }
             const pingsFinales = [...new Set(encontradosFrescos)];
 
-            // 3. NOMBRE DE ARCHIVO DINÁMICO (Seguro)
-            document.title = `Vouchers_${businessName.replace(/\s+/g, '_')}_${priceStr}_${timeStr}_${pingsFinales.length}`.replace(/[\/\?%*:|"<>\.\s]/g, '-');
+            // Referencia del lote (la misma que se usa como "lote" al generar por API).
+            // Se muestra en el encabezado de cada hoja y en el nombre del archivo.
+            const referenciaEl = document.getElementById('genComentario');
+            const referencia = referenciaEl ? referenciaEl.value.trim() : '';
 
-            // 4. RENDERIZADO
+            // 3. NOMBRE DE ARCHIVO DINÁMICO (Seguro): cantidad, precio, duración, negocio y referencia
+            const precioGenEl = document.getElementById('genPrecio');
+            const durValEl = document.getElementById('genTimeVal');
+            const durUnidadEl = document.getElementById('genTimeUnidad');
+            const precioGen = precioGenEl ? precioGenEl.value : '';
+            const durVal = durValEl ? durValEl.value : '';
+            const durUnidadTxt = durUnidadEl ? durUnidadEl.options[durUnidadEl.selectedIndex].text : '';
+
+            let nombreBase = `${pingsFinales.length}Fichas`;
+            if (precioGen) nombreBase += `_Q${precioGen}`;
+            if (durVal) nombreBase += `_${durVal}${durUnidadTxt}`;
+            nombreBase += `_${businessName}`;
+            if (referencia) nombreBase += `_${referencia}`;
+            document.title = nombreBase.replace(/\s+/g, '_').replace(/[\/\?%*:|"<>\.]/g, '-');
+
+            // 4. RENDERIZADO EN HOJAS EXPLICITAS
+            // Se agrupan las fichas en paginas de tamano fijo (en vez de dejar que
+            // fluyan libremente) para poder mostrar, en cada hoja, un encabezado con
+            // la referencia y cuantas fichas trae esa hoja especifica.
             printArea.innerHTML = '';
-            pingsFinales.forEach((code, index) => {
+
+            const crearTarjeta = (code, numero) => {
                 const card = document.createElement('div');
                 card.className = `v-card ${templateStr}`;
                 card.innerHTML = `
                     <div class="v-header">${window.logoBase64 ? '<img src="' + window.logoBase64 + '" class="v-header-logo">' : '<i class="fas fa-wifi" style="margin-right:3px; font-size:0.4rem;"></i> ' + businessName}</div>
                     <div class="v-creds"><div class="v-row"><span class="v-lbl">PIN:</span><span class="v-val">${code}</span></div></div>
                     <div class="v-price-box"><div class="v-price">${priceStr}</div><div class="v-time">DURACIÓN: ${timeStr}</div></div>
-                    <div class="v-footer">Ficha: #${index + 1}</div>
+                    <div class="v-footer">Ficha: #${numero}</div>
                 `;
-                printArea.appendChild(card);
-            });
-            
+                return card;
+            };
+
+            // Tarjeta de medicion (oculta) para saber el tamano real ya renderizado
+            // y calcular cuantas caben por fila y por hoja.
+            const medidor = crearTarjeta('000000', 1);
+            medidor.style.visibility = 'hidden';
+            medidor.style.position = 'absolute';
+            printArea.appendChild(medidor);
+            const cardRect = medidor.getBoundingClientRect();
+            printArea.removeChild(medidor);
+
+            const PX_POR_CM = 37.7952755906;
+            const GAP_CM = 5 / PX_POR_CM;
+            const cardWCm = cardRect.width / PX_POR_CM || 2.6;
+            const cardHCm = cardRect.height / PX_POR_CM || 2.4;
+
+            const usableWidthCm = 19;              // A4 21cm - margenes 10mm x 2
+            const usableHeightCm = 27.7 - 1.1;      // A4 29.7cm - margenes 10mm x 2, menos encabezado de hoja
+
+            const columnas = Math.max(1, Math.floor((usableWidthCm + GAP_CM) / (cardWCm + GAP_CM)));
+            const filas = Math.max(1, Math.floor((usableHeightCm + GAP_CM) / (cardHCm + GAP_CM)));
+            const porPagina = columnas * filas;
+            const totalPaginas = Math.ceil(pingsFinales.length / porPagina);
+
+            for (let p = 0; p < totalPaginas; p++) {
+                const inicio = p * porPagina;
+                const fin = Math.min(inicio + porPagina, pingsFinales.length);
+                const cantidadHoja = fin - inicio;
+
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'print-page';
+
+                const header = document.createElement('div');
+                header.className = 'print-page-header';
+                header.innerHTML = `<span>${referencia ? 'Ref: ' + referencia : businessName}</span><span>${cantidadHoja} ficha${cantidadHoja === 1 ? '' : 's'} · Hoja ${p + 1}/${totalPaginas}</span>`;
+                pageDiv.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.className = 'print-page-grid';
+                for (let i = inicio; i < fin; i++) {
+                    grid.appendChild(crearTarjeta(pingsFinales[i], i + 1));
+                }
+                pageDiv.appendChild(grid);
+
+                printArea.appendChild(pageDiv);
+            }
+
             if (exportPDF) {
                 typeof showToast !== 'undefined' ? showToast("Generando PDF... por favor espera.", "info") : null;
                 const opt = {
@@ -839,7 +911,8 @@
                     filename:     document.title + '.pdf',
                     image:        { type: 'jpeg', quality: 0.98 },
                     html2canvas:  { scale: 2 },
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak:    { mode: ['css', 'legacy'] }
                 };
                 html2pdf().set(opt).from(printArea).save();
             } else {
