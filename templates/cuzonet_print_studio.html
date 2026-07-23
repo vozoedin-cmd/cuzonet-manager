@@ -878,7 +878,15 @@
 
             const columnas = Math.max(1, Math.floor((usableWidthCm + GAP_CM) / (cardWCm + GAP_CM)));
             const filas = Math.max(1, Math.floor((usableHeightCm + GAP_CM) / (cardHCm + GAP_CM)));
-            const porPagina = columnas * filas;
+
+            // El calculo automatico (columnas x filas) es solo una sugerencia: la
+            // medicion en pantalla no siempre coincide exacto con el resultado real
+            // de impresion/PDF y puede hacer que una "hoja" se corte en 2 fisicas.
+            // Por eso se prioriza el valor que el usuario configura en "Fichas por
+            // hoja", que es el que realmente controla el corte de pagina.
+            const fichasPorHojaEl = document.getElementById('fichasPorHoja');
+            const fichasPorHojaManual = fichasPorHojaEl ? parseInt(fichasPorHojaEl.value, 10) : 0;
+            const porPagina = fichasPorHojaManual > 0 ? fichasPorHojaManual : Math.max(1, columnas * filas);
             const totalPaginas = Math.ceil(pingsFinales.length / porPagina);
 
             for (let p = 0; p < totalPaginas; p++) {
