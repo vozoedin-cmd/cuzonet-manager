@@ -5681,13 +5681,30 @@ def hotspot_vendedores():
         
         # Deuda pendiente (sobre el total)
         deuda_pendiente = ventas_totales - total_abonado
-        
+
+        # Última venta real: fecha de uso más reciente en Omada, o creación
+        # del último voucher MikroTik (esos se generan al momento de vender)
+        ultima_venta_om = db.session.query(db.func.max(OmadaVoucher.fecha_uso)).filter(
+            OmadaVoucher.vendedor_id == v.id,
+            OmadaVoucher.estado.in_(['usado', 'vencido'])
+        ).scalar()
+        ultima_venta_mt = db.session.query(db.func.max(Voucher.fecha_creacion)).filter(
+            Voucher.vendedor_id == v.id
+        ).scalar()
+        ultima_venta = max([d for d in (ultima_venta_om, ultima_venta_mt) if d], default=None)
+        dias_sin_vender = (datetime.utcnow() - ultima_venta).days if ultima_venta else None
+
+        fichas_disponibles = OmadaVoucher.query.filter_by(vendedor_id=v.id, estado='activo').count()
+
         vendedores_data.append({
             'vendedor': v,
             'fichas_impresas': fichas_impresas,
             'fichas_mikrotik': fichas_mikrotik,
             'fichas_omada': fichas_omada,
             'fichas_omada_vendidas': fichas_omada_vendidas,
+            'fichas_disponibles': fichas_disponibles,
+            'ultima_venta': ultima_venta,
+            'dias_sin_vender': dias_sin_vender,
             'ventas_omada': ventas_omada,
             'ventas_totales': ventas_totales,
             'ventas_mes': ventas_mes,

@@ -133,7 +133,7 @@
                         <tr>
                             <th>#</th>
                             <th>Vendedor</th>
-                            <th>Última Actividad</th>
+                            <th>Última Venta</th>
                             <th>Ventas (Mes / Total)</th>
                             <th>Ganancias (Mes)</th>
                             <th>Abonos</th>
@@ -166,13 +166,19 @@
                             </td>
                             <td>
                                 <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
-                                    {% if item.vendedor.ultimo_acceso %}
-                                    <span style="color: #a5b4fc;"><i class="fas fa-clock"></i> {{ item.vendedor.ultimo_acceso.strftime('%d/%m/%Y %H:%M') }}</span>
+                                    {% if item.ultima_venta %}
+                                        {% if item.dias_sin_vender <= 2 %}
+                                        <span style="color: #10b981; font-weight: 600;"><i class="fas fa-fire"></i> {{ item.ultima_venta.strftime('%d/%m/%Y %H:%M') }}</span>
+                                        <span style="color: #10b981; font-size: 0.72rem;">{% if item.dias_sin_vender == 0 %}Vendió hoy{% elif item.dias_sin_vender == 1 %}Vendió ayer{% else %}Hace 2 días{% endif %}</span>
+                                        {% elif item.dias_sin_vender <= 7 %}
+                                        <span style="color: #ffaa00; font-weight: 600;"><i class="fas fa-clock"></i> {{ item.ultima_venta.strftime('%d/%m/%Y %H:%M') }}</span>
+                                        <span style="color: #ffaa00; font-size: 0.72rem;">Hace {{ item.dias_sin_vender }} días</span>
+                                        {% else %}
+                                        <span style="color: #6b7280;"><i class="fas fa-moon"></i> {{ item.ultima_venta.strftime('%d/%m/%Y %H:%M') }}</span>
+                                        <span style="color: #6b7280; font-size: 0.72rem;">Hace {{ item.dias_sin_vender }} días sin vender</span>
+                                        {% endif %}
                                     {% else %}
-                                    <span style="color: #6b7280;">Nunca ingresó</span>
-                                    {% endif %}
-                                    {% if item.vendedor.ultima_ip %}
-                                    <span class="ip-badge"><i class="fas fa-globe"></i> {{ item.vendedor.ultima_ip }}</span>
+                                    <span style="color: #6b7280;">Sin ventas aún</span>
                                     {% endif %}
                                 </div>
                             </td>
@@ -197,6 +203,20 @@
                                     </a>
                                     <button class="btn-icon success" style="transition: all 0.3s; box-shadow: 0 0 5px rgba(3,167,134,0.3);" title="Abonar Saldo / Liquidar" onclick="cargarSaldo({{ item.vendedor.id }}, '{{ item.vendedor.nombre }}')">
                                         <i class="fas fa-hand-holding-usd"></i>
+                                    </button>
+                                    <button class="btn-icon" style="background: rgba(37, 211, 102, 0.15); color: #25d366; border: 1px solid #25d366; transition: all 0.3s; box-shadow: 0 0 5px rgba(37,211,102,0.3);" title="Cobrar / Recibo WhatsApp" onmouseover="this.style.background='#25d366'; this.style.color='#fff';" onmouseout="this.style.background='rgba(37, 211, 102, 0.15)'; this.style.color='#25d366';"
+                                        onclick='abrirCobro({{ {
+                                            "nombre": item.vendedor.nombre,
+                                            "telefono": item.vendedor.telefono or "",
+                                            "ventas_mes": item.ventas_mes or 0,
+                                            "ventas_totales": item.ventas_totales or 0,
+                                            "abonos": item.total_abonado or 0,
+                                            "deuda": item.deuda_pendiente or 0,
+                                            "disponibles": item.fichas_disponibles or 0,
+                                            "vendidas": item.fichas_omada_vendidas or 0,
+                                            "ultima_venta": item.ultima_venta.strftime("%d/%m/%Y %H:%M") if item.ultima_venta else ""
+                                        } | tojson }})'>
+                                        <i class="fas fa-file-invoice-dollar"></i>
                                     </button>
                                     <a href="/admin/hotspot/vendedor/nuevo?edit={{ item.vendedor.id }}" class="btn-icon" style="background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 0 5px rgba(255,170,0,0.3);" title="Editar Vendedor" onmouseover="this.style.background='#ffaa00'; this.style.color='#fff';" onmouseout="this.style.background='rgba(255,170,0,0.2)'; this.style.color='#ffaa00';">
                                         <i class="fas fa-edit"></i>
@@ -249,6 +269,23 @@
         </div>
     </div>
 
+    <!-- Modal Cobro / Recibo WhatsApp -->
+    <div id="cobroModal" class="modal-overlay">
+        <div class="modal" style="background: linear-gradient(160deg, rgba(20,26,24,0.98), rgba(10,28,22,0.98)); backdrop-filter: blur(15px); border: 2px solid #25d366; box-shadow: 0 0 40px rgba(37, 211, 102, 0.35); max-width: 480px; width: 95%;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(37,211,102,0.3); padding-bottom: 15px;">
+                <h2 style="color: #25d366; text-shadow: 0 0 10px rgba(37,211,102,0.5);"><i class="fas fa-file-invoice-dollar" style="margin-right: 10px;"></i> Cobro a Vendedor</h2>
+                <button type="button" class="btn-icon" style="color: #25d366; border: none; font-size: 1.2rem; cursor: pointer;" onclick="closeModal('cobroModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div id="cobroContent"></div>
+                <div style="display: flex; gap: 12px; margin-top: 20px;">
+                    <button type="button" class="btn" style="flex: 1; background: rgba(255,170,0,0.15); color: #ffaa00; border: 1px solid #ffaa00; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600;" onclick="copiarCobro()"><i class="fas fa-copy"></i> Copiar Texto</button>
+                    <button type="button" id="btnCobroWhatsapp" class="btn" style="flex: 1.4; background: rgba(37,211,102,0.15); color: #25d366; border: 1px solid #25d366; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 700;" onclick="enviarCobroWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar por WhatsApp</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function openModal(id) {
             document.getElementById(id).classList.add('active');
@@ -260,6 +297,82 @@
             document.getElementById('saldo_vendedor_id').value = id;
             document.getElementById('saldo_vendedor_nombre').value = nombre;
             openModal('saldoModal');
+        }
+
+        // ---- Cobro / Recibo WhatsApp ----
+        let cobroActual = null;
+
+        function normalizarTelWhatsapp(tel) {
+            let digitos = (tel || '').replace(/\D/g, '');
+            if (!digitos) return null;
+            // Numeros locales de Guatemala (8 digitos) -> anteponer 502
+            if (digitos.length === 8) digitos = '502' + digitos;
+            return digitos;
+        }
+
+        function abrirCobro(data) {
+            cobroActual = data;
+            const fecha = new Date().toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const hora = new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
+
+            cobroActual.texto = [
+                `🧾 *Estado de Cuenta - CuzoNet*`,
+                `Vendedor: *${data.nombre}*`,
+                `Fecha: ${fecha} ${hora}`,
+                ``,
+                `📊 Ventas del mes: Q ${data.ventas_mes.toFixed(2)}`,
+                `📈 Ventas totales: Q ${data.ventas_totales.toFixed(2)}`,
+                `💵 Abonos realizados: Q ${data.abonos.toFixed(2)}`,
+                `🎫 Fichas: ${data.vendidas} vendidas · ${data.disponibles} disponibles`,
+                data.ultima_venta ? `🕒 Última venta: ${data.ultima_venta}` : null,
+                ``,
+                `───────────────`,
+                `💰 *Saldo a cobrar: Q ${data.deuda.toFixed(2)}*`
+            ].filter(l => l !== null).join('\n');
+
+            const fila = (icono, label, valor, color) =>
+                `<div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+                    <span style="color:#ccc;"><i class="${icono}" style="width: 20px; color:${color};"></i> ${label}</span>
+                    <span style="font-weight:700; color:${color};">${valor}</span>
+                </div>`;
+
+            document.getElementById('cobroContent').innerHTML = `
+                <div style="text-align:center; margin-bottom: 14px;">
+                    <div style="font-size:1.15rem; font-weight:900; color:#fff;">${data.nombre}</div>
+                    <div style="color:#888; font-size:0.82rem;">${fecha} · ${hora}${data.telefono ? ' · ' + data.telefono : ''}</div>
+                </div>
+                ${fila('fas fa-chart-line', 'Ventas del mes', 'Q ' + data.ventas_mes.toFixed(2), '#10b981')}
+                ${fila('fas fa-chart-bar', 'Ventas totales', 'Q ' + data.ventas_totales.toFixed(2), '#a5b4fc')}
+                ${fila('fas fa-hand-holding-usd', 'Abonos realizados', 'Q ' + data.abonos.toFixed(2), '#22d3ee')}
+                ${fila('fas fa-ticket-alt', 'Fichas', data.vendidas + ' vendidas · ' + data.disponibles + ' disp.', '#ffaa00')}
+                ${data.ultima_venta ? fila('fas fa-clock', 'Última venta', data.ultima_venta, '#ccc') : ''}
+                <div style="margin-top: 16px; background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.5); border-radius: 10px; padding: 14px 18px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:800; color:#fff;">SALDO A COBRAR</span>
+                    <span style="font-weight:900; font-size:1.4rem; color:#25d366; text-shadow: 0 0 10px rgba(37,211,102,0.5);">Q ${data.deuda.toFixed(2)}</span>
+                </div>`;
+
+            const tel = normalizarTelWhatsapp(data.telefono);
+            const btnWa = document.getElementById('btnCobroWhatsapp');
+            btnWa.disabled = !tel;
+            btnWa.style.opacity = tel ? '1' : '0.45';
+            btnWa.style.cursor = tel ? 'pointer' : 'not-allowed';
+            btnWa.title = tel ? '' : 'Este vendedor no tiene teléfono registrado';
+
+            openModal('cobroModal');
+        }
+
+        function copiarCobro() {
+            if (!cobroActual) return;
+            navigator.clipboard.writeText(cobroActual.texto).then(() => {
+                alert('Recibo copiado al portapapeles.');
+            });
+        }
+
+        function enviarCobroWhatsapp() {
+            if (!cobroActual) return;
+            const tel = normalizarTelWhatsapp(cobroActual.telefono);
+            if (!tel) return;
+            window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(cobroActual.texto), '_blank');
         }
     </script>
 </body>
