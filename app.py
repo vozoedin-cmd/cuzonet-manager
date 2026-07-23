@@ -6944,14 +6944,50 @@ def handle_exception(e):
 @vendedor_required
 def vendedor_dashboard():
     """Panel del vendedor para generar vouchers"""
+    import json
     from datetime import datetime, timedelta
-    
+
     planes = PlanHotspot.query.filter_by(activo=True).all()
     router = ConfigMikroTik.query.get(current_user.router_id) if current_user.router_id else None
-    
-    # Obtener vouchers recientes
-    vouchers = Voucher.query.filter_by(vendedor_id=current_user.id).order_by(Voucher.fecha_creacion.desc()).limit(15).all()
-    
+
+    permisos_data = {
+        'vender_fichas': True, 'ver_reportes': True, 'imprimir': True,
+        'solicitar_inventario': True, 'editar_clientes': False,
+        'ver_ganancias': True, 'administrar_omada': False
+    }
+    if current_user.permisos:
+        try:
+            permisos_data.update(json.loads(current_user.permisos))
+        except (ValueError, TypeError):
+            pass
+
+    # Ventas recientes: se combinan vouchers MikroTik (autoservicio, con
+    # contraseña) y fichas Omada vendidas (el flujo real de este negocio,
+    # antes no aparecian aqui y la lista siempre salia vacia)
+    vouchers_mt_recientes = Voucher.query.filter_by(vendedor_id=current_user.id)\
+        .order_by(Voucher.fecha_creacion.desc()).limit(15).all()
+    fichas_om_recientes = OmadaVoucher.query.filter(
+        OmadaVoucher.vendedor_id == current_user.id,
+        OmadaVoucher.estado.in_(['usado', 'vencido'])
+    ).order_by(OmadaVoucher.fecha_uso.desc()).limit(15).all()
+
+    unidades_om = {0: 'Min', 1: 'Hora', 2: 'Día'}
+    ventas_recientes = []
+    for v in vouchers_mt_recientes:
+        ventas_recientes.append({
+            'tipo': 'mikrotik', 'codigo': v.codigo, 'contrasena': v.contrasena,
+            'plan': v.plan.nombre if v.plan else 'Voucher', 'precio': v.precio,
+            'fecha': v.fecha_creacion
+        })
+    for o in fichas_om_recientes:
+        ventas_recientes.append({
+            'tipo': 'omada', 'codigo': o.codigo, 'contrasena': None,
+            'plan': f"{o.duracion_valor} {unidades_om.get(o.duracion_unidad, '')}",
+            'precio': o.precio, 'fecha': o.fecha_uso
+        })
+    ventas_recientes.sort(key=lambda x: x['fecha'] or datetime.min, reverse=True)
+    ventas_recientes = ventas_recientes[:15]
+
     # Calcular Métricas (Fase 2)
     hoy = datetime.utcnow().date()
     mes_actual = hoy.month
@@ -6998,15 +7034,18 @@ def vendedor_dashboard():
         total_fichas_vendidas = len(fichas_mes_mt) + len(fichas_mes_om)
         ganancias_mes = total_fichas_vendidas * current_user.comision_valor
         
-    # Inventario actual
-    inventario_actual = 0
+    # Inventario actual (fichas listas para vender). El estado Omada correcto
+    # es 'activo', no 'disponible' -- ese valor nunca existio, asi que este
+    # conteo siempre daba 0 para vendedores con fichas Omada.
     limite = current_user.limite_fichas or 0
+    fichas_activas_mt = Voucher.query.filter_by(vendedor_id=current_user.id, activo=True).count()
+    fichas_disponibles_om = OmadaVoucher.query.filter_by(vendedor_id=current_user.id, estado='activo').count()
+    fichas_disponibles_total = fichas_activas_mt + fichas_disponibles_om
+
     if limite > 0:
-        fichas_activas_mt = Voucher.query.filter_by(vendedor_id=current_user.id, activo=True).count()
-        fichas_disponibles_om = OmadaVoucher.query.filter_by(vendedor_id=current_user.id, estado='disponible').count()
-        inventario_actual = limite - (fichas_activas_mt + fichas_disponibles_om)
-        if inventario_actual < 0:
-            inventario_actual = 0
+        inventario_actual = max(limite - fichas_disponibles_total, 0)
+    else:
+        inventario_actual = fichas_disponibles_total
             
     # Datos para gráfico (Últimos 7 días)
     ventas_grafico = []
@@ -7024,7 +7063,8 @@ def vendedor_dashboard():
     return render_template('vendedor_dashboard.html',
                            planes=planes,
                            router=router,
-                           vouchers=vouchers,
+                           ventas_recientes=ventas_recientes,
+                           permisos_data=permisos_data,
                            ventas_hoy=ventas_hoy_total,
                            ventas_mes=ventas_mes_total,
                            ganancias_mes=ganancias_mes,

@@ -286,9 +286,14 @@
                 <p style="margin:0; font-size: 0.85rem; color: #a5b4fc;">{{ current_user.nombre }}</p>
             </div>
         </div>
-        <a href="/logout" style="color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.1); padding: 8px 16px; border-radius: 12px; font-weight: 500;">
-            <i class="fas fa-sign-out-alt"></i> Salir
-        </a>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button id="btnSyncVendedor" onclick="sincronizarMisVentas()" style="color: #25d366; background: rgba(37, 211, 102, 0.1); border: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 12px; font-weight: 500; font-family: inherit; font-size: 0.9rem; cursor: pointer;">
+                <i class="fas fa-sync-alt"></i> Sincronizar
+            </button>
+            <a href="/logout" style="color: #ef4444; text-decoration: none; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.1); padding: 8px 16px; border-radius: 12px; font-weight: 500;">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
     </div>
 
     <div class="vendedor-main">
@@ -315,20 +320,19 @@
                 </div>
                 <div class="metric-value">Q{{ "%.2f"|format(ganancias_mes) }}</div>
             </div>
-            {% if limite_fichas > 0 %}
             <div class="metric-card">
                 <div class="metric-header">
-                    <div class="metric-title">Inventario Disponible</div>
+                    <div class="metric-title">Fichas Disponibles</div>
                     <div class="metric-icon" style="color: #f43f5e; background: rgba(244, 63, 94, 0.1);"><i class="fas fa-box-open"></i></div>
                 </div>
-                <div class="metric-value">{{ inventario_actual }} <span style="font-size:1rem; color:#a5b4fc;">/ {{ limite_fichas }}</span></div>
+                <div class="metric-value">{{ inventario_actual }}{% if limite_fichas > 0 %} <span style="font-size:1rem; color:#a5b4fc;">/ {{ limite_fichas }}</span>{% endif %}</div>
             </div>
-            {% endif %}
         </div>
 
         <div class="dashboard-grid">
             <!-- Columna Izquierda: Generar y Gráfico -->
             <div style="display: flex; flex-direction: column; gap: 24px;">
+                {% if permisos_data.vender_fichas %}
                 <div class="panel">
                     <h2 class="panel-title"><i class="fas fa-bolt" style="color: var(--info-color);"></i> Generar Nueva Ficha</h2>
                     {% if limite_fichas > 0 and inventario_actual <= 0 %}
@@ -355,6 +359,7 @@
                         </div>
                     {% endif %}
                 </div>
+                {% endif %}
 
                 <div class="panel">
                     <h2 class="panel-title"><i class="fas fa-chart-area" style="color: #3b82f6;"></i> Ventas Últimos 7 Días</h2>
@@ -368,25 +373,31 @@
             <div class="panel">
                 <h2 class="panel-title"><i class="fas fa-history" style="color: #10b981;"></i> Últimas Ventas</h2>
                 <div id="vouchersList">
-                    {% for v in vouchers %}
+                    {% for v in ventas_recientes %}
                     <div class="voucher-item">
                         <div class="v-info">
-                            <h4>{{ v.codigo }}</h4>
-                            <p>{{ v.plan.nombre if v.plan else 'Voucher' }} • Q{{ "%.2f"|format(v.precio) }}</p>
+                            <h4>{{ v.codigo }} {% if v.tipo == 'omada' %}<span style="font-size:0.65rem; font-weight:700; color:#ffaa00; background:rgba(255,170,0,0.12); padding:2px 6px; border-radius:6px; margin-left:4px;">OMADA</span>{% endif %}</h4>
+                            <p>{{ v.plan }} • Q{{ "%.2f"|format(v.precio) }}{% if v.fecha %} • {{ v.fecha.strftime('%d/%m %H:%M') }}{% endif %}</p>
                         </div>
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="imprimirTicketLocal({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ (v.plan.nombre if v.plan else 'Voucher') | tojson }}, {{ v.precio | tojson }}, {{ v.fecha_creacion.strftime('%Y-%m-%d %H:%M') | tojson }})" title="Imprimir">
+                            {% if v.tipo == 'mikrotik' %}
+                            <button class="btn-icon" onclick="imprimirTicketLocal({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ v.plan | tojson }}, {{ v.precio | tojson }}, {{ v.fecha.strftime('%Y-%m-%d %H:%M') | tojson }})" title="Imprimir">
                                 <i class="fas fa-print"></i>
                             </button>
-                            <button class="btn-icon wp" onclick="compartirWhatsApp({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ (v.plan.nombre if v.plan else 'Voucher') | tojson }}, {{ v.precio | tojson }})" title="WhatsApp">
+                            <button class="btn-icon wp" onclick="compartirWhatsApp({{ v.codigo | tojson }}, {{ v.contrasena | tojson }}, {{ v.plan | tojson }}, {{ v.precio | tojson }})" title="WhatsApp">
                                 <i class="fab fa-whatsapp"></i>
                             </button>
+                            {% else %}
+                            <button class="btn-icon" onclick="copiarCodigoVenta({{ v.codigo | tojson }})" title="Copiar código">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
                     <div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.4);" id="noVouchersMessage">
                         <i class="fas fa-receipt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
-                        <p>No hay ventas recientes hoy.</p>
+                        <p>No hay ventas recientes.</p>
                     </div>
                     {% endfor %}
                 </div>
@@ -611,6 +622,53 @@
             
             const encoded = encodeURIComponent(mensaje);
             window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+        }
+
+        function copiarCodigoVenta(codigo) {
+            navigator.clipboard.writeText(codigo).then(() => {
+                alert('Código ' + codigo + ' copiado.');
+            });
+        }
+
+        async function sincronizarMisVentas() {
+            const btn = document.getElementById('btnSyncVendedor');
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+            btn.disabled = true;
+
+            try {
+                const r = await fetch('/api/omada/sync', { method: 'POST' });
+                const res = await r.json();
+                if (!res.success) {
+                    alert(res.error || 'Error al sincronizar');
+                    btn.innerHTML = original;
+                    btn.disabled = false;
+                    return;
+                }
+
+                for (let i = 0; i < 100; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    const rs = await fetch('/api/omada/sync/status');
+                    const st = await rs.json();
+                    if (!st.running) {
+                        if (st.sync_success) {
+                            window.location.reload();
+                        } else {
+                            alert(st.message || 'Error en la sincronización');
+                            btn.innerHTML = original;
+                            btn.disabled = false;
+                        }
+                        return;
+                    }
+                }
+                alert('La sincronización sigue en progreso en segundo plano. Vuelve a intentarlo en unos minutos.');
+                btn.innerHTML = original;
+                btn.disabled = false;
+            } catch (e) {
+                alert('Error de red al sincronizar.');
+                btn.innerHTML = original;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
