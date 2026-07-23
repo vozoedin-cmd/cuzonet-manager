@@ -90,10 +90,13 @@
         .stats-kpi .kpi-value { font-size: 1.45rem; font-weight: 900; color: #fff; }
         .stats-kpi .kpi-sub { font-size: 0.75rem; color: #888; margin-top: 2px; }
 
-        .vendor-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
-        .vendor-title { display: flex; justify-content: space-between; align-items: center; margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 1px solid rgba(255,102,0,0.4); }
-        .vendor-title h4 { margin: 0; color: #fff; font-size: 1.05rem; }
-        .vendor-title .vendor-chips { display: flex; gap: 8px; font-size: 0.78rem; }
+        .vendor-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; transition: border-color 0.2s; }
+        .vendor-section:hover { border-color: rgba(255,102,0,0.35); }
+        .vendor-title { display: flex; justify-content: space-between; align-items: center; margin: 0; cursor: pointer; user-select: none; flex-wrap: wrap; gap: 10px; padding: 2px 0; }
+        .vendor-title h4 { margin: 0; color: #fff; font-size: 1.05rem; display: flex; align-items: center; }
+        .vendor-title .vendor-chips { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+        .vendor-chevron { font-size: 0.85rem; color: #ffaa00; transition: transform 0.2s ease; width: 14px; }
+        .vendor-body { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,102,0,0.3); }
         .stats-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .stats-table thead th { padding: 9px 10px; color: #ffaa00; text-align: left; background: rgba(30, 22, 15, 0.98); position: sticky; top: 0; z-index: 2; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,102,0,0.3); }
         .stats-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s; }
@@ -151,6 +154,10 @@
             <div class="stats-modal-header">
                 <h3 style="margin: 0; color: #ffaa00; white-space: nowrap;"><i class="fas fa-chart-pie"></i> Estadísticas por Plan / Lote</h3>
                 <input type="text" id="statsSearch" class="stats-search" placeholder="&#128269; Filtrar por vendedor o plan..." oninput="renderStats(window.__statsData, this.value)">
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-modal-action" onclick="expandirColapsarTodos(true)" style="padding: 8px 12px; font-size:0.8rem;"><i class="fas fa-angles-down"></i> Expandir todos</button>
+                    <button class="btn-modal-action" onclick="expandirColapsarTodos(false)" style="padding: 8px 12px; font-size:0.8rem;"><i class="fas fa-angles-up"></i> Colapsar todos</button>
+                </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button id="btnSyncOmada" class="btn-modal-action" onclick="sincronizarOmada()" style="border-color: #03a786; color: #03a786;"><i class="fas fa-sync-alt"></i> Sincronizar Omada</button>
                     <button class="btn-modal-action" onclick="imprimirStats()"><i class="fas fa-print"></i> Imprimir Reporte</button>
@@ -433,6 +440,28 @@
             }
         }
 
+        window.__statsExpanded = window.__statsExpanded || new Set();
+
+        function toggleVendorSection(vendorId, vendedor) {
+            if (window.__statsExpanded.has(vendedor)) {
+                window.__statsExpanded.delete(vendedor);
+            } else {
+                window.__statsExpanded.add(vendedor);
+            }
+            const body = document.getElementById('body-' + vendorId);
+            const chev = document.getElementById('chev-' + vendorId);
+            if (!body) return;
+            const expanded = window.__statsExpanded.has(vendedor);
+            body.style.display = expanded ? 'block' : 'none';
+            if (chev) chev.style.transform = expanded ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+
+        function expandirColapsarTodos(expandir) {
+            if (!window.__statsData) return;
+            window.__statsExpanded = expandir ? new Set(Object.keys(window.__statsData)) : new Set();
+            renderStats(window.__statsData, document.getElementById('statsSearch').value);
+        }
+
         function renderStats(stats, filtro) {
             const content = document.getElementById('statsContent');
             const kpis = document.getElementById('statsKpis');
@@ -528,37 +557,47 @@
                     subRecaudado += recaudado;
                 });
 
+                const vendorId = 'v_' + btoa(unescape(encodeURIComponent(vendedor))).replace(/[^a-zA-Z0-9]/g, '');
+                // Al buscar por texto de plan (no por nombre de vendedor), se auto-expande
+                // para que el resultado sea visible de inmediato.
+                const autoExpand = !!q && !vendedorMatch;
+                const isExpanded = window.__statsExpanded.has(vendedor) || autoExpand;
+                const subPct = subFichas ? ((subVend / subFichas) * 100).toFixed(1) : 0;
+
                 html += `<div class="vendor-section">
-                    <div class="vendor-title">
-                        <h4><i class="fas fa-user-tie" style="color:#ffaa00; margin-right: 6px;"></i>${vendedor}</h4>
+                    <div class="vendor-title" onclick="toggleVendorSection('${vendorId}', '${vendedor.replace(/'/g, "\\'")}')">
+                        <h4><i class="fas fa-chevron-right vendor-chevron" id="chev-${vendorId}" style="${isExpanded ? 'transform:rotate(90deg);' : ''}"></i><i class="fas fa-user-tie" style="color:#ffaa00; margin: 0 6px;"></i>${vendedor}</h4>
                         <div class="vendor-chips">
+                            <span style="color:#888; font-size:0.78rem; margin-right:4px;">${lotesFiltrados.length} plan${lotesFiltrados.length === 1 ? '' : 'es'} · ${subPct}% vendido</span>
                             <span class="pro-badge badge-green">${subDisp} disp.</span>
                             <span class="pro-badge badge-red">${subVend} vend.</span>
                             <span class="pro-badge badge-orange">Q ${subRecaudado.toFixed(2)} recaudado</span>
                         </div>
                     </div>
-                    <table class="stats-table">
-                        <thead><tr>
-                            <th>Plan / Lote</th>
-                            <th style="text-align:center;">Disponibles</th>
-                            <th style="text-align:center;">Vendidas</th>
-                            <th style="text-align:center;">Total Generadas</th>
-                            <th style="text-align:right;">Recaudado (Q)</th>
-                            <th style="text-align:right;">Deuda Total (Q)</th>
-                            <th style="text-align:center;">Acciones</th>
-                        </tr></thead>
-                        <tbody>
-                            ${filas}
-                            <tr class="subtotal-row">
-                                <td style="color:#fff;">Subtotal ${vendedor.split(' ')[0]}</td>
-                                <td colspan="2"></td>
-                                <td style="text-align:center; color:#fff;">${subFichas}</td>
-                                <td style="text-align:right; color:#22d3ee;">Q ${subRecaudado.toFixed(2)}</td>
-                                <td style="text-align:right; color:#ffaa00;">Q ${subDinero.toFixed(2)}</td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div id="body-${vendorId}" class="vendor-body" style="display:${isExpanded ? 'block' : 'none'};">
+                        <table class="stats-table">
+                            <thead><tr>
+                                <th>Plan / Lote</th>
+                                <th style="text-align:center;">Disponibles</th>
+                                <th style="text-align:center;">Vendidas</th>
+                                <th style="text-align:center;">Total Generadas</th>
+                                <th style="text-align:right;">Recaudado (Q)</th>
+                                <th style="text-align:right;">Deuda Total (Q)</th>
+                                <th style="text-align:center;">Acciones</th>
+                            </tr></thead>
+                            <tbody>
+                                ${filas}
+                                <tr class="subtotal-row">
+                                    <td style="color:#fff;">Subtotal ${vendedor.split(' ')[0]}</td>
+                                    <td colspan="2"></td>
+                                    <td style="text-align:center; color:#fff;">${subFichas}</td>
+                                    <td style="text-align:right; color:#22d3ee;">Q ${subRecaudado.toFixed(2)}</td>
+                                    <td style="text-align:right; color:#ffaa00;">Q ${subDinero.toFixed(2)}</td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>`;
 
                 granTotalFichas += subFichas;
