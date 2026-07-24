@@ -140,7 +140,12 @@
                 <!-- Tabla de Fichas -->
                 <div class="card" style="background-color: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px;">
                     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                        <h4 style="color: var(--text-primary); margin: 0;">Detalle de Fichas</h4>
+                        <div>
+                            <h4 style="color: var(--text-primary); margin: 0;">Detalle de Fichas</h4>
+                            {% if total_fichas_filtro > limite_tabla %}
+                            <small style="color: #ffc107;"><i class="fas fa-info-circle"></i> Mostrando las {{ limite_tabla }} más recientes de {{ "{:,}".format(total_fichas_filtro) }}. Usa el filtro de vendedor para acotar.</small>
+                            {% endif %}
+                        </div>
                         <div class="action-buttons" id="table-actions">
                             <a href="{{ url_for('hotspot_omada_print') }}" class="btn btn-primary-custom"><i class="fas fa-plus"></i> Generar Fichas</a>
                             <button id="btnSyncHistorial" class="btn btn-info ms-2" style="color: white; border-radius: 8px; font-weight: 500;" onclick="sincronizarOmadaHistorial()"><i class="fas fa-sync-alt"></i> Sincronizar</button>

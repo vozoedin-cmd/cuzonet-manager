@@ -6308,60 +6308,73 @@ def hotspot_omada_historial():
     # La sincronizacion con Omada ya NO se hace aqui: con 20k+ fichas tardaba
     # mas que el timeout del proxy y la pagina moria en 504. Usar el boton
     # "Sincronizar Omada" (corre en segundo plano via /api/omada/sync).
-
-    # Si es vendedor, solo ver las suyas
-    if current_user.rol == 'vendedor':
-        vouchers = OmadaVoucher.query.filter_by(vendedor_id=current_user.id).order_by(OmadaVoucher.fecha_creacion.desc()).all()
-    else:
-        vendedor_id = request.args.get('vendedor_id')
-        if vendedor_id:
-            vouchers = OmadaVoucher.query.filter_by(vendedor_id=vendedor_id).order_by(OmadaVoucher.fecha_creacion.desc()).all()
-        else:
-            vouchers = OmadaVoucher.query.order_by(OmadaVoucher.fecha_creacion.desc()).all()
-            
+    #
+    # Con 20k+ fichas, cargar TODO en Python (.all()) y recorrerlo varias
+    # veces (una vez por estado, otra por dia del grafico) tambien tumbaba
+    # la pagina. Ahora los conteos/sumas se calculan en SQL (rapido e
+    # independiente del volumen) y solo se traen a Python las fichas mas
+    # recientes para la tabla.
     from datetime import datetime, timedelta
-    
+    from sqlalchemy import func
+
+    if current_user.rol == 'vendedor':
+        filtro_vendedor = current_user.id
+    else:
+        filtro_vendedor = request.args.get('vendedor_id', type=int)
+
+    base_filters = []
+    if filtro_vendedor:
+        base_filters.append(OmadaVoucher.vendedor_id == filtro_vendedor)
+
     hoy = datetime.utcnow().date()
-    fichas_hoy = 0
-    vendidas_hoy = 0
-    ingresos_hoy = 0.0  # Q de fichas vendidas (usadas) hoy, no de las generadas
+
+    # Conteo por estado (SQL)
     estado_counts = {'activo': 0, 'usado': 0, 'vencido': 0, 'eliminado': 0}
+    estado_rows = db.session.query(OmadaVoucher.estado, func.count(OmadaVoucher.id))\
+        .filter(*base_filters).group_by(OmadaVoucher.estado).all()
+    for estado, total in estado_rows:
+        if estado in estado_counts:
+            estado_counts[estado] = total
 
-    for v in vouchers:
-        # Contar estados
-        if v.estado in estado_counts:
-            estado_counts[v.estado] += 1
+    # Generadas hoy
+    fichas_hoy = db.session.query(func.count(OmadaVoucher.id)).filter(
+        *base_filters, func.date(OmadaVoucher.fecha_creacion) == hoy
+    ).scalar() or 0
 
-        # Generadas hoy
-        if v.fecha_creacion.date() == hoy:
-            fichas_hoy += 1
+    # Vendidas hoy + ingresos hoy (por fecha de uso real)
+    vendidas_hoy, ingresos_hoy = db.session.query(
+        func.count(OmadaVoucher.id), func.coalesce(func.sum(OmadaVoucher.precio), 0.0)
+    ).filter(
+        *base_filters,
+        OmadaVoucher.estado.in_(['usado', 'vencido']),
+        func.date(OmadaVoucher.fecha_uso) == hoy
+    ).first()
 
-        # Vendidas hoy (por fecha de uso)
-        if v.fecha_uso and v.estado in ('usado', 'vencido') and v.fecha_uso.date() == hoy:
-            vendidas_hoy += 1
-            ingresos_hoy += v.precio
+    # Ventas de los ultimos 7 dias (una consulta liviana por dia, evita recorrer todo en Python)
+    labels_grafico = []
+    datos_grafico = []
+    for i in range(6, -1, -1):
+        dia = hoy - timedelta(days=i)
+        labels_grafico.append(dia.strftime('%d/%m'))
+        total_dia = db.session.query(func.coalesce(func.sum(OmadaVoucher.precio), 0.0)).filter(
+            *base_filters,
+            OmadaVoucher.estado.in_(['usado', 'vencido']),
+            func.date(OmadaVoucher.fecha_uso) == dia
+        ).scalar() or 0.0
+        datos_grafico.append(float(total_dia))
 
-    # Datos para gráfico: ventas reales (por fecha de uso) de los últimos 7 días
-    ventas_7_dias = {}
-    for i in range(7):
-        d = hoy - timedelta(days=i)
-        ventas_7_dias[d.strftime('%d/%m')] = 0
-
-    for v in vouchers:
-        if not v.fecha_uso or v.estado not in ('usado', 'vencido'):
-            continue
-        fecha_str = v.fecha_uso.strftime('%d/%m')
-        if fecha_str in ventas_7_dias:
-            ventas_7_dias[fecha_str] += v.precio
-            
-    # Ordenar chronológicamente para el gráfico
-    labels_grafico = list(reversed(list(ventas_7_dias.keys())))
-    datos_grafico = list(reversed(list(ventas_7_dias.values())))
+    # Tabla de detalle: solo las mas recientes, para no mandar miles de filas al navegador
+    LIMITE_TABLA = 500
+    vouchers = OmadaVoucher.query.filter(*base_filters)\
+        .order_by(OmadaVoucher.fecha_creacion.desc()).limit(LIMITE_TABLA).all()
+    total_fichas_filtro = db.session.query(func.count(OmadaVoucher.id)).filter(*base_filters).scalar() or 0
 
     vendedores = Usuario.query.filter_by(rol='vendedor').all()
     return render_template(
-        'omada_historial.html', 
+        'omada_historial.html',
         vouchers=vouchers,
+        total_fichas_filtro=total_fichas_filtro,
+        limite_tabla=LIMITE_TABLA,
         vendedores=vendedores,
         fichas_hoy=fichas_hoy,
         vendidas_hoy=vendidas_hoy,
