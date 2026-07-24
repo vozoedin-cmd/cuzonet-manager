@@ -6314,7 +6314,7 @@ def hotspot_omada_historial():
     # la pagina. Ahora los conteos/sumas se calculan en SQL (rapido e
     # independiente del volumen) y solo se traen a Python las fichas mas
     # recientes para la tabla.
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, time
     from sqlalchemy import func
 
     if current_user.rol == 'vendedor':
@@ -6328,6 +6328,10 @@ def hotspot_omada_historial():
 
     hoy = datetime.utcnow().date()
 
+    def rango_del_dia(dia):
+        inicio = datetime.combine(dia, time.min)
+        return inicio, inicio + timedelta(days=1)
+
     # Conteo por estado (SQL)
     estado_counts = {'activo': 0, 'usado': 0, 'vencido': 0, 'eliminado': 0}
     estado_rows = db.session.query(OmadaVoucher.estado, func.count(OmadaVoucher.id))\
@@ -6336,9 +6340,15 @@ def hotspot_omada_historial():
         if estado in estado_counts:
             estado_counts[estado] = total
 
-    # Generadas hoy
+    # Generadas hoy. Se usa un rango [inicio, fin) de fecha_creacion en vez de
+    # func.date(...) == hoy: esa comparacion depende de como cada dialecto de
+    # SQL (SQLite vs Postgres en produccion) resuelve date(), y con rangos no
+    # hay ambiguedad posible.
+    inicio_hoy, fin_hoy = rango_del_dia(hoy)
     fichas_hoy = db.session.query(func.count(OmadaVoucher.id)).filter(
-        *base_filters, func.date(OmadaVoucher.fecha_creacion) == hoy
+        *base_filters,
+        OmadaVoucher.fecha_creacion >= inicio_hoy,
+        OmadaVoucher.fecha_creacion < fin_hoy
     ).scalar() or 0
 
     # Vendidas hoy + ingresos hoy (por fecha de uso real)
@@ -6347,7 +6357,8 @@ def hotspot_omada_historial():
     ).filter(
         *base_filters,
         OmadaVoucher.estado.in_(['usado', 'vencido']),
-        func.date(OmadaVoucher.fecha_uso) == hoy
+        OmadaVoucher.fecha_uso >= inicio_hoy,
+        OmadaVoucher.fecha_uso < fin_hoy
     ).first()
 
     # Ventas de los ultimos 7 dias (una consulta liviana por dia, evita recorrer todo en Python)
@@ -6355,11 +6366,13 @@ def hotspot_omada_historial():
     datos_grafico = []
     for i in range(6, -1, -1):
         dia = hoy - timedelta(days=i)
+        inicio_dia, fin_dia = rango_del_dia(dia)
         labels_grafico.append(dia.strftime('%d/%m'))
         total_dia = db.session.query(func.coalesce(func.sum(OmadaVoucher.precio), 0.0)).filter(
             *base_filters,
             OmadaVoucher.estado.in_(['usado', 'vencido']),
-            func.date(OmadaVoucher.fecha_uso) == dia
+            OmadaVoucher.fecha_uso >= inicio_dia,
+            OmadaVoucher.fecha_uso < fin_dia
         ).scalar() or 0.0
         datos_grafico.append(float(total_dia))
 
